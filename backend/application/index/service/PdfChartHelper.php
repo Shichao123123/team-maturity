@@ -143,17 +143,39 @@ class PdfChartHelper
         if (!function_exists('imagecreatetruecolor')) {
             throw new \RuntimeException('PHP GD 扩展未启用');
         }
-        $w = 1100;
-        $h = 620;
+        $seriesCnt = count($series);
+        $legendW = 240;
+        $rowH = 22;
+        $w = 1180;
+        $nPreview = count($batches);
+        $perLinePreview = $nPreview >= 8 ? 4 : ($nPreview >= 5 ? 5 : 6);
+        $maxNameLines = 1;
+        foreach ($batches as $b) {
+            $nm = isset($b['batch_name']) ? (string)$b['batch_name'] : '';
+            $len = function_exists('mb_strlen') ? mb_strlen($nm, 'UTF-8') : strlen($nm);
+            $maxNameLines = max($maxNameLines, max(1, (int)ceil($len / max(1, $perLinePreview))));
+        }
+        // 序号行 + 完整批次名换行（不加 …）
+        $labelPad = max(48, 24 + $maxNameLines * 14);
+        $h = max(520, 120 + $seriesCnt * $rowH, 420 + $labelPad + 40);
+        if ($h > 2000) {
+            $h = 2000;
+        }
+
         $img = imagecreatetruecolor($w, $h);
         $white = imagecolorallocate($img, 255, 255, 255);
         $grid = imagecolorallocate($img, 226, 232, 240);
         $axis = imagecolorallocate($img, 148, 163, 184);
         $text = imagecolorallocate($img, 51, 65, 85);
         $muted = imagecolorallocate($img, 100, 116, 139);
+        $panel = imagecolorallocate($img, 250, 251, 252);
+        $border = imagecolorallocate($img, 232, 238, 246);
         imagefilledrectangle($img, 0, 0, $w, $h, $white);
 
-        $paletteHex = ['1677ff', '13c2c2', '52c41a', 'faad14', 'eb2f96', '722ed1', 'fa541c', '2f54eb'];
+        $paletteHex = [
+            '1677ff', '13c2c2', '52c41a', 'faad14', 'eb2f96', '722ed1',
+            'fa541c', '2f54eb', '08979c', 'd48806', 'c41d7f', '531dab',
+        ];
         $palette = [];
         foreach ($paletteHex as $hex) {
             $palette[] = imagecolorallocate(
@@ -167,27 +189,33 @@ class PdfChartHelper
         $ttf = self::ttfPath();
         self::ttf($img, 16, 24, 30, $text, $ttf, '班组成长趋势');
 
-        $left = 70;
-        $right = $w - 40;
-        $top = 70;
-        $bottom = $h - 160;
+        $left = 56;
+        $right = $w - $legendW - 28;
+        $top = 56;
+        $bottom = $h - $labelPad;
         $plotW = $right - $left;
         $plotH = $bottom - $top;
+
+        // 右侧图例面板
+        $panelX = $right + 16;
+        imagefilledrectangle($img, $panelX, $top - 8, $w - 16, $bottom + 8, $panel);
+        imagerectangle($img, $panelX, $top - 8, $w - 16, $bottom + 8, $border);
+        self::ttf($img, 12, $panelX + 12, $top + 10, $text, $ttf, '图例（共 ' . $seriesCnt . ' 个）');
 
         // 坐标轴与网格（0~100）
         for ($g = 0; $g <= 5; $g++) {
             $y = $bottom - (int)round($plotH * $g / 5);
             imageline($img, $left, $y, $right, $y, $grid);
             $label = (string)($g * 20);
-            self::ttf($img, 10, $left - 36, $y + 4, $muted, $ttf, $label);
+            self::ttf($img, 10, $left - 34, $y + 4, $muted, $ttf, $label);
         }
         imageline($img, $left, $top, $left, $bottom, $axis);
         imageline($img, $left, $bottom, $right, $bottom, $axis);
-        self::ttf($img, 11, 18, $top + 10, $muted, $ttf, '得分');
+        self::ttf($img, 11, 14, $top + 10, $muted, $ttf, '得分');
 
         $n = count($batches);
         if ($n < 1 || empty($series)) {
-            self::ttf($img, 14, $left + 200, ($top + $bottom) / 2, $muted, $ttf, '暂无趋势数据');
+            self::ttf($img, 14, $left + 160, (int)(($top + $bottom) / 2), $muted, $ttf, '暂无趋势数据');
             $path = self::tempPngPath('trend');
             imagepng($img, $path);
             imagedestroy($img);
@@ -195,14 +223,34 @@ class PdfChartHelper
         }
 
         $xs = [];
+        $perLine = $perLinePreview;
         for ($i = 0; $i < $n; $i++) {
-            $xs[$i] = $left + (int)round($n === 1 ? $plotW / 2 : ($plotW * $i / ($n - 1)));
+            // boundaryGap：点落在各等分中心
+            $xs[$i] = $left + (int)round($plotW * ($i + 0.5) / $n);
             $name = isset($batches[$i]['batch_name']) ? $batches[$i]['batch_name'] : ('批次' . ($i + 1));
-            if (function_exists('mb_strlen') && mb_strlen($name, 'UTF-8') > 10) {
-                $name = mb_substr($name, 0, 10, 'UTF-8') . '…';
+            // 序号 + 完整批次名（按字换行，不截断）
+            $idxLabel = (string)($i + 1);
+            $twIdx = self::textWidth($idxLabel, 10, $ttf);
+            self::ttf($img, 10, (int)($xs[$i] - $twIdx / 2), $bottom + 14, $muted, $ttf, $idxLabel);
+
+            $lines = [];
+            if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+                $len = mb_strlen($name, 'UTF-8');
+                for ($p = 0; $p < $len; $p += $perLine) {
+                    $lines[] = mb_substr($name, $p, $perLine, 'UTF-8');
+                }
+            } else {
+                $lines[] = $name;
             }
-            // 斜向标注，减少互相遮挡
-            imagettftext($img, 9, 35, $xs[$i] - 4, $bottom + 14, $muted, $ttf, $name);
+            $ly = $bottom + 28;
+            foreach ($lines as $line) {
+                if ($ly > $h - 6) {
+                    break;
+                }
+                $tw = self::textWidth($line, 10, $ttf);
+                self::ttf($img, 10, (int)($xs[$i] - $tw / 2), $ly, $text, $ttf, $line);
+                $ly += 14;
+            }
         }
 
         foreach ($series as $si => $s) {
@@ -218,7 +266,6 @@ class PdfChartHelper
                 $y = $bottom - (int)round($plotH * $val / 100);
                 $points[$i] = [$xs[$i], $y];
             }
-            // 连线（跳过空点）
             $prev = null;
             foreach ($points as $pt) {
                 if ($pt === null) {
@@ -227,7 +274,6 @@ class PdfChartHelper
                 }
                 if ($prev !== null) {
                     imageline($img, $prev[0], $prev[1], $pt[0], $pt[1], $color);
-                    // 加粗
                     imageline($img, $prev[0], $prev[1] - 1, $pt[0], $pt[1] - 1, $color);
                 }
                 imagefilledellipse($img, $pt[0], $pt[1], 8, 8, $color);
@@ -235,20 +281,25 @@ class PdfChartHelper
             }
         }
 
-        // 图例（自动换行）
-        $lx = $left;
-        $ly = $h - 78;
+        // 右侧图例列表（完整班组名，超出画布则截断并提示）
+        $ly = $top + 28;
+        $maxLegend = (int)floor(($bottom - $ly) / $rowH);
+        $shown = 0;
         foreach ($series as $si => $s) {
+            if ($shown >= $maxLegend) {
+                $more = $seriesCnt - $shown;
+                self::ttf($img, 10, $panelX + 12, $ly + 12, $muted, $ttf, '…另有 ' . $more . ' 个班组未显示');
+                break;
+            }
             $color = $palette[$si % count($palette)];
             $name = isset($s['team_name']) ? $s['team_name'] : ('班组' . ($si + 1));
-            $tw = self::textWidth($name, 11, $ttf);
-            if ($lx + 28 + $tw > $w - 30) {
-                $lx = $left;
-                $ly += 26;
+            if (function_exists('mb_strlen') && mb_strlen($name, 'UTF-8') > 14) {
+                $name = mb_substr($name, 0, 14, 'UTF-8') . '…';
             }
-            imagefilledrectangle($img, $lx, $ly, $lx + 16, $ly + 12, $color);
-            self::ttf($img, 11, $lx + 22, $ly + 12, $text, $ttf, $name);
-            $lx += 28 + $tw;
+            imagefilledellipse($img, $panelX + 18, $ly + 6, 10, 10, $color);
+            self::ttf($img, 11, $panelX + 30, $ly + 10, $text, $ttf, $name);
+            $ly += $rowH;
+            $shown++;
         }
 
         $path = self::tempPngPath('trend');

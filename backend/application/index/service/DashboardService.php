@@ -182,11 +182,16 @@ class DashboardService
     /**
      * 生成班组跨批次得分成长趋势（折线图数据）。
      *
-     * @param int   $orgId        按组织筛班组；0 表示全公司，未指定 teamIds 时取最近批次高分班组
-     * @param array $teamIds      指定班组 ID 列表（优先于 orgId 筛选）
-     * @param int   $limitTeams   最多展示的班组数量
+     * 规则：
+     * - 勾选了班组：按勾选全部展示（最多 100，防异常）
+     * - 未勾选但选了组织/集团/公司：展示该组织及下级全部班组（不限 8）
+     * - 未勾选且未选组织：取最近批次高分班组，最多 $limitTeams 个
+     *
+     * @param int   $orgId        按组织筛班组；0 表示未选组织
+     * @param array $teamIds      指定班组 ID 列表（优先）
+     * @param int   $limitTeams   仅「未选组织且未勾班组」时的默认上限
      * @param int   $limitBatches 最多纳入的历史批次数
-     * @return array 含 batches（横轴批次）、series（各班组 scores 序列）、tip（说明文案）
+     * @return array 含 batches、series、tip
      */
     public static function trend($orgId = 0, array $teamIds = [], $limitTeams = 8, $limitBatches = 12)
     {
@@ -213,7 +218,6 @@ class DashboardService
         foreach ($batches as $b) {
             $batchMap[(int)$b['id']] = $b;
         }
-        // 保持时间顺序
         $orderedBatches = [];
         foreach ($batchIds as $bid) {
             if (isset($batchMap[$bid])) {
@@ -226,26 +230,36 @@ class DashboardService
         }
 
         $teamIds = array_values(array_unique(array_filter(array_map('intval', $teamIds))));
-        if (empty($teamIds)) {
+        $explicitTeams = !empty($teamIds);
+        $tipSuffix = '';
+
+        if (!$explicitTeams) {
             if ($orgId > 0) {
                 $orgIds = (new OrgModel())->collectDescendantIds($orgId);
                 $teamIds = Db::name('tm_team')
                     ->whereNull('deleted_at')
                     ->where('status', 1)
                     ->where('org_id', 'in', $orgIds)
+                    ->order('id asc')
                     ->column('id');
-            }
-            if (empty($teamIds)) {
-                // 取最近批次得分最高的若干班组
+            } else {
                 $latest = end($batchIds);
                 $teamIds = Db::name('tm_team_result')
                     ->where('batch_id', $latest)
                     ->order('team_score desc')
                     ->limit($limitTeams)
                     ->column('team_id');
+                $tipSuffix = '；未选组织时默认展示最近批次高分班组（最多 ' . (int)$limitTeams . ' 个）';
             }
         }
-        $teamIds = array_slice(array_values(array_unique(array_map('intval', $teamIds))), 0, $limitTeams);
+
+        $teamIds = array_values(array_unique(array_map('intval', $teamIds ?: [])));
+        // 勾选或组织下钻：不截成 8；仅设安全上限防止异常数据撑爆图表
+        $maxTeams = ($explicitTeams || $orgId > 0) ? 100 : (int)$limitTeams;
+        if (count($teamIds) > $maxTeams) {
+            $teamIds = array_slice($teamIds, 0, $maxTeams);
+            $tipSuffix .= '；班组过多，仅展示前 ' . $maxTeams . ' 个';
+        }
         if (empty($teamIds)) {
             return [
                 'batches' => $orderedBatches,
@@ -286,9 +300,10 @@ class DashboardService
         }
 
         return [
-            'batches' => $orderedBatches,
-            'series'  => $series,
-            'tip'     => '展示各班组跨批次得分变化；空点表示该批次未参评或未算分',
+            'batches'    => $orderedBatches,
+            'series'     => $series,
+            'team_count' => count($series),
+            'tip'        => '展示各班组跨批次得分变化；空点表示该批次未参评或未算分' . $tipSuffix,
         ];
     }
 

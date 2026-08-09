@@ -15,13 +15,139 @@
             box-shadow:0 1px 2px rgba(15,45,90,.04); padding:16px 18px;
         }
         .panel-title { font-size:16px; font-weight:600; color:#1f2d3d; margin:0 0 6px; }
-        .panel-tip { color:#98a2b3; font-size:12px; margin:0 0 10px; }
-        #trendChart { width:100%; height:460px; }
+        .panel-tip { color:#98a2b3; font-size:12px; margin:0 0 12px; }
+        .chart-wrap {
+            display:flex;
+            gap:16px;
+            align-items:stretch;
+            min-height:420px;
+        }
+        .chart-main {
+            flex:1;
+            min-width:0;
+            display:flex;
+            flex-direction:column;
+            background:#fafbfc;
+            border:1px solid #eef2f7;
+            border-radius:8px;
+            overflow:hidden;
+        }
+        #trendChart {
+            width:100%;
+            height:420px;
+        }
+        /* 完整批次名放在图下方，避免画布内截断出 … */
+        .batch-axis {
+            display:none;
+            padding:4px 22px 12px 52px;
+            border-top:1px dashed #e8eef6;
+            background:#fff;
+        }
+        .batch-axis.show { display:flex; gap:6px; }
+        .batch-axis-item {
+            flex:1;
+            min-width:0;
+            text-align:center;
+            font-size:12px;
+            color:#334155;
+            line-height:1.45;
+            word-break:break-word;
+        }
+        .batch-axis-item .idx {
+            display:inline-block;
+            min-width:18px;
+            height:18px;
+            line-height:18px;
+            border-radius:9px;
+            background:#eef2f7;
+            color:#64748b;
+            font-size:11px;
+            margin-bottom:4px;
+        }
+        .batch-axis-item .name { display:block; }
+        .legend-panel {
+            width:220px;
+            flex-shrink:0;
+            border:1px solid #e8eef6;
+            border-radius:8px;
+            background:#fafbfc;
+            display:flex;
+            flex-direction:column;
+            max-height:460px;
+        }
+        .legend-panel-hd {
+            padding:10px 12px;
+            font-size:13px;
+            font-weight:600;
+            color:#334155;
+            border-bottom:1px solid #e8eef6;
+        }
+        .legend-panel-hd span {
+            font-weight:400;
+            color:#94a3b8;
+            font-size:12px;
+            margin-left:6px;
+        }
+        .legend-list {
+            flex:1;
+            overflow:auto;
+            padding:8px 6px;
+        }
+        .legend-item {
+            display:flex;
+            align-items:center;
+            gap:8px;
+            padding:7px 8px;
+            border-radius:6px;
+            cursor:pointer;
+            user-select:none;
+            color:#334155;
+            font-size:13px;
+            line-height:1.35;
+        }
+        .legend-item:hover { background:#eef4ff; }
+        .legend-item.off {
+            opacity:0.38;
+            text-decoration:line-through;
+        }
+        .legend-dot {
+            width:10px;
+            height:10px;
+            border-radius:50%;
+            flex-shrink:0;
+        }
+        .legend-name {
+            flex:1;
+            word-break:break-all;
+        }
         .team-pick {
-            max-height:120px; overflow:auto; border:1px solid #e2e8f0; border-radius:6px;
+            display:none;
+            max-height:140px; overflow:auto; border:1px solid #e2e8f0; border-radius:6px;
             padding:8px 10px; background:#fafafa; margin-top:8px;
         }
+        .team-pick.show { display:block; }
         .team-pick .layui-form-checkbox { margin:2px 8px 2px 0; }
+        .team-pick-tip {
+            display:flex; align-items:center; justify-content:space-between; gap:10px;
+            color:#64748b; font-size:12px; margin-bottom:6px;
+        }
+        .team-pick-tip .tip-text { flex:1; }
+        .team-pick-tip .btn-clear-teams {
+            flex-shrink:0; border:none; background:transparent;
+            color:#1677ff; font-size:12px; cursor:pointer; padding:0 2px;
+        }
+        .team-pick-tip .btn-clear-teams:hover { color:#0958d9; text-decoration:underline; }
+        .team-pick-tip .btn-clear-teams:disabled {
+            color:#94a3b8; cursor:default; text-decoration:none;
+        }
+        .team-empty {
+            display:none; color:#94a3b8; font-size:12px; padding:6px 0;
+        }
+        @media (max-width: 900px) {
+            .chart-wrap { flex-direction:column; }
+            .legend-panel { width:100%; max-height:200px; }
+            #trendChart { height:380px; }
+        }
     </style>
 </head>
 <body>
@@ -39,10 +165,16 @@
             <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnReload">刷新趋势</button>
             <button type="button" class="pear-btn pear-btn-md pear-btn-normal" id="btnExportPdf">导出PDF</button>
         </div>
-        <div class="team-pick">
-            <div style="color:#64748b;font-size:12px;margin-bottom:6px;">可选班组（勾选即时刷新；不选则按组织或最近批次高分班组自动取最多 8 个）</div>
+        <div class="team-pick" id="teamPick">
+            <div class="team-pick-tip">
+                <span class="tip-text">勾选班组进行对比（不勾选则展示该组织及下级全部班组）</span>
+                <button type="button" class="btn-clear-teams" id="btnClearTeams" disabled>一键清除</button>
+            </div>
+            <div class="team-empty" id="teamEmpty">当前组织下暂无班组</div>
             {volist name="teams" id="t"}
-            <input type="checkbox" name="team_ids" value="{$t.id}" title="{$t.name}" lay-skin="primary" lay-filter="teamPick">
+            <span class="team-item" data-org-id="{$t.org_id}">
+                <input type="checkbox" name="team_ids" value="{$t.id}" title="{$t.name}" lay-skin="primary" lay-filter="teamPick">
+            </span>
             {/volist}
         </div>
     </form>
@@ -50,7 +182,18 @@
     <div class="panel">
         <div class="panel-title">班组成长趋势</div>
         <p class="panel-tip" id="trendTip">对比同一班组在不同测评批次中的得分变化</p>
-        <div id="trendChart"></div>
+        <div class="chart-wrap">
+            <div class="chart-main">
+                <div id="trendChart"></div>
+                <div class="batch-axis" id="batchAxis"></div>
+            </div>
+            <div class="legend-panel">
+                <div class="legend-panel-hd">图例 <span id="legendCount"></span></div>
+                <div class="legend-list" id="legendList">
+                    <div style="padding:16px 10px;color:#94a3b8;font-size:12px;">加载中…</div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -60,61 +203,259 @@
 layui.use(['jquery','form','echarts','layer'], function(){
     var $ = layui.jquery, form = layui.form, echarts = layui.echarts, layer = layui.layer;
     form.render();
-    var chart = echarts.init(document.getElementById('trendChart'));
-    var palette = ['#1677ff','#13c2c2','#52c41a','#faad14','#eb2f96','#722ed1','#fa541c','#2f54eb'];
+    var chart = echarts.init(document.getElementById('trendChart'), null, { renderer: 'canvas' });
+    var palette = ['#1677ff','#13c2c2','#52c41a','#faad14','#eb2f96','#722ed1','#fa541c','#2f54eb','#08979c','#d48806','#c41d7f','#531dab'];
+    var orgDescendants = {:json_encode($orgDescendants)} || {};
+    var seriesVisible = {};
+
+    function filterTeamsByOrg(){
+        var orgId = parseInt((form.val('filterForm') || {}).org_id || '0', 10) || 0;
+        var $pick = $('#teamPick');
+
+        // 未选具体组织：隐藏班组勾选区，并清空已选
+        if (orgId <= 0) {
+            $pick.removeClass('show');
+            $('input[name="team_ids"]').prop('checked', false);
+            form.render('checkbox');
+            return;
+        }
+
+        var allow = {};
+        (orgDescendants[orgId] || [orgId]).forEach(function(id){ allow[String(id)] = true; });
+        var visible = 0;
+        $('.team-item').each(function(){
+            var oid = String($(this).data('org-id') || '');
+            var show = !!allow[oid];
+            $(this).toggle(show);
+            if (!show) {
+                $(this).find('input[name="team_ids"]').prop('checked', false);
+            } else {
+                visible++;
+            }
+        });
+        form.render('checkbox');
+        $('#teamEmpty').toggle(visible === 0);
+        $pick.addClass('show');
+        syncClearTeamsBtn();
+    }
+
+    function syncClearTeamsBtn(){
+        var n = $('input[name="team_ids"]:checked').length;
+        $('#btnClearTeams').prop('disabled', n === 0);
+    }
+
+    function renderLegend(seriesData){
+        var $list = $('#legendList').empty();
+        $('#legendCount').text(seriesData.length ? ('共 ' + seriesData.length + ' 个班组') : '');
+        if (!seriesData.length) {
+            $list.html('<div style="padding:16px 10px;color:#94a3b8;font-size:12px;">暂无班组</div>');
+            return;
+        }
+        seriesData.forEach(function(s, i){
+            var name = s.team_name || ('班组' + (i + 1));
+            var color = palette[i % palette.length];
+            var on = seriesVisible[name] !== false;
+            var $item = $('<div class="legend-item' + (on ? '' : ' off') + '"></div>');
+            $item.append($('<span class="legend-dot"></span>').css('background', color));
+            $item.append($('<span class="legend-name"></span>').text(name));
+            $item.attr('title', '点击显示/隐藏：' + name);
+            $item.on('click', function(){
+                var next = seriesVisible[name] === false;
+                seriesVisible[name] = next;
+                $(this).toggleClass('off', !next);
+                chart.dispatchAction({
+                    type: next ? 'legendSelect' : 'legendUnSelect',
+                    name: name
+                });
+            });
+            $list.append($item);
+        });
+    }
+
+    function renderBatchAxis(batches){
+        var $axis = $('#batchAxis').empty();
+        if (!batches || !batches.length) {
+            $axis.removeClass('show');
+            return;
+        }
+        batches.forEach(function(b, i){
+            var name = b.batch_name || ('批次' + (i + 1));
+            var $item = $('<div class="batch-axis-item"></div>');
+            $item.append($('<span class="idx"></span>').text(String(i + 1)));
+            $item.append($('<span class="name"></span>').text(name));
+            $axis.append($item);
+        });
+        $axis.addClass('show');
+    }
+
+    function buildOption(batches, seriesData){
+        var n = seriesData.length;
+        var cats = batches.map(function(b){ return b.batch_name || ''; });
+        // 画布 X 轴只用序号，完整中文名在下方 HTML 区展示（杜绝 … 截断）
+        var axisKeys = cats.map(function(_, i){ return String(i + 1); });
+        var series = seriesData.map(function(s, i){
+            var name = s.team_name || ('班组' + (i + 1));
+            return {
+                name: name,
+                type: 'line',
+                smooth: true,
+                showSymbol: true,
+                symbol: 'circle',
+                symbolSize: n > 20 ? 5 : 7,
+                connectNulls: false,
+                data: s.scores,
+                itemStyle: { color: palette[i % palette.length] },
+                lineStyle: { width: n > 20 ? 1.8 : 2.4 },
+                emphasis: { focus: 'series' }
+            };
+        });
+        var selected = {};
+        seriesData.forEach(function(s){
+            var name = s.team_name || '';
+            selected[name] = seriesVisible[name] !== false;
+        });
+
+        return {
+            color: palette,
+            animationDuration: 400,
+            tooltip: {
+                trigger: 'axis',
+                confine: true,
+                backgroundColor: 'rgba(255,255,255,0.96)',
+                borderColor: '#e2e8f0',
+                borderWidth: 1,
+                textStyle: { color: '#334155', fontSize: 12 },
+                extraCssText: 'max-width:420px;box-shadow:0 8px 24px rgba(15,45,90,.12);',
+                formatter: function(params){
+                    if (!params || !params.length) return '';
+                    var idx = params[0].dataIndex;
+                    var full = cats[idx] || '';
+                    var lines = [(idx + 1) + '. ' + full];
+                    params.forEach(function(p){
+                        var v = (p.data === null || p.data === undefined || p.data === '') ? '—' : p.data;
+                        lines.push(p.marker + ' ' + p.seriesName + '：' + v);
+                    });
+                    return lines.join('<br/>');
+                }
+            },
+            legend: {
+                show: false,
+                data: series.map(function(s){ return s.name; }),
+                selected: selected
+            },
+            grid: {
+                left: 28,
+                right: 22,
+                top: 36,
+                bottom: 28,
+                containLabel: true
+            },
+            xAxis: {
+                type: 'category',
+                data: axisKeys,
+                boundaryGap: true,
+                axisTick: { alignWithLabel: true },
+                axisLine: { lineStyle: { color: '#cbd5e1' } },
+                axisLabel: {
+                    interval: 0,
+                    rotate: 0,
+                    hideOverlap: false,
+                    fontSize: 12,
+                    color: '#64748b',
+                    margin: 10
+                }
+            },
+            yAxis: {
+                type: 'value',
+                name: '得分',
+                min: 0,
+                max: 100,
+                nameTextStyle: { fontSize: 12, color: '#64748b', padding: [0, 0, 0, 8] },
+                axisLine: { show: false },
+                axisTick: { show: false },
+                axisLabel: { fontSize: 12, color: '#64748b' },
+                splitLine: { lineStyle: { color: '#eef2f7', type: 'dashed' } }
+            },
+            series: series
+        };
+    }
+
+    function syncChartSize(){
+        var h = Math.max(400, ($('.legend-panel').outerHeight() || 460) - ($('#batchAxis').outerHeight() || 0));
+        h = Math.min(h, 640);
+        $('#trendChart').css('height', h + 'px');
+        $('.legend-panel').css('max-height', ($('.chart-main').outerHeight() || (h + 80)) + 'px');
+        chart.resize();
+    }
 
     function load(){
         var orgId = (form.val('filterForm') || {}).org_id || '';
         var teamIds = [];
-        $('input[name="team_ids"]:checked').each(function(){ teamIds.push($(this).val()); });
+        // 仅在已选组织时提交班组勾选
+        if (parseInt(orgId, 10) > 0) {
+            $('input[name="team_ids"]:checked').each(function(){ teamIds.push($(this).val()); });
+        }
         $.getJSON('/TmDashboard/trendData', { org_id: orgId, team_ids: teamIds }, function(res){
             if (!(res.success || res.code===0)) { layer.msg(res.msg||'加载失败'); return; }
             var d = res.data || {};
             $('#trendTip').text(d.tip || '');
             var batches = d.batches || [];
             var seriesData = d.series || [];
+
+            // 新数据重置显隐状态
+            seriesVisible = {};
+            seriesData.forEach(function(s){ seriesVisible[s.team_name] = true; });
+
             if (!batches.length || !seriesData.length) {
                 chart.clear();
                 chart.setOption({
-                    title: { text: d.tip || '暂无趋势数据', left:'center', top:'center',
-                        textStyle:{ color:'#94a3b8', fontSize:16, fontWeight:400 } }
+                    title: {
+                        text: d.tip || '暂无趋势数据',
+                        left: 'center',
+                        top: 'middle',
+                        textStyle: { color:'#94a3b8', fontSize:15, fontWeight:400 }
+                    }
                 });
+                renderLegend([]);
+                renderBatchAxis([]);
+                syncChartSize();
                 return;
             }
-            var cats = batches.map(function(b){ return b.batch_name; });
-            var series = seriesData.map(function(s, i){
-                return {
-                    name: s.team_name,
-                    type: 'line',
-                    smooth: true,
-                    connectNulls: false,
-                    data: s.scores,
-                    itemStyle: { color: palette[i % palette.length] }
-                };
-            });
-            chart.setOption({
-                tooltip: { trigger: 'axis' },
-                legend: { type: 'scroll', top: 0 },
-                grid: { left: 50, right: 30, top: 50, bottom: 40 },
-                xAxis: { type: 'category', data: cats, axisLabel: { interval: 0, rotate: batches.length > 5 ? 20 : 0 } },
-                yAxis: { type: 'value', name: '得分', min: 0, max: 100 },
-                series: series
-            }, true);
+            chart.clear();
+            chart.setOption(buildOption(batches, seriesData), true);
+            renderLegend(seriesData);
+            renderBatchAxis(batches);
+            setTimeout(syncChartSize, 0);
         });
     }
 
-    form.on('select(orgFilter)', load);
-    form.on('checkbox(teamPick)', load);
+    form.on('select(orgFilter)', function(){
+        filterTeamsByOrg();
+        load();
+    });
+    form.on('checkbox(teamPick)', function(){
+        syncClearTeamsBtn();
+        load();
+    });
+    $('#btnClearTeams').on('click', function(){
+        if ($(this).prop('disabled')) return;
+        $('input[name="team_ids"]').prop('checked', false);
+        form.render('checkbox');
+        syncClearTeamsBtn();
+        load();
+    });
     $('#btnReload').on('click', load);
     $('#btnExportPdf').on('click', function(){
         var orgId = (form.val('filterForm') || {}).org_id || '';
         var teamIds = [];
-        $('input[name="team_ids"]:checked').each(function(){ teamIds.push($(this).val()); });
-        var q = $.param({ org_id: orgId, team_ids: teamIds });
-        window.location.href = '/TmDashboard/exportTrendPdf?' + q;
+        if (parseInt(orgId, 10) > 0) {
+            $('input[name="team_ids"]:checked').each(function(){ teamIds.push($(this).val()); });
+        }
+        window.location.href = '/TmDashboard/exportTrendPdf?' + $.param({ org_id: orgId, team_ids: teamIds });
     });
+    filterTeamsByOrg();
     load();
-    window.addEventListener('resize', function(){ chart.resize(); });
+    window.addEventListener('resize', function(){ syncChartSize(); });
 });
 </script>
 </body>

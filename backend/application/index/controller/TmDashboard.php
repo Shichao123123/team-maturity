@@ -45,7 +45,14 @@ class TmDashboard extends Base
             ->order('id asc')
             ->field('id, name, org_id')
             ->select();
+        $orgModel = new OrgModel();
+        $orgDesc = [];
+        foreach ($orgModel->getSelectOptions() as $o) {
+            $oid = (int)$o['id'];
+            $orgDesc[$oid] = $orgModel->collectDescendantIds($oid);
+        }
         $this->assign('teams', $teams);
+        $this->assign('orgDescendants', $orgDesc);
         return $this->fetch('tm_dashboard/trend');
     }
 
