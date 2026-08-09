@@ -3,6 +3,24 @@
 <head>
     {include file="common/meta" /}
     {include file="common/css" /}
+    <style>
+        .paper-summary { color:#64748b; font-size:12px; line-height:1.5; }
+        .paper-summary .score { color:#1677ff; font-weight:600; }
+        .paper-summary .level { color:#0f766e; font-weight:600; }
+        .result-hero {
+            display:grid; grid-template-columns:1fr 1fr; gap:12px;
+            margin-bottom:14px;
+        }
+        .result-box {
+            background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 14px;
+        }
+        .result-box .label { color:#64748b; font-size:12px; margin-bottom:4px; }
+        .result-box .value { font-size:22px; font-weight:700; color:#1e293b; }
+        .result-box .sub { color:#475569; font-size:12px; margin-top:4px; }
+        .answer-q { font-weight:600; color:#1e293b; }
+        .answer-meta { color:#64748b; font-size:12px; }
+        @media (max-width:720px){ .result-hero { grid-template-columns:1fr; } }
+    </style>
 </head>
 <body class="pear-container">
 <div class="layui-card">
@@ -42,6 +60,7 @@
 </div>
 
 <script type="text/html" id="bar">
+    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="papers">答题记录</a>
     <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
     <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
 </script>
@@ -105,29 +124,73 @@
     </form>
 </script>
 
+<script type="text/html" id="paperListTpl">
+    <div style="padding:12px 16px 16px;">
+        <div class="paper-summary" id="paperListHint" style="margin-bottom:10px;"></div>
+        <table id="paperTable" lay-filter="paperTable"></table>
+    </div>
+</script>
+
+<script type="text/html" id="paperBar">
+    <a class="layui-btn layui-btn-xs" lay-event="detail">查看结果</a>
+</script>
+
+<script type="text/html" id="paperDetailTpl">
+    <div style="padding:14px 16px 18px;" id="paperDetailBody">
+        <div class="layui-text" style="margin-bottom:10px;" id="paperDetailMeta"></div>
+        <div class="result-hero" id="paperResultHero"></div>
+        <table id="answerTable" lay-filter="answerTable"></table>
+    </div>
+</script>
+
 <script src="/component/layui/layui.js"></script>
 <script src="/component/pear/pear.js"></script>
 <script>
 layui.use(['table','form','jquery','layer'], function(){
     var table = layui.table, form = layui.form, $ = layui.jquery, layer = layui.layer;
+
+    function fmtScore(v){
+        if (v === null || v === undefined || v === '') return '—';
+        return Number(v).toFixed(1);
+    }
+
     table.render({
         elem: '#dataTable',
         url: '/TmMember/getList',
         page: true,
         cols: [[
-            {field:'name', title:'姓名', width:100},
-            {field:'mobile', title:'手机号', width:130, templet: function(d){ return d.mobile || '—'; }},
-            {field:'team_name', title:'班组'},
-            {field:'post_name', title:'岗位', width:120},
-            {field:'role_name', title:'角色', width:110},
-            {field:'status', title:'状态', width:80, templet: function(d){ return d.status==1?'启用':'停用'; }},
-            {title:'操作', toolbar:'#bar', width:140}
+            {field:'name', title:'姓名', width:90},
+            {field:'mobile', title:'手机号', width:120, templet: function(d){ return d.mobile || '—'; }},
+            {field:'team_name', title:'班组', width:120},
+            {field:'role_name', title:'角色', width:100},
+            {field:'paper_cnt', title:'答卷', width:70, align:'center', templet: function(d){
+                return (d.paper_cnt || 0) + '/' + (d.submitted_cnt || 0);
+            }},
+            {field:'latest_personal_score', title:'最近结果', minWidth:200, templet: function(d){
+                if (!d.paper_cnt) return '<span class="paper-summary">暂无答题记录</span>';
+                var html = '<div class="paper-summary">';
+                html += (d.latest_batch_name || '未命名批次') + ' · ' + (d.latest_paper_status_text || '');
+                if (d.latest_paper_status == 1) {
+                    html += '<br>个人 <span class="score">' + fmtScore(d.latest_personal_score) + '</span>';
+                    if (d.latest_level_name) html += '（' + d.latest_level_name + '）';
+                    if (d.latest_team_score !== null && d.latest_team_score !== undefined && d.latest_team_score !== '') {
+                        html += ' · 班组 <span class="level">' + fmtScore(d.latest_team_score) + '</span>';
+                        if (d.latest_team_level_name) html += '（' + d.latest_team_level_name + '）';
+                    }
+                }
+                html += '</div>';
+                return html;
+            }},
+            {field:'status', title:'状态', width:70, templet: function(d){ return d.status==1?'启用':'停用'; }},
+            {title:'操作', toolbar:'#bar', width:210, fixed:'right'}
         ]]
     });
+
     form.on('submit(search)', function(data){
         table.reload('dataTable', {where: data.field, page:{curr:1}});
         return false;
     });
+
     function openForm(row){
         layer.open({
             type:1, title: row && row.id ? '编辑成员':'新增成员', area:['520px','520px'],
@@ -139,13 +202,114 @@ layui.use(['table','form','jquery','layer'], function(){
                     var url = d.field.id ? '/TmMember/edit' : '/TmMember/add';
                     $.post(url, d.field, function(res){
                         layer.msg(res.msg||'');
-                        if (res.success || res.code===0){ layer.closeAll(); table.reload('dataTable'); }
+                        if (res.success || res.code===0){ layer.closeAll('page'); table.reload('dataTable'); }
                     }, 'json');
                     return false;
                 });
             }
         });
     }
+
+    function openPaperList(member){
+        layer.open({
+            type:1,
+            title: '答题记录 — ' + (member.name || ''),
+            area:['860px','560px'],
+            content: $('#paperListTpl').html(),
+            success: function(){
+                $('#paperListHint').text('共 ' + (member.paper_cnt || 0) + ' 份答卷，已提交 ' + (member.submitted_cnt || 0) + ' 份。点击「查看结果」看个人分、班组结果与逐题作答。');
+                table.render({
+                    elem: '#paperTable',
+                    url: '/TmMember/paperList',
+                    where: { member_id: member.id },
+                    page: false,
+                    parseData: function(res){
+                        var list = (res.data && res.data.list) ? res.data.list : [];
+                        return { code: (res.success || res.code===0) ? 0 : 1, msg: res.msg || '', count: list.length, data: list };
+                    },
+                    cols: [[
+                        {field:'batch_name', title:'测评批次', minWidth:160},
+                        {field:'team_name', title:'班组', width:110},
+                        {field:'status_text', title:'状态', width:80},
+                        {field:'personal_score', title:'个人分', width:90, templet: function(d){ return fmtScore(d.personal_score); }},
+                        {field:'personal_level_name', title:'个人判级', width:100, templet: function(d){ return d.personal_level_name || '—'; }},
+                        {field:'team_score', title:'班组分', width:90, templet: function(d){ return fmtScore(d.team_score); }},
+                        {field:'team_level_name', title:'班组等级', width:100, templet: function(d){ return d.team_level_name || '—'; }},
+                        {field:'answered_cnt', title:'已答', width:70, align:'center'},
+                        {field:'submitted_at', title:'提交时间', width:160, templet: function(d){ return d.submitted_at || '—'; }},
+                        {title:'操作', toolbar:'#paperBar', width:100, fixed:'right'}
+                    ]]
+                });
+                table.on('tool(paperTable)', function(obj){
+                    if (obj.event === 'detail') {
+                        openPaperDetail(obj.data.paper_id, member.id, member.name);
+                    }
+                });
+            }
+        });
+    }
+
+    function openPaperDetail(paperId, memberId, memberName){
+        var load = layer.load(2);
+        $.getJSON('/TmMember/paperDetail', { paper_id: paperId, member_id: memberId }, function(res){
+            layer.close(load);
+            if (!(res.success || res.code===0) || !res.data) {
+                layer.msg(res.msg || '加载失败');
+                return;
+            }
+            var p = res.data.paper || {};
+            var answers = res.data.answers || [];
+            layer.open({
+                type:1,
+                title: '测评结果 — ' + (memberName || p.member_name || ''),
+                area:['920px','640px'],
+                content: $('#paperDetailTpl').html(),
+                success: function(){
+                    $('#paperDetailMeta').html(
+                        '<div><b>' + (p.batch_name || '') + '</b> · ' + (p.team_name || '') +
+                        ' · ' + (p.status_text || '') +
+                        (p.submitted_at ? (' · 提交于 ' + p.submitted_at) : '') +
+                        '</div>'
+                    );
+                    var hero = '';
+                    hero += '<div class="result-box"><div class="label">个人得分</div><div class="value">' + fmtScore(p.personal_score) + '</div>';
+                    hero += '<div class="sub">' + (p.personal_level_name ? ('判级：' + p.personal_level_name) : '未提交或未算分') + '</div></div>';
+                    hero += '<div class="result-box"><div class="label">班组结果</div><div class="value">' + fmtScore(p.team_score) + '</div>';
+                    if (p.team_level_name) {
+                        hero += '<div class="sub">等级：' + p.team_level_name + (p.team_submit_cnt ? (' · 提交 ' + p.team_submit_cnt + ' 人') : '') + '</div>';
+                    } else {
+                        hero += '<div class="sub">班组尚未算分或结果未公布</div>';
+                    }
+                    hero += '</div>';
+                    if (p.personal_feature) {
+                        hero += '<div class="result-box" style="grid-column:1 / -1;"><div class="label">等级特征</div><div class="sub" style="font-size:13px;line-height:1.6;">' + p.personal_feature + '</div></div>';
+                    }
+                    $('#paperResultHero').html(hero);
+
+                    table.render({
+                        elem: '#answerTable',
+                        data: answers,
+                        page: false,
+                        limit: answers.length || 10,
+                        cols: [[
+                            {type:'numbers', title:'#', width:50},
+                            {field:'indicator_name', title:'指标', width:120, templet: function(d){ return d.indicator_name || '—'; }},
+                            {field:'question_title', title:'题目', minWidth:220, templet: function(d){
+                                return '<div class="answer-q">' + (d.question_title || ('题目#' + d.question_id)) + '</div>';
+                            }},
+                            {field:'option_content', title:'作答', width:140, templet: function(d){ return d.option_content || ('选项#' + d.option_id); }},
+                            {field:'item_score', title:'得分', width:80, templet: function(d){ return fmtScore(d.item_score); }},
+                            {field:'answered_at', title:'作答时间', width:160}
+                        ]]
+                    });
+                }
+            });
+        }).fail(function(){
+            layer.close(load);
+            layer.msg('加载失败');
+        });
+    }
+
     $('#btnAdd').on('click', function(){ openForm(null); });
     $('#btnImport').on('click', function(){ $('#fileImport').click(); });
     $('#fileImport').on('change', function(){
@@ -166,7 +330,9 @@ layui.use(['table','form','jquery','layer'], function(){
             complete: function(){ $('#fileImport').val(''); }
         });
     });
+
     table.on('tool(dataTable)', function(obj){
+        if (obj.event==='papers') openPaperList(obj.data);
         if (obj.event==='edit') openForm(obj.data);
         if (obj.event==='del') {
             layer.confirm('确认删除？', function(i){

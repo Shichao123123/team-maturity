@@ -28,12 +28,44 @@ class TmMember extends Base
         $keyword = $req->param('keyword', '', 'trim');
         $roleCode = $req->param('roleCode', '', 'trim');
         $status = $req->param('status', null);
-        list($count, $list) = (new MemberModel())->getPage($teamId, $keyword, $roleCode, $status, $page, $limit);
+        $model = new MemberModel();
+        list($count, $list) = $model->getPage($teamId, $keyword, $roleCode, $status, $page, $limit);
         $labels = tmRoleLabels();
         foreach ($list as &$row) {
             $row['role_name'] = isset($labels[$row['role_code']]) ? $labels[$row['role_code']] : $row['role_code'];
         }
+        unset($row);
+        $list = $model->attachPaperSummary($list);
         return json(DefaultResponseList(0, $count, 'ok', $list));
+    }
+
+    /**
+     * 成员答题记录列表。
+     */
+    public function paperList()
+    {
+        $memberId = (int)Request::instance()->param('member_id', 0);
+        $model = new MemberModel();
+        if (!$model->find($memberId)) {
+            return json(DefaultResponse(404, false, '成员不存在'));
+        }
+        $list = $model->listPapers($memberId);
+        return json(DefaultResponse(0, true, 'ok', ['member_id' => $memberId, 'list' => $list]));
+    }
+
+    /**
+     * 单份答卷结果 + 逐题明细。
+     */
+    public function paperDetail()
+    {
+        $req = Request::instance();
+        $paperId = (int)$req->param('paper_id', 0);
+        $memberId = (int)$req->param('member_id', 0);
+        $detail = (new MemberModel())->paperDetail($paperId, $memberId);
+        if (!$detail) {
+            return json(DefaultResponse(404, false, '答卷不存在'));
+        }
+        return json(DefaultResponse(0, true, 'ok', $detail));
     }
 
     public function detail()
