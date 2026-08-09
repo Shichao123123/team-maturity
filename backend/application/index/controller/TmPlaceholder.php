@@ -6,6 +6,11 @@ namespace app\index\controller;
  */
 class TmPlaceholder extends Base
 {
+    /**
+     * 占位页展示（功能开发中提示）。
+     *
+     * @return mixed 渲染 index/placeholder 视图
+     */
     public function index()
     {
         $title = $this->request->param('title', '功能开发中');

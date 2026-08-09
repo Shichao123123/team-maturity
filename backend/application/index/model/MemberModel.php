@@ -8,6 +8,17 @@ class MemberModel extends Model
 {
     protected $table = 'tm_member';
 
+    /**
+     * 成员分页查询（支持班组、关键词、角色、状态筛选）。
+     *
+     * @param int|null    $teamId   班组 id，null 表示不限
+     * @param string      $keyword  姓名或手机号模糊搜索
+     * @param string      $roleCode 角色编码
+     * @param int|null    $status   启用状态，null 表示不限
+     * @param int         $page     页码
+     * @param int         $limit    每页条数
+     * @return array [总数, 列表行（含 team_name）]
+     */
     public function getPage($teamId = null, $keyword = '', $roleCode = '', $status = null, $page = 1, $limit = 15)
     {
         $apply = function ($q) use ($teamId, $keyword, $roleCode, $status) {
@@ -37,11 +48,24 @@ class MemberModel extends Model
         return [$count, $list];
     }
 
+    /**
+     * 按 id 查询未删除的成员。
+     *
+     * @param int $id 成员 id
+     * @return array|null 成员行，不存在时 null
+     */
     public function find($id)
     {
         return Db::name('tm_member')->where('id', $id)->whereNull('deleted_at')->find();
     }
 
+    /**
+     * 检查手机号是否已被其他成员占用。
+     *
+     * @param string|null $mobile    手机号
+     * @param int         $excludeId 排除的成员 id（编辑时用）
+     * @return bool 已存在返回 true
+     */
     public function existsMobile($mobile, $excludeId = 0)
     {
         if ($mobile === null || $mobile === '') {
@@ -54,18 +78,37 @@ class MemberModel extends Model
         return $q->count() > 0;
     }
 
+    /**
+     * 新增成员记录。
+     *
+     * @param array $data 成员字段
+     * @return int 新记录 id
+     */
     public function addRow($data)
     {
         $data['created_at'] = tmNow();
         return Db::name('tm_member')->insertGetId($data);
     }
 
+    /**
+     * 更新成员记录。
+     *
+     * @param int   $id   成员 id
+     * @param array $data 待更新字段
+     * @return int 受影响行数
+     */
     public function editRow($id, $data)
     {
         $data['updated_at'] = tmNow();
         return Db::name('tm_member')->where('id', $id)->update($data);
     }
 
+    /**
+     * 软删除成员（写入 deleted_at）。
+     *
+     * @param int $id 成员 id
+     * @return bool 恒为 true
+     */
     public function softDelete($id)
     {
         Db::name('tm_member')->where('id', $id)->update(['deleted_at' => tmNow()]);
@@ -74,8 +117,9 @@ class MemberModel extends Model
 
     /**
      * 为成员列表附加答题摘要（答卷数、已提交数、最近得分/批次/等级）。
-     * @param array $list
-     * @return array
+     *
+     * @param array $list 成员列表行
+     * @return array 附加 paper_cnt、latest_* 等字段后的列表
      */
     public function attachPaperSummary($list)
     {
@@ -166,7 +210,10 @@ class MemberModel extends Model
     }
 
     /**
-     * 成员答卷列表（含批次与班组结果摘要）。
+     * 成员答卷列表（含批次、班组结果摘要及个人/班组等级）。
+     *
+     * @param int $memberId 成员 id
+     * @return array 答卷行列表，每行含 batch_name、personal_level_*、answered_cnt 等
      */
     public function listPapers($memberId)
     {
@@ -203,8 +250,11 @@ class MemberModel extends Model
     }
 
     /**
-     * 答卷明细：结果摘要 + 逐题作答。
-     * @return array|null
+     * 答卷明细：结果摘要 + 逐题作答（优先按批次指标快照补齐未作答题）。
+     *
+     * @param int $paperId  答卷 id
+     * @param int $memberId 可选成员 id，>0 时校验归属
+     * @return array|null 含 paper 摘要、answers 逐题列表；不存在时 null
      */
     public function paperDetail($paperId, $memberId = 0)
     {

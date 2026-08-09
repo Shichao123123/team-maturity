@@ -12,6 +12,11 @@ class TmMockExam extends Base
 {
     const SESSION_KEY = 'tm_mock_exam';
 
+    /**
+     * 模拟做题页面，加载已发布指标版本列表。
+     *
+     * @return mixed 渲染 tm_mock_exam/index 视图
+     */
     public function index()
     {
         $versions = Db::name('tm_indicator_version')
@@ -24,7 +29,9 @@ class TmMockExam extends Base
     }
 
     /**
-     * 开始模拟：按版本抽题（每三级 1 题）写入 Session
+     * 开始模拟做题 API（POST）：按版本抽题（每三级指标 1 题）写入 Session。
+     *
+     * @return \think\response\Json 返回 token、题目数量及抽题模式
      */
     public function start()
     {
@@ -74,7 +81,9 @@ class TmMockExam extends Base
     }
 
     /**
-     * 取当前模拟卷（选项不含得分比例）
+     * 获取当前模拟试卷 API（选项不含得分比例，防作弊）。
+     *
+     * @return \think\response\Json 返回题目列表及版本信息
      */
     public function paper()
     {
@@ -120,7 +129,9 @@ class TmMockExam extends Base
     }
 
     /**
-     * 提交答案并算分判级（不落批次库，仅模拟）
+     * 提交模拟答卷并算分判级 API（POST，不落库，仅 Session 模拟）。
+     *
+     * @return \think\response\Json 返回个人得分、等级及答题明细
      */
     public function submit()
     {
@@ -168,6 +179,11 @@ class TmMockExam extends Base
         return json(DefaultResponse(0, true, '提交成功', $result));
     }
 
+    /**
+     * 清空当前 Session 中的模拟试卷 API。
+     *
+     * @return \think\response\Json 操作结果
+     */
     public function clear()
     {
         Session::delete(self::SESSION_KEY);

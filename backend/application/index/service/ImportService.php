@@ -4,8 +4,17 @@ namespace app\index\service;
 use think\Db;
 use think\Request;
 
+/**
+ * Excel 批量导入：上传、任务记录及组织/班组/成员导入。
+ */
 class ImportService
 {
+    /**
+     * 接收并保存上传的导入文件到 runtime/import 目录。
+     *
+     * @param string $field 表单文件字段名，默认 'file'
+     * @return array [bool ok, string msg|path] 成功时第二项为本地绝对路径
+     */
     public static function saveUpload($field = 'file')
     {
         $file = Request::instance()->file($field);
@@ -24,6 +33,14 @@ class ImportService
         return [true, $dir . DS . $info->getSaveName()];
     }
 
+    /**
+     * 创建导入任务记录（status=0 进行中）。
+     *
+     * @param string $type     导入类型（org/team/member 等）
+     * @param string $filePath 源文件路径标识
+     * @param int    $adminId  操作管理员 ID
+     * @return int 新任务 ID
+     */
     public static function beginJob($type, $filePath, $adminId)
     {
         return Db::name('tm_import_job')->insertGetId([
@@ -39,6 +56,15 @@ class ImportService
         ]);
     }
 
+    /**
+     * 完结导入任务并写入统计与错误明细。
+     *
+     * @param int   $jobId   任务 ID
+     * @param int   $total   总行数
+     * @param int   $success 成功行数
+     * @param array $errors  失败明细列表（每项含 line、msg 等）
+     * @return array 含 job_id、total_cnt、success_cnt、fail_cnt、status、errors
+     */
     public static function finishJob($jobId, $total, $success, $errors)
     {
         $fail = count($errors);
@@ -66,6 +92,12 @@ class ImportService
         ];
     }
 
+    /**
+     * 将 Excel 中的组织类型文本或数字映射为内部 org_type 编码。
+     *
+     * @param mixed $v 单元格值（如「公司」「2」等）
+     * @return int 0 其他、1 公司/集团、2 厂/分厂、3 工段/部门；未识别时返回 0
+     */
     public static function mapOrgType($v)
     {
         $v = trim((string)$v);
@@ -85,6 +117,13 @@ class ImportService
         return in_array($n, [0, 1, 2, 3], true) ? $n : 0;
     }
 
+    /**
+     * 将 Excel 中的状态文本映射为 0/1 启用标志。
+     *
+     * @param mixed $v       单元格值
+     * @param int   $default 空值时的默认值，默认 1（启用）
+     * @return int 0 停用，1 启用
+     */
     public static function mapStatus($v, $default = 1)
     {
         $v = trim((string)$v);
@@ -97,6 +136,12 @@ class ImportService
         return 1;
     }
 
+    /**
+     * 将 Excel 中的角色文本映射为内部 role_code。
+     *
+     * @param mixed $v 单元格值（如「班组长」「member」等）
+     * @return string leader/deputy/safety/part_safety/member；未识别时返回 member
+     */
     public static function mapRole($v)
     {
         $v = trim((string)$v);
@@ -110,6 +155,13 @@ class ImportService
         return isset($map[$v]) ? $map[$v] : 'member';
     }
 
+    /**
+     * 批量导入组织：按编码与上级关系多轮解析，同名更新、否则新增。
+     *
+     * @param array $rows    关联数组行（组织编码、组织名称、上级组织编码等列）
+     * @param int   $adminId 操作管理员 ID
+     * @return array finishJob 返回的任务结果摘要
+     */
     public static function importOrgs($rows, $adminId)
     {
         $jobId = self::beginJob('org', 'upload', $adminId);
@@ -204,6 +256,13 @@ class ImportService
         return self::finishJob($jobId, count($rows), $success, $errors);
     }
 
+    /**
+     * 批量导入班组：按班组名称 + 所属组织名称匹配，存在则更新状态。
+     *
+     * @param array $rows    关联数组行（班组名称、所属组织等列）
+     * @param int   $adminId 操作管理员 ID
+     * @return array finishJob 返回的任务结果摘要
+     */
     public static function importTeams($rows, $adminId)
     {
         $jobId = self::beginJob('team', 'upload', $adminId);
@@ -255,6 +314,13 @@ class ImportService
         return self::finishJob($jobId, count($rows), $success, $errors);
     }
 
+    /**
+     * 批量导入成员：按手机号唯一，校验格式与班组存在性。
+     *
+     * @param array $rows    关联数组行（姓名、手机号、所属班组、角色等列）
+     * @param int   $adminId 操作管理员 ID
+     * @return array finishJob 返回的任务结果摘要
+     */
     public static function importMembers($rows, $adminId)
     {
         $jobId = self::beginJob('member', 'upload', $adminId);

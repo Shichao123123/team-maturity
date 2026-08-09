@@ -12,7 +12,9 @@ use think\Request;
 class TmMini extends MiniBase
 {
     /**
-     * 本批次可参评班组（供选择单位）。
+     * 本批次可参评班组列表 API（供小程序选择单位）。
+     *
+     * @return \think\response\Json 返回 batch_id、batch_name 及 teams 列表
      */
     public function batchTeams()
     {
@@ -33,8 +35,10 @@ class TmMini extends MiniBase
     }
 
     /**
-     * 确认现场身份并立即写入成员档案（主路径）。
-     * 入参：batch_id, team_id, name（角色固定为普通成员，不接受客户端 role_code）
+     * 确认现场身份并写入成员档案 API（主路径，POST）。
+     * 入参：batch_id, team_id, name（角色固定为普通成员，不接受客户端 role_code）。
+     *
+     * @return \think\response\Json 登记成功返回含 member_id 的新 JWT token
      */
     public function enterBatch()
     {
@@ -103,7 +107,9 @@ class TmMini extends MiniBase
     }
 
     /**
-     * 当前微信用户 + 已绑定成员信息。
+     * 当前微信用户与已绑定成员信息 API。
+     *
+     * @return \think\response\Json 返回 user、member 及 JWT session 上下文
      */
     public function profile()
     {

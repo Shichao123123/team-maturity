@@ -6,11 +6,21 @@ use think\Request;
 
 class TmLog extends Base
 {
+    /**
+     * 操作日志管理页。
+     *
+     * @return mixed 渲染 tm_log/index 视图
+     */
     public function index()
     {
         return $this->fetch('tm_log/index');
     }
 
+    /**
+     * 操作日志分页列表 API（支持模块、关键词、日期范围筛选）。
+     *
+     * @return \think\response\Json Layui 分页格式的操作日志列表
+     */
     public function getList()
     {
         $req = Request::instance();

@@ -8,25 +8,49 @@ use think\Db;
  */
 class BatchService
 {
+    /**
+     * 将批次状态码转为中文文案。
+     *
+     * @param int|string $status 状态码：0 未开始，1 进行中，2 已结束
+     * @return string 对应中文，未知状态返回空字符串
+     */
     public static function statusText($status)
     {
         $map = [0 => '未开始', 1 => '进行中', 2 => '已结束'];
         return isset($map[(int)$status]) ? $map[(int)$status] : '';
     }
 
+    /**
+     * 将算分状态码转为中文文案。
+     *
+     * @param int|string $status 状态码：0 未算分，1 算分中，2 已算分，3 失败
+     * @return string 对应中文，未知状态返回空字符串
+     */
     public static function scoreStatusText($status)
     {
         $map = [0 => '未算分', 1 => '算分中', 2 => '已算分', 3 => '失败'];
         return isset($map[(int)$status]) ? $map[(int)$status] : '';
     }
 
+    /**
+     * 按主键查询未软删的批次记录。
+     *
+     * @param int|string $id 批次 ID
+     * @return array|null 批次行数据，不存在或已删除时返回 null
+     */
     public static function find($id)
     {
         return Db::name('tm_batch')->where('id', (int)$id)->whereNull('deleted_at')->find();
     }
 
     /**
-     * @return array [count, list]
+     * 分页查询批次列表，并附带版本名、班组数、已提交答卷数等统计。
+     *
+     * @param int|string|null $status  按状态筛选，null 或空表示不限
+     * @param string          $keyword 批次名称模糊搜索
+     * @param int             $page    页码
+     * @param int             $limit   每页条数
+     * @return array [count, list] count 为总条数，list 为当前页行数组（含 status_text、team_cnt 等）
      */
     public static function getPage($status = null, $keyword = '', $page = 1, $limit = 15)
     {
@@ -52,6 +76,7 @@ class BatchService
             return [0, []];
         }
 
+        // 批量统计各批次的绑定班组数与已提交答卷数，避免 N+1 查询
         $ids = [];
         foreach ($list as $row) {
             $ids[] = (int)$row['id'];
@@ -79,7 +104,11 @@ class BatchService
     }
 
     /**
-     * @return array [ok, msg, id]
+     * 创建新批次（初始状态为未开始、未算分）。
+     *
+     * @param array    $data    表单字段：name、version_id、start_time、end_time、question_pick_mode 等
+     * @param int|null $adminId 创建人管理员 ID，可为 null
+     * @return array [ok, msg, id] 成功时 id 为新批次主键，失败时 id 为 0
      */
     public static function create(array $data, $adminId = null)
     {
@@ -103,7 +132,11 @@ class BatchService
     }
 
     /**
-     * @return array [ok, msg]
+     * 更新批次基本信息；已结束不可编辑，进行中仅允许改名称与结束时间。
+     *
+     * @param int|string $id   批次 ID
+     * @param array      $data 待更新字段
+     * @return array [ok, msg] 成功或失败及提示信息
      */
     public static function update($id, array $data)
     {
@@ -126,12 +159,14 @@ class BatchService
             'end_time'   => $clean['end_time'],
             'updated_at' => tmNow(),
         ];
+        // 未开测：允许改版本、开始时间与抽题模式；进行中：仅 end_time 等有限字段
         if ($status === 0) {
             $upd['version_id'] = $clean['version_id'];
             $upd['start_time'] = $clean['start_time'];
             $upd['question_pick_mode'] = $clean['question_pick_mode'];
         }
 
+        // 若已绑定班组，校验调整后时间窗是否与其它批次冲突
         $newStart = isset($upd['start_time']) ? $upd['start_time'] : $batch['start_time'];
         $newEnd = $upd['end_time'];
         $boundIds = Db::name('tm_batch_team')->where('batch_id', (int)$id)->column('team_id');
@@ -150,8 +185,12 @@ class BatchService
     }
 
     /**
-     * 查找与本批次时间窗重叠、且已绑定某班组的其它批次（一班组同一时间段仅一次测评）。
-     * @return array [team_id => ['batch_id'=>, 'batch_name'=>, 'start_time'=>, 'end_time'=>, 'status'=>, 'status_text'=>]]
+     * 查找与本批次时间窗重叠、且已绑定某班组的其它批次（同一班组同一时间段仅允许一次测评）。
+     *
+     * @param int|string      $batchId   当前批次 ID
+     * @param string|null     $startTime 可选覆盖开始时间，null 则用批次原值
+     * @param string|null     $endTime   可选覆盖结束时间，null 则用批次原值
+     * @return array [team_id => ['batch_id', 'batch_name', 'start_time', 'end_time', 'status', 'status_text']]
      */
     public static function findBusyTeams($batchId, $startTime = null, $endTime = null)
     {
@@ -192,6 +231,7 @@ class BatchService
             ->field('batch_id, team_id')
             ->select();
 
+        // 同一班组若被多个重叠批次占用，只保留第一个冲突批次信息
         $busy = [];
         foreach ($binds as $b) {
             $tid = (int)$b['team_id'];
@@ -212,8 +252,11 @@ class BatchService
     }
 
     /**
-     * 开测前全量替换绑定班组；开测后禁止。
-     * @return array [ok, msg]
+     * 开测前全量替换绑定参评班组，并写入各班组 member_total；开测后禁止修改。
+     *
+     * @param int|string $batchId 批次 ID
+     * @param array      $teamIds 班组 ID 列表
+     * @return array [ok, msg] 成功或失败及提示信息
      */
     public static function bindTeams($batchId, array $teamIds)
     {
@@ -253,6 +296,7 @@ class BatchService
             return [false, '同一班组同一时间段只能参加一次测评：' . implode('；', $conflicts)];
         }
 
+        // 事务内先删后插，保证绑定关系与 member_total 快照一致
         $now = tmNow();
         Db::startTrans();
         try {
@@ -280,8 +324,10 @@ class BatchService
     }
 
     /**
-     * 开测：抽题写快照，status=1
-     * @return array [ok, msg, data]
+     * 开测：校验版本与抽题结果，写入指标快照并将批次 status 置为进行中。
+     *
+     * @param int|string $batchId 批次 ID
+     * @return array [ok, msg, data] 成功时 data 含 batch_id、question_cnt、pick_mode；失败时 data 为 null
      */
     public static function start($batchId)
     {
@@ -334,6 +380,7 @@ class BatchService
         $now = tmNow();
         Db::startTrans();
         try {
+            // 快照已存在则更新（支持重复开测前修正），否则新建
             $exist = Db::name('tm_batch_indicator_snap')->where('batch_id', (int)$batchId)->find();
             $snapData = [
                 'source_version_id' => $versionId,
@@ -364,8 +411,11 @@ class BatchService
     }
 
     /**
-     * 结束批次；默认结束后自动算分。
-     * @return array [ok, msg, data]
+     * 结束批次（status=2）；默认结束后自动触发班组算分。
+     *
+     * @param int|string $batchId   批次 ID
+     * @param bool       $autoScore 是否在结束后立即算分
+     * @return array [ok, msg, data] data 为算分结果摘要，未算分时可为 null
      */
     public static function finish($batchId, $autoScore = true)
     {
@@ -391,8 +441,10 @@ class BatchService
     }
 
     /**
-     * 班组算分落库。
-     * @return array [ok, msg, data]
+     * 对批次下各绑定班组聚合已提交答卷，计算团队均分、等级与薄弱指标并落库。
+     *
+     * @param int|string $batchId 批次 ID
+     * @return array [ok, msg, data] 成功时 data['teams'] 为各班组算分摘要；失败时 data 为 null
      */
     public static function score($batchId)
     {
@@ -415,6 +467,7 @@ class BatchService
             $teams = Db::name('tm_batch_team')->where('batch_id', $batchId)->column('team_id');
             $now = tmNow();
             $results = [];
+            // 逐班组：均分已提交答卷 personal_score，判定等级并生成薄弱指标 JSON
             foreach ($teams as $teamId) {
                 $teamId = (int)$teamId;
                 $papers = Db::name('tm_paper')
@@ -433,6 +486,7 @@ class BatchService
                     continue;
                 }
 
+                // 团队得分 = 已提交成员 personal_score 的算术平均
                 $sum = 0.0;
                 $paperIds = [];
                 foreach ($papers as $p) {
@@ -490,7 +544,10 @@ class BatchService
     }
 
     /**
-     * 详情：批次 + 快照标记 + 进度。
+     * 获取批次详情：版本信息、抽题快照、小程序二维码、绑定班组、进度与冲突班组等。
+     *
+     * @param int|string $batchId 批次 ID
+     * @return array|null  enriched 批次数组，不存在时返回 null
      */
     public static function detail($batchId)
     {
@@ -533,6 +590,12 @@ class BatchService
         return $batch;
     }
 
+    /**
+     * 汇总批次下各参评班组的答题与算分进度。
+     *
+     * @param int|string $batchId 批次 ID
+     * @return array 班组进度列表，每项含 team_id、member_total、submitted_cnt、answering_cnt、team_score、level_name 等
+     */
     public static function progress($batchId)
     {
         $batchId = (int)$batchId;
@@ -554,6 +617,7 @@ class BatchService
             $teamIds[] = (int)$row['team_id'];
         }
 
+        // 按班组聚合：已提交数、答题中数、最近提交时间（与 tm_team_result 算分结果互补）
         $submittedMap = Db::name('tm_paper')
             ->where('batch_id', $batchId)
             ->where('team_id', 'in', $teamIds)
@@ -594,6 +658,12 @@ class BatchService
         return $result;
     }
 
+    /**
+     * 软删除批次（写入 deleted_at）；进行中的批次需先结束。
+     *
+     * @param int|string $batchId 批次 ID
+     * @return array [ok, msg] 成功或失败及提示信息
+     */
     public static function softDelete($batchId)
     {
         $batch = self::find($batchId);
@@ -615,7 +685,12 @@ class BatchService
     }
 
     /**
-     * @return array [ok, msg, clean]
+     * 校验创建/更新批次的表单载荷，并按状态决定可改字段范围。
+     *
+     * @param array      $data     原始表单数据
+     * @param bool       $isCreate 是否为新建（true 校验全量字段，false 按 exist.status 分支）
+     * @param array|null $exist    更新时的现有批次行，新建时传 null
+     * @return array [ok, msg, clean] 成功时 clean 为规范化后的可写字段数组
      */
     private static function validatePayload(array $data, $isCreate, $exist = null)
     {
@@ -674,7 +749,11 @@ class BatchService
     }
 
     /**
-     * 按答卷明细聚合班组薄弱三级指标（均分低于满分）。
+     * 按答卷明细聚合班组薄弱三级指标（指标均分低于满分），并匹配赋能措施文案。
+     *
+     * @param array  $paperIds  已提交答卷 ID 列表
+     * @param string $levelCode 班组成熟度等级码，用于查找对应赋能措施
+     * @return array 最多 10 条薄弱指标，按与满分的差距降序
      */
     private static function buildTeamWeakIndicators(array $paperIds, $levelCode)
     {
@@ -695,9 +774,11 @@ class BatchService
             if ($full <= 0) {
                 continue;
             }
+            // 均分达到满分（浮点容差）则不算薄弱项
             if ($avg >= $full - 0.0001) {
                 continue;
             }
+            // 优先按等级匹配赋能措施，无则回退该指标任意一条
             $measure = Db::name('tm_empower_measure')
                 ->where('indicator_id', (int)$r['indicator_id'])
                 ->where('level_code', $levelCode ?: 'essential')
@@ -716,6 +797,7 @@ class BatchService
                 'measure'        => $measure ? $measure['content'] : '暂无',
             ];
         }
+        // 按「满分 - 均分」差距从大到小排序，只保留前 10 条
         usort($weak, function ($a, $b) {
             $da = $a['full_score'] - $a['avg_score'];
             $db = $b['full_score'] - $b['avg_score'];

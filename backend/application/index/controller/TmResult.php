@@ -8,6 +8,11 @@ use think\Request;
 
 class TmResult extends Base
 {
+    /**
+     * 测评结果查询页，加载批次与成熟度等级选项。
+     *
+     * @return mixed 渲染 tm_result/index 视图
+     */
     public function index()
     {
         $batches = ResultService::listBatches();
@@ -26,6 +31,11 @@ class TmResult extends Base
         return $this->fetch('tm_result/index');
     }
 
+    /**
+     * 批次下班组结果列表 API（支持关键词、等级筛选）。
+     *
+     * @return \think\response\Json Layui table 格式，含 count、data、batch
+     */
     public function teamList()
     {
         $req = Request::instance();
@@ -47,6 +57,11 @@ class TmResult extends Base
         ]);
     }
 
+    /**
+     * 单班组测评结果详情 API（得分、等级、薄弱指标等）。
+     *
+     * @return \think\response\Json 班组结果完整数据
+     */
     public function teamDetail()
     {
         $req = Request::instance();
@@ -59,6 +74,11 @@ class TmResult extends Base
         return json(DefaultResponse(0, true, 'ok', $data));
     }
 
+    /**
+     * 批次下班组内成员答卷列表 API（支持关键词、状态筛选）。
+     *
+     * @return \think\response\Json Layui table 格式的答卷列表
+     */
     public function paperList()
     {
         $req = Request::instance();
@@ -79,6 +99,11 @@ class TmResult extends Base
         ]);
     }
 
+    /**
+     * 单份答卷详情 API（含逐题作答与得分）。
+     *
+     * @return \think\response\Json 答卷完整明细
+     */
     public function paperDetail()
     {
         $paperId = (int)Request::instance()->param('paper_id', 0);
@@ -89,6 +114,11 @@ class TmResult extends Base
         return json(DefaultResponse(0, true, 'ok', $data));
     }
 
+    /**
+     * 导出批次下班组结果 Excel。
+     *
+     * @return void|\think\response\Json 无数据时 JSON 错误，否则直接下载
+     */
     public function exportTeam()
     {
         $batchId = (int)Request::instance()->param('batch_id', 0);
@@ -99,6 +129,11 @@ class TmResult extends Base
         // ExcelHelper::download 已 exit
     }
 
+    /**
+     * 导出批次班组排行榜 Excel。
+     *
+     * @return void|\think\response\Json 无数据时 JSON 错误，否则直接下载
+     */
     public function exportRank()
     {
         $batchId = (int)Request::instance()->param('batch_id', 0);

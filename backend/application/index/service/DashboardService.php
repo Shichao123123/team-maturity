@@ -16,6 +16,11 @@ class DashboardService
         'passive'     => '专项整改',
     ];
 
+    /**
+     * 列出已有班组算分结果的测评批次。
+     *
+     * @return array 批次列表，每项含 id、name、start_time、end_time、status、score_status 及对应中文文案
+     */
     public static function listBatchesWithResult()
     {
         $ids = Db::name('tm_team_result')->group('batch_id')->column('batch_id');
@@ -36,6 +41,11 @@ class DashboardService
         return $list;
     }
 
+    /**
+     * 获取成熟度等级元数据（阈值配置或内置默认四级）。
+     *
+     * @return array 等级行列表，每项含 level_code、level_name、sort_no 等
+     */
     public static function levelsMeta()
     {
         $levelsMeta = Db::name('tm_level_threshold')
@@ -54,7 +64,12 @@ class DashboardService
     }
 
     /**
-     * 成熟度分布（可按批次、组织过滤）。
+     * 统计指定批次（及可选组织）下的成熟度等级分布与班组明细。
+     *
+     * @param int $batchId 批次 ID；0 表示取最近有算分结果的批次
+     * @param int $orgId   组织 ID；0 表示全公司，>0 时仅统计该组织及下级班组
+     * @return array 含 batch_id、batch_name、scored_at、org_id、team_total、result_team_cnt、
+     *               avg_score、essential_cnt、passive_cnt、levels（各级占比）、teams（班组明细）
      */
     public static function levelDist($batchId = 0, $orgId = 0)
     {
@@ -165,11 +180,13 @@ class DashboardService
     }
 
     /**
-     * 成长趋势：若干班组在各批次的得分折线。
-     * @param int $orgId 按组织筛班组；0=全公司取最近有结果的班组
-     * @param array $teamIds 指定班组（优先）
-     * @param int $limitTeams 最多展示班组数
-     * @param int $limitBatches 最多历史批次
+     * 生成班组跨批次得分成长趋势（折线图数据）。
+     *
+     * @param int   $orgId        按组织筛班组；0 表示全公司，未指定 teamIds 时取最近批次高分班组
+     * @param array $teamIds      指定班组 ID 列表（优先于 orgId 筛选）
+     * @param int   $limitTeams   最多展示的班组数量
+     * @param int   $limitBatches 最多纳入的历史批次数
+     * @return array 含 batches（横轴批次）、series（各班组 scores 序列）、tip（说明文案）
      */
     public static function trend($orgId = 0, array $teamIds = [], $limitTeams = 8, $limitBatches = 12)
     {
@@ -276,7 +293,12 @@ class DashboardService
     }
 
     /**
-     * 班组排行榜。
+     * 按批次生成班组得分排行榜。
+     *
+     * @param int $batchId 批次 ID；0 表示取最近有算分结果的批次
+     * @param int $orgId   组织 ID；0 表示不限，>0 时仅统计该组织及下级班组
+     * @param int $limit   返回条数上限
+     * @return array 含 batch（批次摘要）、list（排名行：rank_no、team_name、team_score、level 等）、tip
      */
     public static function rank($batchId = 0, $orgId = 0, $limit = 50)
     {

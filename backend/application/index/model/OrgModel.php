@@ -8,6 +8,11 @@ class OrgModel extends Model
 {
     protected $table = 'tm_org';
 
+    /**
+     * 查询全部未删除的组织，按排序号与 id 升序。
+     *
+     * @return array 组织行列表
+     */
     public function getAllActive()
     {
         return Db::name('tm_org')
@@ -16,6 +21,15 @@ class OrgModel extends Model
             ->select();
     }
 
+    /**
+     * 组织分页查询（支持上级组织、名称关键词筛选）。
+     *
+     * @param int|null    $parentId 上级组织 id，null 表示不限
+     * @param string      $keyword  组织名称模糊搜索
+     * @param int         $page     页码
+     * @param int         $limit    每页条数
+     * @return array [总数, 列表行（含 parent_name）]
+     */
     public function getPage($parentId = null, $keyword = '', $page = 1, $limit = 15)
     {
         $apply = function ($q) use ($parentId, $keyword) {
@@ -45,23 +59,48 @@ class OrgModel extends Model
         return [$count, $list];
     }
 
+    /**
+     * 按 id 查询未删除的组织。
+     *
+     * @param int $id 组织 id
+     * @return array|null 组织行，不存在时 null
+     */
     public function find($id)
     {
         return Db::name('tm_org')->where('id', $id)->whereNull('deleted_at')->find();
     }
 
+    /**
+     * 新增组织记录。
+     *
+     * @param array $data 组织字段
+     * @return int 新记录 id
+     */
     public function addRow($data)
     {
         $data['created_at'] = tmNow();
         return Db::name('tm_org')->insertGetId($data);
     }
 
+    /**
+     * 更新组织记录。
+     *
+     * @param int   $id   组织 id
+     * @param array $data 待更新字段
+     * @return int 受影响行数
+     */
     public function editRow($id, $data)
     {
         $data['updated_at'] = tmNow();
         return Db::name('tm_org')->where('id', $id)->update($data);
     }
 
+    /**
+     * 软删除组织（存在下级组织或班组时拒绝删除）。
+     *
+     * @param int $id 组织 id
+     * @return bool|string 成功返回 true，失败返回错误提示字符串
+     */
     public function softDelete($id)
     {
         $child = Db::name('tm_org')->where('parent_id', $id)->whereNull('deleted_at')->count();
@@ -77,7 +116,8 @@ class OrgModel extends Model
     }
 
     /**
-     * 下拉选项：带路径，兼容 2 层 / 3 层 / 更深
+     * 下拉选项：带路径，兼容 2 层 / 3 层 / 更深。
+     *
      * @return array [['id'=>,'name'=>,'path'=>,'depth'=>], ...]
      */
     public function getSelectOptions()
@@ -111,7 +151,12 @@ class OrgModel extends Model
         return $out;
     }
 
-    /** 某节点全部子孙 ID（含自身），供后期看板/批次按组织下钻 */
+    /**
+     * 收集某节点全部子孙组织 id（含自身），供看板/批次按组织下钻。
+     *
+     * @param int $orgId 组织 id
+     * @return array 组织 id 列表
+     */
     public function collectDescendantIds($orgId)
     {
         $ids = [(int)$orgId];

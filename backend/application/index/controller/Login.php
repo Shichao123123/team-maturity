@@ -7,8 +7,16 @@ use think\Controller;
 use think\Request;
 use think\Session;
 
+/**
+ * 后台登录控制器（账号密码登录、登出）。
+ */
 class Login extends Controller
 {
+    /**
+     * 登录页；已登录则跳转首页。
+     *
+     * @return mixed 渲染 login/index 视图或重定向
+     */
     public function index()
     {
         if (Session::get('tm_user')) {
@@ -17,6 +25,11 @@ class Login extends Controller
         return $this->fetch('login/index');
     }
 
+    /**
+     * 登录提交 API（支持 Ajax 与表单，兼容旧字段名）。
+     *
+     * @return \think\response\Json|void 成功返回 redirect 地址，失败返回错误信息
+     */
     public function login()
     {
         $request = Request::instance();
@@ -75,6 +88,11 @@ class Login extends Controller
         $this->success('登录成功', '/Index/index');
     }
 
+    /**
+     * 登出：清除会话并跳转登录页。
+     *
+     * @return void 重定向至 /Login
+     */
     public function logout()
     {
         $user = Session::get('tm_user');

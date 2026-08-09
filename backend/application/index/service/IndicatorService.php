@@ -9,17 +9,35 @@ use think\Db;
  */
 class IndicatorService
 {
+    /**
+     * 根据 ID 查询指标版本记录。
+     *
+     * @param int $id 版本 ID
+     * @return array|null 版本行数据；不存在时返回 null
+     */
     public static function findVersion($id)
     {
         return Db::name('tm_indicator_version')->where('id', (int)$id)->find();
     }
 
+    /**
+     * 判断指定版本是否为草稿（status=0）。
+     *
+     * @param int $versionId 版本 ID
+     * @return bool 存在且为草稿时 true
+     */
     public static function isDraft($versionId)
     {
         $v = self::findVersion($versionId);
         return $v && (int)$v['status'] === 0;
     }
 
+    /**
+     * 断言版本存在且为草稿，供写操作前置校验。
+     *
+     * @param int $versionId 版本 ID
+     * @return array [bool ok, string msg, array|null version] 成功时第三项为版本记录
+     */
     public static function assertDraft($versionId)
     {
         $v = self::findVersion($versionId);
@@ -33,7 +51,10 @@ class IndicatorService
     }
 
     /**
-     * @return array [ok, msg, id]
+     * 创建新的草稿指标版本。
+     *
+     * @param array $data 版本字段：name、version_no 必填；remark、question_pick_mode 可选
+     * @return array [bool ok, string msg, int id] 成功时 id 为新版本 ID，失败时为 0
      */
     public static function createVersion(array $data)
     {
@@ -66,7 +87,11 @@ class IndicatorService
     }
 
     /**
-     * @return array [ok, msg]
+     * 更新草稿版本的基本信息（名称、版本号、备注、抽题模式）。
+     *
+     * @param int   $id   版本 ID
+     * @param array $data 待更新字段：name、version_no、remark、question_pick_mode
+     * @return array [bool ok, string msg]
      */
     public static function updateVersion($id, array $data)
     {
@@ -102,13 +127,17 @@ class IndicatorService
     }
 
     /**
-     * 发布前完整校验。
-     * @return array 错误列表，空=通过
+     * 发布前完整校验：一级权重、三级指标、抽题规则、题目选项数量。
+     *
+     * @param int $versionId 版本 ID
+     * @return array string[] 错误信息列表，空数组表示通过
      */
     public static function validateForPublish($versionId)
     {
         $errors = [];
         $versionId = (int)$versionId;
+
+        // 一级指标启用项权重之和须为 100
         $l1Sum = (float)Db::name('tm_indicator')
             ->where('version_id', $versionId)
             ->where('level_no', 1)
@@ -117,6 +146,8 @@ class IndicatorService
         if (abs($l1Sum - 100) > 0.05) {
             $errors[] = '一级指标权重之和应为 100（当前 ' . round($l1Sum, 2) . '）';
         }
+
+        // 至少存在一个启用的三级指标
         $l3Cnt = (int)Db::name('tm_indicator')
             ->where('version_id', $versionId)
             ->where('level_no', 3)
@@ -125,8 +156,11 @@ class IndicatorService
         if ($l3Cnt < 1) {
             $errors[] = '至少需要一个启用的三级指标';
         }
+
+        // 委托 QuestionPickService 校验各三级指标下的题目配置
         $errors = array_merge($errors, QuestionPickService::validateVersionQuestions($versionId));
 
+        // 每道启用题目至少 2 个选项
         $questions = Db::name('tm_question')
             ->where('version_id', $versionId)
             ->where('status', 1)
@@ -143,7 +177,10 @@ class IndicatorService
     }
 
     /**
-     * @return array [ok, msg]
+     * 校验通过后发布版本（status 置为 1）。
+     *
+     * @param int $versionId 版本 ID
+     * @return array [bool ok, string msg]
      */
     public static function publish($versionId)
     {
@@ -170,7 +207,10 @@ class IndicatorService
     }
 
     /**
-     * @return array [ok, msg]
+     * 停用已发布版本（status 置为 2）；草稿不可停用。
+     *
+     * @param int $versionId 版本 ID
+     * @return array [bool ok, string msg]
      */
     public static function disable($versionId)
     {
@@ -189,8 +229,12 @@ class IndicatorService
     }
 
     /**
-     * 深拷贝版本（指标/题目/选项），赋能措施按新三级指标复制。
-     * @return array [ok, msg, newId]
+     * 深拷贝版本（指标树、题目、选项、赋能措施），生成新草稿。
+     *
+     * @param int    $sourceId      源版本 ID
+     * @param string $newName       新版本名称，空则自动加「（副本）」
+     * @param string $newVersionNo  新版本号，空则自动生成带时间戳的后缀
+     * @return array [bool ok, string msg, int newId] 成功时 newId 为新版本 ID，失败时为 0
      */
     public static function copyVersion($sourceId, $newName = '', $newVersionNo = '')
     {
@@ -222,6 +266,7 @@ class IndicatorService
                 'created_at'         => $now,
             ]);
 
+            // 按层级顺序复制指标，维护 oldId => newId 映射以重挂 parent_id
             $inds = Db::name('tm_indicator')
                 ->where('version_id', (int)$sourceId)
                 ->order('level_no asc, sort_no asc, id asc')
@@ -245,6 +290,7 @@ class IndicatorService
                 $idMap[$oldId] = $nid;
             }
 
+            // 复制题目与选项，indicator_id 与 question_id 均走映射表
             $questions = Db::name('tm_question')->where('version_id', (int)$sourceId)->select();
             $qMap = [];
             foreach ($questions as $q) {
@@ -274,7 +320,7 @@ class IndicatorService
                 }
             }
 
-            // 复制挂在三级指标上的赋能措施
+            // 复制挂在三级指标上的赋能措施，indicator_id 使用 idMap 新 ID
             foreach ($idMap as $oldInd => $newInd) {
                 if ($oldInd <= 0 || $newInd <= 0) {
                     continue;
@@ -302,7 +348,11 @@ class IndicatorService
     }
 
     /**
-     * @return array [ok, msg, id]
+     * 新增或更新指标节点（仅草稿版本可写）。
+     *
+     * @param int   $versionId 版本 ID
+     * @param array $data 指标字段：id?、parent_id、name、code?、weight、sort_no、status?
+     * @return array [bool ok, string msg, int id] 成功时 id 为指标 ID，失败时为 0
      */
     public static function saveIndicator($versionId, array $data)
     {
@@ -367,7 +417,11 @@ class IndicatorService
     }
 
     /**
-     * @return array [ok, msg]
+     * 删除指标节点（须无下级指标、无题目；同步删除关联赋能措施）。
+     *
+     * @param int $versionId   版本 ID
+     * @param int $indicatorId 指标 ID
+     * @return array [bool ok, string msg]
      */
     public static function deleteIndicator($versionId, $indicatorId)
     {
@@ -396,8 +450,12 @@ class IndicatorService
     }
 
     /**
-     * 保存题目及选项。options: [{id?, content, score_ratio, sort_no}]
-     * @return array [ok, msg, id]
+     * 保存题目及其选项（仅草稿版本可写）。
+     * options 元素形如：{id?, content, score_ratio, sort_no?}
+     *
+     * @param int   $versionId 版本 ID
+     * @param array $data 题目字段：id?、indicator_id、title、remark?、sort_no?、status?、options?
+     * @return array [bool ok, string msg, int id] 成功时 id 为题目 ID，失败时为 0
      */
     public static function saveQuestion($versionId, array $data)
     {
@@ -426,6 +484,8 @@ class IndicatorService
         if (!$ind || (int)$ind['level_no'] !== 3) {
             return [false, '题目必须挂在三级指标下', 0];
         }
+
+        // 过滤空选项并校验得分比例
         $cleanOpts = [];
         foreach ($options as $i => $opt) {
             $content = isset($opt['content']) ? trim($opt['content']) : '';
@@ -467,6 +527,8 @@ class IndicatorService
                     'updated_at'   => $now,
                 ]);
                 $qid = $id;
+
+                // 选项增量同步：有 id 则更新，无 id 则新增，最后删除未保留的旧选项
                 $keepIds = [];
                 foreach ($cleanOpts as $opt) {
                     if ($opt['id'] > 0) {
@@ -517,7 +579,11 @@ class IndicatorService
     }
 
     /**
-     * @return array [ok, msg]
+     * 删除题目及其全部选项（仅草稿版本可写）。
+     *
+     * @param int $versionId  版本 ID
+     * @param int $questionId 题目 ID
+     * @return array [bool ok, string msg]
      */
     public static function deleteQuestion($versionId, $questionId)
     {
@@ -544,6 +610,12 @@ class IndicatorService
         }
     }
 
+    /**
+     * 获取题目详情，附带按 sort_no 排序的选项列表。
+     *
+     * @param int $questionId 题目 ID
+     * @return array|null 题目行 + options 数组；不存在时返回 null
+     */
     public static function questionDetail($questionId)
     {
         $q = Db::name('tm_question')->where('id', (int)$questionId)->find();

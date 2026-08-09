@@ -11,6 +11,11 @@ use think\Request;
 
 class TmMember extends Base
 {
+    /**
+     * 成员管理页，加载班组与角色选项。
+     *
+     * @return mixed 渲染 tm_member/index 视图
+     */
     public function index()
     {
         $teams = Db::name('tm_team')->whereNull('deleted_at')->order('id desc')->select();
@@ -19,6 +24,11 @@ class TmMember extends Base
         return $this->fetch('tm_member/index');
     }
 
+    /**
+     * 成员分页列表 API（含答题摘要：最近得分、批次、等级等）。
+     *
+     * @return \think\response\Json Layui 分页格式的成员列表
+     */
     public function getList()
     {
         $req = Request::instance();
@@ -40,7 +50,9 @@ class TmMember extends Base
     }
 
     /**
-     * 成员答题记录列表。
+     * 成员答题记录列表 API。
+     *
+     * @return \think\response\Json 返回 member_id 及该成员各批次答卷摘要列表
      */
     public function paperList()
     {
@@ -54,7 +66,9 @@ class TmMember extends Base
     }
 
     /**
-     * 单份答卷结果 + 逐题明细。
+     * 单份答卷详情 API：结果摘要 + 逐题作答明细。
+     *
+     * @return \think\response\Json 返回 paper 摘要与 answers 逐题列表
      */
     public function paperDetail()
     {
@@ -68,6 +82,11 @@ class TmMember extends Base
         return json(DefaultResponse(0, true, 'ok', $detail));
     }
 
+    /**
+     * 成员详情 API。
+     *
+     * @return \think\response\Json 单条成员记录
+     */
     public function detail()
     {
         $id = (int)Request::instance()->param('id', 0);
@@ -78,6 +97,11 @@ class TmMember extends Base
         return json(DefaultResponse(0, true, 'ok', $row));
     }
 
+    /**
+     * 新增成员 API（POST，PC 端补录，手机号可选）。
+     *
+     * @return \think\response\Json 成功返回新成员 id
+     */
     public function add()
     {
         $req = Request::instance();
@@ -112,6 +136,11 @@ class TmMember extends Base
         return json(DefaultResponse(0, true, '新增成功', ['id' => $id]));
     }
 
+    /**
+     * 编辑成员 API（POST）。
+     *
+     * @return \think\response\Json 保存结果
+     */
     public function edit()
     {
         $req = Request::instance();
@@ -143,6 +172,11 @@ class TmMember extends Base
         return json(DefaultResponse(0, true, '保存成功'));
     }
 
+    /**
+     * 更新成员启用/停用状态 API。
+     *
+     * @return \think\response\Json 状态更新结果
+     */
     public function setStatus()
     {
         $req = Request::instance();
@@ -156,6 +190,11 @@ class TmMember extends Base
         return json(DefaultResponse(0, true, '状态已更新'));
     }
 
+    /**
+     * 软删除成员 API。
+     *
+     * @return \think\response\Json 删除结果
+     */
     public function delete()
     {
         $id = (int)Request::instance()->param('id', 0);
@@ -163,6 +202,11 @@ class TmMember extends Base
         return json(DefaultResponse(0, true, '已删除'));
     }
 
+    /**
+     * 下载成员批量导入 Excel 模板。
+     *
+     * @return void 直接输出 xls 文件下载
+     */
     public function importTemplate()
     {
         ExcelHelper::download('成员导入模板.xls', [
@@ -173,6 +217,11 @@ class TmMember extends Base
         ]);
     }
 
+    /**
+     * 批量导入成员 API（上传 Excel，POST）。
+     *
+     * @return \think\response\Json 返回成功/失败条数及明细
+     */
     public function import()
     {
         list($ok, $pathOrMsg) = ImportService::saveUpload('file');

@@ -19,12 +19,22 @@ class TmImport extends Base
         3 => '失败',
     ];
 
+    /**
+     * 导入任务记录页，加载导入类型名称映射。
+     *
+     * @return mixed 渲染 tm_import/index 视图
+     */
     public function index()
     {
         $this->assign('typeNames', $this->typeNames);
         return $this->fetch('tm_import/index');
     }
 
+    /**
+     * 导入任务分页列表 API（含操作人、类型/状态中文名）。
+     *
+     * @return \think\response\Json Layui 分页格式的导入任务列表
+     */
     public function getList()
     {
         $req = Request::instance();
@@ -71,6 +81,11 @@ class TmImport extends Base
         return json(DefaultResponseList(0, $count, 'ok', $list));
     }
 
+    /**
+     * 导入任务详情 API（含错误明细列表）。
+     *
+     * @return \think\response\Json 单条导入任务详情
+     */
     public function detail()
     {
         $id = (int)Request::instance()->param('id', 0);

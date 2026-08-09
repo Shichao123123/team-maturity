@@ -6,6 +6,11 @@ namespace app\index\service;
  */
 class ExcelHelper
 {
+    /**
+     * 确保 PHPExcel 类已加载（按需 require vendor 入口）。
+     *
+     * @return void
+     */
     public static function ensureAutoload()
     {
         if (!class_exists('\\PHPExcel')) {
@@ -14,7 +19,10 @@ class ExcelHelper
     }
 
     /**
-     * @return array [headers, rows] rows 为关联数组（按表头）
+     * 读取 Excel/CSV 首 sheet，按首行表头解析为关联数组行。
+     *
+     * @param string $filePath 本地文件路径（xls/xlsx/csv）
+     * @return array [array headers, array rows] rows 为以表头为键的关联数组列表；空文件返回 [[], []]
      */
     public static function readAssoc($filePath)
     {
@@ -54,7 +62,12 @@ class ExcelHelper
     }
 
     /**
-     * 生成并直接输出下载
+     * 生成 Excel 并通过 HTTP 响应直接触发浏览器下载（调用后 exit）。
+     *
+     * @param string $filename 下载文件名（含扩展名）
+     * @param array  $headers  表头列名列表（有序）
+     * @param array  $rows     数据行；每项为以表头为键的关联数组或按列索引的数组
+     * @return void
      */
     public static function download($filename, array $headers, array $rows = [])
     {
@@ -89,7 +102,12 @@ class ExcelHelper
     }
 
     /**
-     * 保存为 xls 文件
+     * 将表头与数据行写入 xls 文件并保存到磁盘。
+     *
+     * @param string $filePath 目标文件完整路径（目录不存在时自动创建）
+     * @param array  $headers  表头列名列表
+     * @param array  $rows     数据行
+     * @return string 保存后的文件路径（与 $filePath 相同）
      */
     public static function saveXls($filePath, array $headers, array $rows = [])
     {

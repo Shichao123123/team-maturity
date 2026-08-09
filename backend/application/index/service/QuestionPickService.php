@@ -21,7 +21,11 @@ class QuestionPickService
     const MODE_SEQUENTIAL = 'sequential';
 
     /**
-     * 读取版本上的抽题策略；无配置时：仅 1 题用 first，多题用 random
+     * 读取指标版本上的抽题策略；无配置时默认 random。
+     *
+     * @param int         $versionId 指标版本 ID
+     * @param string|null $override  强制指定模式（first/random/sequential），非空时优先
+     * @return string 抽题模式常量值
      */
     public static function resolveMode($versionId, $override = null)
     {
@@ -36,7 +40,10 @@ class QuestionPickService
     }
 
     /**
-     * 列出某三级指标下可用题目（启用）
+     * 列出某三级指标下所有启用状态的候选题目。
+     *
+     * @param int $indicatorId 三级指标 ID
+     * @return array tm_question 行列表，按 sort_no、id 升序
      */
     public static function listCandidates($indicatorId)
     {
@@ -48,11 +55,12 @@ class QuestionPickService
     }
 
     /**
-     * 从候选中抽 1 道题
-     * @param array $candidates
-     * @param string $mode
-     * @param int|null $seqCursor sequential 模式游标
-     * @return array|null 题目行
+     * 从候选题目中按策略抽取一道题。
+     *
+     * @param array    $candidates 候选题目行列表
+     * @param string   $mode       抽题模式（MODE_FIRST / MODE_RANDOM / MODE_SEQUENTIAL）
+     * @param int|null $seqCursor  sequential 模式的轮询游标
+     * @return array|null 选中的题目行；无候选时返回 null
      */
     public static function pickOne(array $candidates, $mode = self::MODE_RANDOM, $seqCursor = null)
     {
@@ -77,20 +85,12 @@ class QuestionPickService
     }
 
     /**
-     * 为整个版本生成「每个三级指标 → 1 道题」的开测题集（含选项）
+     * 为整个指标版本生成开测题集：每个三级指标对应 1 道题及选项。
      * 供批次开始写快照时调用。
      *
-     * @return array [
-     *   'pick_mode' => string,
-     *   'items' => [
-     *      [
-     *        'indicator' => [...],
-     *        'question'  => [...],
-     *        'options'   => [...],
-     *        'candidate_cnt' => int,  // 题池大小，便于审计
-     *      ],
-     *   ]
-     * ]
+     * @param int         $versionId 指标版本 ID
+     * @param string|null $mode      抽题模式；null 时由 resolveMode 决定
+     * @return array 含 version_id、pick_mode、picked_at、items（indicator/question/options/candidate_cnt）
      */
     public static function buildExamSet($versionId, $mode = null)
     {
@@ -142,8 +142,10 @@ class QuestionPickService
     }
 
     /**
-     * 发布前校验：每个三级至少 1 题（允许多题）
-     * @return array 错误消息列表，空=通过
+     * 发布前校验：每个启用的三级指标下至少有一道启用题目。
+     *
+     * @param int $versionId 指标版本 ID
+     * @return array 错误消息字符串列表；空数组表示校验通过
      */
     public static function validateVersionQuestions($versionId)
     {

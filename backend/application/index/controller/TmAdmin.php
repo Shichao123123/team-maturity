@@ -7,6 +7,11 @@ use think\Request;
 
 class TmAdmin extends Base
 {
+    /**
+     * 管理员管理页，加载可用角色列表。
+     *
+     * @return mixed 渲染 tm_admin/index 视图
+     */
     public function index()
     {
         $roles = Db::name('tm_role')->where('status', 1)->order('id asc')->select();
@@ -14,6 +19,11 @@ class TmAdmin extends Base
         return $this->fetch('tm_admin/index');
     }
 
+    /**
+     * 管理员分页列表 API（含角色名称）。
+     *
+     * @return \think\response\Json Layui 分页格式的管理员列表
+     */
     public function getList()
     {
         $req = Request::instance();
@@ -54,6 +64,11 @@ class TmAdmin extends Base
         return json(DefaultResponseList(0, $count, 'ok', $list));
     }
 
+    /**
+     * 新增或编辑管理员 API（含密码校验与账号唯一性检查）。
+     *
+     * @return \think\response\Json 保存成功时返回 id（新增）或提示信息
+     */
     public function save()
     {
         $req = Request::instance();
@@ -127,6 +142,11 @@ class TmAdmin extends Base
         return json(DefaultResponse(0, true, '管理员已新增', ['id' => $newId]));
     }
 
+    /**
+     * 软删除管理员 API（禁止删除当前登录账号）。
+     *
+     * @return \think\response\Json 删除结果
+     */
     public function delete()
     {
         $id = (int)Request::instance()->param('id', 0);
@@ -150,6 +170,11 @@ class TmAdmin extends Base
         return json(DefaultResponse(0, true, '已删除'));
     }
 
+    /**
+     * 重置管理员密码 API。
+     *
+     * @return \think\response\Json 重置结果
+     */
     public function resetPassword()
     {
         $req = Request::instance();

@@ -6,6 +6,13 @@ namespace app\index\service;
  */
 class MiniJwtService
 {
+    /**
+     * 签发 HS256 JWT，自动写入 iat、exp。
+     *
+     * @param array    $payload 自定义载荷（须含 uid 等业务字段）
+     * @param int|null $ttl     有效秒数；null 时读取 config('mini.jwt_ttl')，默认 604800
+     * @return string JWT 字符串（header.body.signature）
+     */
     public static function encode(array $payload, $ttl = null)
     {
         $cfg = config('mini');
@@ -22,7 +29,10 @@ class MiniJwtService
     }
 
     /**
-     * @return array|null
+     * 校验并解析 JWT，验证签名、过期时间及 uid 字段。
+     *
+     * @param string $token JWT 字符串
+     * @return array|null 解析后的载荷；无效、过期或验签失败时返回 null
      */
     public static function decode($token)
     {
@@ -46,11 +56,23 @@ class MiniJwtService
         return $payload;
     }
 
+    /**
+     * URL 安全的 Base64 编码（无填充）。
+     *
+     * @param string $raw 原始二进制或字符串
+     * @return string Base64URL 编码结果
+     */
     private static function b64($raw)
     {
         return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
     }
 
+    /**
+     * URL 安全的 Base64 解码。
+     *
+     * @param string $b64 Base64URL 编码字符串
+     * @return string|false 解码后的原始内容
+     */
     private static function ub64($b64)
     {
         $pad = 4 - (strlen($b64) % 4);

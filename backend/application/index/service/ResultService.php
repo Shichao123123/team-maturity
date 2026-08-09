@@ -10,7 +10,9 @@ use think\Db;
 class ResultService
 {
     /**
-     * 可选批次（有绑定班组的，按 id 倒序）。
+     * 获取可选测评批次列表（未删除，按 id 倒序）。
+     *
+     * @return array 批次行列表，含 id、name、start_time、end_time、status、score_status
      */
     public static function listBatches()
     {
@@ -22,8 +24,12 @@ class ResultService
     }
 
     /**
-     * 班组汇总列表（含未算分班组占位）。
-     * @return array [ok, msg, data]
+     * 查询批次下班组汇总列表（含未算分班组的占位行）。
+     *
+     * @param int    $batchId   批次 ID
+     * @param string $keyword   班组名称关键字（空则不过滤）
+     * @param string $levelCode 成熟度等级编码（空则不过滤）
+     * @return array [bool ok, string msg, array|null data] data 含 batch、list、count
      */
     public static function teamList($batchId, $keyword = '', $levelCode = '')
     {
@@ -101,7 +107,11 @@ class ResultService
     }
 
     /**
-     * 班组详情：结果 + 薄弱指标 + 成员答卷摘要。
+     * 获取单班组在某批次下的详细结果（汇总、等级特征、薄弱指标、成员答卷）。
+     *
+     * @param int $batchId 批次 ID
+     * @param int $teamId  班组 ID
+     * @return array [bool ok, string msg, array|null data] data 含 batch、team、summary、feature_desc、weak_indicators、papers
      */
     public static function teamDetail($batchId, $teamId)
     {
@@ -166,7 +176,13 @@ class ResultService
     }
 
     /**
-     * 个人答卷列表。
+     * 查询批次下个人答卷列表（可按班组、姓名、状态筛选）。
+     *
+     * @param int         $batchId 批次 ID
+     * @param int         $teamId  班组 ID；0 表示不限
+     * @param string      $keyword 成员姓名关键字
+     * @param int|null    $status  答卷状态；null 表示不限（0 答题中，1 已提交）
+     * @return array [bool ok, string msg, array data] data 含 batch_id、list、count
      */
     public static function paperList($batchId, $teamId = 0, $keyword = '', $status = null)
     {
@@ -182,6 +198,12 @@ class ResultService
         ]];
     }
 
+    /**
+     * 获取单份答卷详情（题目、选项、作答记录等）。
+     *
+     * @param int $paperId 答卷 ID
+     * @return array [bool ok, string msg, array|null detail] 成功时 detail 为 MemberModel::paperDetail 返回值
+     */
     public static function paperDetail($paperId)
     {
         $detail = (new MemberModel())->paperDetail((int)$paperId, 0);
@@ -192,7 +214,10 @@ class ResultService
     }
 
     /**
-     * 导出班组汇总。
+     * 导出批次下班组汇总为 Excel 并直接下载。
+     *
+     * @param int $batchId 批次 ID
+     * @return array [bool ok, string msg] 成功时 msg 为 'ok'，并已输出文件流
      */
     public static function exportTeam($batchId)
     {
@@ -219,7 +244,10 @@ class ResultService
     }
 
     /**
-     * 导出排行（已算分班组）。
+     * 导出批次下已算分班组的得分排行 Excel 并直接下载。
+     *
+     * @param int $batchId 批次 ID
+     * @return array [bool ok, string msg] 成功时 msg 为 'ok'，并已输出文件流
      */
     public static function exportRank($batchId)
     {
@@ -246,6 +274,15 @@ class ResultService
         return [true, 'ok'];
     }
 
+    /**
+     * 组装答卷行数据（含状态文案、个人等级、已答题数等）。
+     *
+     * @param int         $batchId 批次 ID
+     * @param int         $teamId  班组 ID；0 表示不限
+     * @param string      $keyword 成员姓名关键字
+     * @param int|null    $status  答卷状态；null 表示不限
+     * @return array 答卷行列表，每项含 paper_id、member_name、team_name、personal_score、status_text 等
+     */
     private static function paperRows($batchId, $teamId = 0, $keyword = '', $status = null)
     {
         $q = Db::name('tm_paper')->alias('p')

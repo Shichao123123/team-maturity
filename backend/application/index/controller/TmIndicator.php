@@ -6,8 +6,16 @@ use app\index\service\OpLogService;
 use think\Db;
 use think\Request;
 
+/**
+ * 指标与题库：指标树浏览、草稿维护、题目/选项增删改。
+ */
 class TmIndicator extends Base
 {
+    /**
+     * 指标与题库页面；优先选中 URL 指定版本，否则草稿，再否则已发布版本。
+     *
+     * @return mixed
+     */
     public function index()
     {
         $versions = Db::name('tm_indicator_version')->order('id desc')->select();
@@ -46,6 +54,11 @@ class TmIndicator extends Base
         return $this->fetch('tm_indicator/index');
     }
 
+    /**
+     * 版本元信息：状态与是否可编辑（仅草稿可改）。
+     *
+     * @return \think\response\Json
+     */
     public function versionMeta()
     {
         $versionId = (int)Request::instance()->param('versionId', 0);
@@ -64,6 +77,11 @@ class TmIndicator extends Base
         ]));
     }
 
+    /**
+     * 指标树 JSON（含各级题目数量汇总）。
+     *
+     * @return \think\response\Json
+     */
     public function tree()
     {
         $versionId = (int)Request::instance()->param('versionId', 0);
@@ -76,6 +94,7 @@ class TmIndicator extends Base
             ->order('sort_no asc,id asc')
             ->select();
 
+        // 三级指标题池数量，再由 sumQuestionCnt 向上汇总
         $cntMap = Db::name('tm_question')
             ->where('version_id', $versionId)
             ->where('status', 1)
@@ -90,6 +109,11 @@ class TmIndicator extends Base
         return json(DefaultResponse(0, true, 'ok', $tree));
     }
 
+    /**
+     * 题目分页列表（含选项与赋能措施摘要）。
+     *
+     * @return \think\response\Json Layui 分页格式
+     */
     public function questions()
     {
         $req = Request::instance();
@@ -103,6 +127,7 @@ class TmIndicator extends Base
                 $query->where('q.version_id', $versionId);
             }
             if ($indicatorId > 0) {
+                // 选中非叶子时，包含其全部下级指标下的题目
                 $ids = $this->collectIndicatorIds($indicatorId);
                 $query->where('q.indicator_id', 'in', $ids);
             }
@@ -125,6 +150,11 @@ class TmIndicator extends Base
         return json(DefaultResponseList(0, $count, 'ok', $list));
     }
 
+    /**
+     * 单题详情（含全部选项，供编辑回填）。
+     *
+     * @return \think\response\Json
+     */
     public function questionDetail()
     {
         $id = (int)Request::instance()->param('id', 0);
@@ -135,6 +165,11 @@ class TmIndicator extends Base
         return json(DefaultResponse(0, true, 'ok', $q));
     }
 
+    /**
+     * 新增或更新指标节点（仅草稿版本）。
+     *
+     * @return \think\response\Json
+     */
     public function saveIndicator()
     {
         $req = Request::instance();
@@ -158,6 +193,11 @@ class TmIndicator extends Base
         return json(DefaultResponse(0, true, $msg, ['id' => $id]));
     }
 
+    /**
+     * 删除指标（须无下级、无题目）。
+     *
+     * @return \think\response\Json
+     */
     public function deleteIndicator()
     {
         $req = Request::instance();
@@ -174,6 +214,11 @@ class TmIndicator extends Base
         return json(DefaultResponse(0, true, $msg));
     }
 
+    /**
+     * 保存题目及选项（options 可为 JSON 字符串）。
+     *
+     * @return \think\response\Json
+     */
     public function saveQuestion()
     {
         $req = Request::instance();
@@ -198,6 +243,11 @@ class TmIndicator extends Base
         return json(DefaultResponse(0, true, $msg, ['id' => $id]));
     }
 
+    /**
+     * 删除题目及其选项。
+     *
+     * @return \think\response\Json
+     */
     public function deleteQuestion()
     {
         $req = Request::instance();
@@ -214,6 +264,12 @@ class TmIndicator extends Base
         return json(DefaultResponse(0, true, $msg));
     }
 
+    /**
+     * 收集某指标及其全部子孙指标 ID。
+     *
+     * @param int $id 指标 ID
+     * @return int[]
+     */
     private function collectIndicatorIds($id)
     {
         $ids = [$id];
@@ -224,6 +280,13 @@ class TmIndicator extends Base
         return $ids;
     }
 
+    /**
+     * 将扁平指标行组装为树；标题附带权重或题数提示。
+     *
+     * @param array $rows     指标行
+     * @param int   $parentId 父节点 ID
+     * @return array
+     */
     private function buildTree($rows, $parentId)
     {
         $tree = [];
@@ -243,6 +306,12 @@ class TmIndicator extends Base
         return $tree;
     }
 
+    /**
+     * 递归汇总下级题数到当前节点 question_cnt。
+     *
+     * @param array $nodes 树节点（引用）
+     * @return int 本层合计题数
+     */
     private function sumQuestionCnt(&$nodes)
     {
         $sum = 0;

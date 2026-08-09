@@ -9,7 +9,10 @@ class PowerModel extends Model
     protected $table = 'tm_power';
 
     /**
-     * 转为 Pear Admin 菜单 JSON
+     * 按角色 id 获取 Pear Admin 侧栏菜单树 JSON。
+     *
+     * @param int $roleId 角色 id
+     * @return array Pear Admin 菜单树节点列表
      */
     public function getMenuByRoleId($roleId)
     {
@@ -28,6 +31,13 @@ class PowerModel extends Model
         return $this->buildPearTree($rows, 0);
     }
 
+    /**
+     * 递归构建 Pear Admin 菜单树。
+     *
+     * @param array $rows     全部权限行
+     * @param int   $parentId 父级权限 id
+     * @return array 含 title、icon、href、children 的菜单节点列表
+     */
     private function buildPearTree($rows, $parentId)
     {
         $tree = [];

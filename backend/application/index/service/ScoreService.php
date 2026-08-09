@@ -9,9 +9,11 @@ use think\Db;
 class ScoreService
 {
     /**
-     * @param array $examItems QuestionPickService::buildExamSet items
-     * @param array $answers [question_id => option_id]
-     * @return array
+     * 计算个人测评得分：Σ(指标权重 × 选项得分比例)，并判级、提取薄弱指标。
+     *
+     * @param array $examItems QuestionPickService::buildExamSet 返回的 items
+     * @param array $answers   作答映射 [question_id => option_id]
+     * @return array 含 total_score、full_score、answered_cnt、question_cnt、level、detail、weak_list
      */
     public static function scorePersonal(array $examItems, array $answers)
     {

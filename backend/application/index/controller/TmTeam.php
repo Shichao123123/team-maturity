@@ -10,6 +10,11 @@ use think\Request;
 
 class TmTeam extends Base
 {
+    /**
+     * 班组管理页，加载组织路径下拉选项。
+     *
+     * @return mixed 渲染 tm_team/index 视图
+     */
     public function index()
     {
         // 路径下拉：两层/三层/更深均可挂班组
@@ -17,6 +22,11 @@ class TmTeam extends Base
         return $this->fetch('tm_team/index');
     }
 
+    /**
+     * 班组分页列表 API。
+     *
+     * @return \think\response\Json Layui 分页格式的班组列表（含 org_name）
+     */
     public function getList()
     {
         $req = Request::instance();
@@ -29,6 +39,11 @@ class TmTeam extends Base
         return json(DefaultResponseList(0, $count, 'ok', $list));
     }
 
+    /**
+     * 班组详情 API。
+     *
+     * @return \think\response\Json 单条班组记录
+     */
     public function detail()
     {
         $id = (int)Request::instance()->param('id', 0);
@@ -39,6 +54,11 @@ class TmTeam extends Base
         return json(DefaultResponse(0, true, 'ok', $row));
     }
 
+    /**
+     * 新增班组 API。
+     *
+     * @return \think\response\Json 成功时返回新记录 id
+     */
     public function add()
     {
         $req = Request::instance();
@@ -57,6 +77,11 @@ class TmTeam extends Base
         return json(DefaultResponse(0, true, '新增成功', ['id' => $id]));
     }
 
+    /**
+     * 编辑班组 API。
+     *
+     * @return \think\response\Json 保存成功或校验失败提示
+     */
     public function edit()
     {
         $req = Request::instance();
@@ -77,6 +102,11 @@ class TmTeam extends Base
         return json(DefaultResponse(0, true, '保存成功'));
     }
 
+    /**
+     * 更新班组启用/停用状态 API。
+     *
+     * @return \think\response\Json 状态更新结果
+     */
     public function setStatus()
     {
         $req = Request::instance();
@@ -90,6 +120,11 @@ class TmTeam extends Base
         return json(DefaultResponse(0, true, '状态已更新'));
     }
 
+    /**
+     * 软删除班组 API（存在成员时拒绝删除）。
+     *
+     * @return \think\response\Json 删除结果或失败原因
+     */
     public function delete()
     {
         $id = (int)Request::instance()->param('id', 0);
@@ -100,6 +135,11 @@ class TmTeam extends Base
         return json(DefaultResponse(0, true, '已删除'));
     }
 
+    /**
+     * 下载班组 Excel 导入模板。
+     *
+     * @return void 直接输出文件流
+     */
     public function importTemplate()
     {
         ExcelHelper::download('班组导入模板.xls', [
@@ -110,6 +150,11 @@ class TmTeam extends Base
         ]);
     }
 
+    /**
+     * 批量导入班组 API（上传 Excel 并写入数据库）。
+     *
+     * @return \think\response\Json 返回成功/失败条数及任务 id
+     */
     public function import()
     {
         list($ok, $pathOrMsg) = ImportService::saveUpload('file');

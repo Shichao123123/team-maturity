@@ -9,12 +9,22 @@ use think\Request;
 
 class TmOrg extends Base
 {
+    /**
+     * 组织管理页，加载组织下拉选项。
+     *
+     * @return mixed 渲染 tm_org/index 视图
+     */
     public function index()
     {
         $this->assign('orgs', (new OrgModel())->getSelectOptions());
         return $this->fetch('tm_org/index');
     }
 
+    /**
+     * 组织树形结构 API（递归构建父子层级）。
+     *
+     * @return \think\response\Json 返回组织树节点列表
+     */
     public function tree()
     {
         $model = new OrgModel();
@@ -23,6 +33,11 @@ class TmOrg extends Base
         return json(DefaultResponse(0, true, 'ok', $tree));
     }
 
+    /**
+     * 组织分页列表 API。
+     *
+     * @return \think\response\Json Layui 分页格式的组织列表
+     */
     public function getList()
     {
         $req = Request::instance();
@@ -35,6 +50,11 @@ class TmOrg extends Base
         return json(DefaultResponseList(0, $count, 'ok', $list));
     }
 
+    /**
+     * 新增组织 API。
+     *
+     * @return \think\response\Json 成功时返回新记录 id
+     */
     public function add()
     {
         $req = Request::instance();
@@ -58,6 +78,11 @@ class TmOrg extends Base
         return json(DefaultResponse(0, true, '新增成功', ['id' => $id]));
     }
 
+    /**
+     * 编辑组织 API。
+     *
+     * @return \think\response\Json 保存成功或校验失败提示
+     */
     public function edit()
     {
         $req = Request::instance();
@@ -89,6 +114,11 @@ class TmOrg extends Base
         return json(DefaultResponse(0, true, '保存成功'));
     }
 
+    /**
+     * 更新组织启用/停用状态 API。
+     *
+     * @return \think\response\Json 状态更新结果
+     */
     public function setStatus()
     {
         $req = Request::instance();
@@ -102,6 +132,11 @@ class TmOrg extends Base
         return json(DefaultResponse(0, true, '状态已更新'));
     }
 
+    /**
+     * 软删除组织 API（存在下级或班组时拒绝删除）。
+     *
+     * @return \think\response\Json 删除结果或失败原因
+     */
     public function delete()
     {
         $id = (int)Request::instance()->param('id', 0);
@@ -112,6 +147,11 @@ class TmOrg extends Base
         return json(DefaultResponse(0, true, '已删除'));
     }
 
+    /**
+     * 下载组织 Excel 导入模板。
+     *
+     * @return void 直接输出文件流
+     */
     public function importTemplate()
     {
         ExcelHelper::download('组织导入模板.xls', [
@@ -123,6 +163,11 @@ class TmOrg extends Base
         ]);
     }
 
+    /**
+     * 批量导入组织 API（上传 Excel 并写入数据库）。
+     *
+     * @return \think\response\Json 返回成功/失败条数及任务 id
+     */
     public function import()
     {
         list($ok, $pathOrMsg) = ImportService::saveUpload('file');
@@ -140,6 +185,13 @@ class TmOrg extends Base
         return json(DefaultResponse(0, true, $msg, $result));
     }
 
+    /**
+     * 递归构建组织树形结构。
+     *
+     * @param array $rows     全部组织行
+     * @param int   $parentId 父级组织 id
+     * @return array 含 children 子节点的树形数组
+     */
     private function buildTree($rows, $parentId)
     {
         $tree = [];

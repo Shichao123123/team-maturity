@@ -10,8 +10,11 @@ use think\Db;
 class MemberSelfRegisterService
 {
     /**
-     * 校验批次可答，且班组在批次内。
-     * @return array [ok(bool), msg(string), batch(array|null)]
+     * 校验测评批次可登记/作答，且指定班组在批次参评范围内。
+     *
+     * @param int $batchId 批次 ID
+     * @param int $teamId  班组 ID
+     * @return array [bool ok, string msg, array|null batch] 成功时 batch 为批次行
      */
     public static function assertBatchTeam($batchId, $teamId)
     {
@@ -63,9 +66,16 @@ class MemberSelfRegisterService
     }
 
     /**
-     * 按微信用户 + 班组 + 姓名落库成员并双向绑定。
+     * 按微信用户、班组与姓名创建或更新成员，并双向绑定 tm_wx_user。
      * 自助登记角色固定为 member；若本批次已有答卷则禁止更换班组。
-     * @return array 成员行
+     *
+     * @param int    $wxUserId 微信用户 ID
+     * @param int    $teamId   班组 ID
+     * @param string $name     成员姓名
+     * @param int    $batchId  批次 ID（>0 时校验是否已在他班作答）
+     * @return array 落库后的 tm_member 行
+     * @throws \InvalidArgumentException 参数为空或姓名过长
+     * @throws \RuntimeException         微信用户不存在或禁止换班
      */
     public static function ensureMember($wxUserId, $teamId, $name, $batchId = 0)
     {
@@ -147,7 +157,10 @@ class MemberSelfRegisterService
     }
 
     /**
-     * 批次参评班组列表（含组织路径）。
+     * 列出批次下可参评的启用班组（含组织路径）。
+     *
+     * @param int $batchId 批次 ID
+     * @return array 班组列表，每项含 team_id、team_name、org_id、org_path
      */
     public static function listBatchTeams($batchId)
     {
@@ -179,6 +192,12 @@ class MemberSelfRegisterService
         return $result;
     }
 
+    /**
+     * 递归拼接组织名称路径（根到当前节点，以 " / " 分隔）。
+     *
+     * @param int $orgId 组织 ID
+     * @return string 组织路径；无效 ID 返回空字符串
+     */
     private static function orgPath($orgId)
     {
         if ($orgId <= 0) {

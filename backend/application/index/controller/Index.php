@@ -10,11 +10,21 @@ use think\Session;
 
 class Index extends Base
 {
+    /**
+     * 后台首页入口，渲染主框架页面。
+     *
+     * @return mixed 渲染 index/index 视图
+     */
     public function index()
     {
         return $this->fetch('index/index');
     }
 
+    /**
+     * 工作台欢迎页，加载当前管理员、批次列表与组织筛选项。
+     *
+     * @return mixed 渲染 index/welcome 视图
+     */
     public function welcome()
     {
         $admin = $this->currentAdmin;
@@ -25,7 +35,9 @@ class Index extends Base
     }
 
     /**
-     * 工作台统计：支持批次 + 组织筛选（复用看板口径）
+     * 工作台统计 API：支持批次 + 组织筛选（复用看板口径）。
+     *
+     * @return \think\response\Json 返回班组总数、均分、等级分布等统计 JSON
      */
     public function workbenchStats()
     {
@@ -49,7 +61,9 @@ class Index extends Base
     }
 
     /**
-     * Pear 侧栏菜单（按角色权限）
+     * Pear 侧栏菜单 API（按当前管理员角色权限过滤）。
+     *
+     * @return \think\response\Json 返回菜单树 JSON 数组
      */
     public function menu()
     {
@@ -59,6 +73,11 @@ class Index extends Base
         return json($list);
     }
 
+    /**
+     * 退出后台登录，写操作日志并清除 Session。
+     *
+     * @return void 重定向至登录页
+     */
     public function backsys()
     {
         $user = Session::get('tm_user');

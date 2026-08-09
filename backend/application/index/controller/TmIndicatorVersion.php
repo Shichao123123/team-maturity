@@ -8,11 +8,21 @@ use think\Request;
 
 class TmIndicatorVersion extends Base
 {
+    /**
+     * 指标版本管理页。
+     *
+     * @return mixed 渲染 tm_indicator_version/index 视图
+     */
     public function index()
     {
         return $this->fetch('tm_indicator_version/index');
     }
 
+    /**
+     * 指标版本分页列表 API（含题目数、指标数、权重汇总等）。
+     *
+     * @return \think\response\Json Layui 分页格式的版本列表
+     */
     public function getList()
     {
         $page = (int)Request::instance()->param('page', 1);
@@ -39,6 +49,11 @@ class TmIndicatorVersion extends Base
         return json(DefaultResponseList(0, $count, 'ok', $list));
     }
 
+    /**
+     * 新建指标版本 API（POST，默认草稿状态）。
+     *
+     * @return \think\response\Json 成功返回新版本 id
+     */
     public function add()
     {
         $req = Request::instance();
@@ -58,6 +73,11 @@ class TmIndicatorVersion extends Base
         return json(DefaultResponse(0, true, $msg, ['id' => $id]));
     }
 
+    /**
+     * 编辑指标版本基本信息 API（POST，仅草稿可改）。
+     *
+     * @return \think\response\Json 保存结果
+     */
     public function edit()
     {
         $req = Request::instance();
@@ -78,6 +98,11 @@ class TmIndicatorVersion extends Base
         return json(DefaultResponse(0, true, $msg));
     }
 
+    /**
+     * 发布指标版本 API（POST，发布后不可再编辑指标/题目）。
+     *
+     * @return \think\response\Json 发布结果
+     */
     public function publish()
     {
         $req = Request::instance();
@@ -93,6 +118,11 @@ class TmIndicatorVersion extends Base
         return json(DefaultResponse(0, true, $msg));
     }
 
+    /**
+     * 停用指标版本 API（POST）。
+     *
+     * @return \think\response\Json 停用结果
+     */
     public function disable()
     {
         $req = Request::instance();
@@ -108,6 +138,11 @@ class TmIndicatorVersion extends Base
         return json(DefaultResponse(0, true, $msg));
     }
 
+    /**
+     * 复制指标版本 API（POST，含指标树与题目）。
+     *
+     * @return \think\response\Json 成功返回新版本 id
+     */
     public function copy()
     {
         $req = Request::instance();
@@ -127,7 +162,11 @@ class TmIndicatorVersion extends Base
         return json(DefaultResponse(0, true, $msg, ['id' => $newId]));
     }
 
-    /** 发布前预检 */
+    /**
+     * 发布前预检 API：校验权重、题目完整性等。
+     *
+     * @return \think\response\Json 返回 ok 标志与 errors 问题列表
+     */
     public function validatePublish()
     {
         $id = (int)Request::instance()->param('id', 0);

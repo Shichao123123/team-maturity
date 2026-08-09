@@ -13,6 +13,11 @@ class TmLevel extends Base
         'essential'   => '本质安全型',
     ];
 
+    /**
+     * 成熟度等级配置页，加载等级名称与三级指标列表。
+     *
+     * @return mixed 渲染 tm_level/index 视图
+     */
     public function index()
     {
         $this->assign('levelNames', $this->levelNames);
@@ -34,6 +39,11 @@ class TmLevel extends Base
         return $this->fetch('tm_level/index');
     }
 
+    /**
+     * 等级分值阈值列表 API（含区间展示文本）。
+     *
+     * @return \think\response\Json 返回全部等级阈值配置
+     */
     public function thresholds()
     {
         $list = Db::name('tm_level_threshold')->order('sort_no asc,id asc')->select();
@@ -44,6 +54,11 @@ class TmLevel extends Base
         return json(DefaultResponse(0, true, 'ok', $list));
     }
 
+    /**
+     * 批量保存等级分值阈值 API（含区间重叠校验）。
+     *
+     * @return \think\response\Json 保存结果
+     */
     public function saveThresholds()
     {
         $req = Request::instance();
@@ -126,6 +141,11 @@ class TmLevel extends Base
         return json(DefaultResponse(0, true, '等级阈值已保存'));
     }
 
+    /**
+     * 赋能措施分页列表 API（按三级指标聚合各等级措施内容）。
+     *
+     * @return \think\response\Json Layui 分页格式的措施矩阵列表
+     */
     public function measures()
     {
         $req = Request::instance();
@@ -214,6 +234,11 @@ class TmLevel extends Base
         return json(DefaultResponseList(0, $count, 'ok', $list));
     }
 
+    /**
+     * 新增或编辑单条赋能措施 API。
+     *
+     * @return \think\response\Json 保存成功时返回 id（新增）
+     */
     public function saveMeasure()
     {
         $req = Request::instance();
@@ -263,6 +288,11 @@ class TmLevel extends Base
         return json(DefaultResponse(0, true, '措施已新增', ['id' => $newId]));
     }
 
+    /**
+     * 删除单条赋能措施 API。
+     *
+     * @return \think\response\Json 删除结果
+     */
     public function deleteMeasure()
     {
         $id = (int)Request::instance()->param('id', 0);
@@ -273,6 +303,13 @@ class TmLevel extends Base
         return json(DefaultResponse(0, true, '已删除'));
     }
 
+    /**
+     * 格式化等级分值区间为可读文本。
+     *
+     * @param mixed $min 最低分
+     * @param mixed $max 最高分，null 表示无上限
+     * @return string 如「70 ~ 89.99 分」或「90 ~ 100 分」
+     */
     private function formatRange($min, $max)
     {
         $min = rtrim(rtrim(number_format((float)$min, 2, '.', ''), '0'), '.');
@@ -284,7 +321,10 @@ class TmLevel extends Base
     }
 
     /**
-     * 校验启用等级区间不重叠（按分数轴）
+     * 校验启用等级分值区间不重叠（按分数轴，允许相邻首尾相接）。
+     *
+     * @param array $rows 待校验的等级阈值行
+     * @return string 校验通过返回空字符串，失败返回错误提示
      */
     private function validateRanges(array $rows)
     {

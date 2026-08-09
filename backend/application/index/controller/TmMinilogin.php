@@ -12,6 +12,11 @@ class TmMinilogin extends MiniBase
 {
     protected $needLogin = false;
 
+    /**
+     * 微信小程序登录 API（POST）：用 code 换取 open_id 并签发 JWT。
+     *
+     * @return \think\response\Json 返回 token 及微信用户基本信息
+     */
     public function login()
     {
         $req = Request::instance();
@@ -64,7 +69,11 @@ class TmMinilogin extends MiniBase
     }
 
     /**
-     * @return array [ok, openId, unionId, err]
+     * 调用微信 jscode2session 接口解析 open_id。
+     * 未配置 appid/secret 且开启 dev_login 时，用 code 生成模拟 open_id。
+     *
+     * @param string $code 小程序 wx.login 返回的临时 code
+     * @return array [ok, openId, unionId, err] 成功时 err 为空串
      */
     private function resolveOpenId($code)
     {
@@ -97,6 +106,12 @@ class TmMinilogin extends MiniBase
         return [true, $json['openid'], $union, ''];
     }
 
+    /**
+     * 发起 HTTP GET 请求（优先 curl，回退 file_get_contents）。
+     *
+     * @param string $url 请求地址
+     * @return string 响应正文，失败时可能为空串
+     */
     private function httpGet($url)
     {
         if (function_exists('curl_init')) {

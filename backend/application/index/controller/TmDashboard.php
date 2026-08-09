@@ -8,20 +8,33 @@ use think\Request;
 
 class TmDashboard extends Base
 {
+    /**
+     * 为看板页面注入批次与组织筛选项。
+     *
+     * @return void
+     */
     private function assignFilters()
     {
         $this->assign('batches', DashboardService::listBatchesWithResult());
         $this->assign('orgs', (new OrgModel())->getSelectOptions());
     }
 
-    /** 成熟度看板 */
+    /**
+     * 成熟度看板页面。
+     *
+     * @return mixed 渲染 tm_dashboard/index 视图
+     */
     public function index()
     {
         $this->assignFilters();
         return $this->fetch('tm_dashboard/index');
     }
 
-    /** 成长趋势 */
+    /**
+     * 成长趋势页面。
+     *
+     * @return mixed 渲染 tm_dashboard/trend 视图
+     */
     public function trend()
     {
         $this->assignFilters();
@@ -35,13 +48,22 @@ class TmDashboard extends Base
         return $this->fetch('tm_dashboard/trend');
     }
 
-    /** 班组排行榜 */
+    /**
+     * 班组排行榜页面。
+     *
+     * @return mixed 渲染 tm_dashboard/rank 视图
+     */
     public function rank()
     {
         $this->assignFilters();
         return $this->fetch('tm_dashboard/rank');
     }
 
+    /**
+     * 成熟度等级分布 API（按批次、组织筛选）。
+     *
+     * @return \think\response\Json 返回各等级班组数量、均分等统计 JSON
+     */
     public function levelDist()
     {
         $req = Request::instance();
@@ -51,6 +73,11 @@ class TmDashboard extends Base
         return json(DefaultResponse(0, true, 'ok', $data));
     }
 
+    /**
+     * 班组成长趋势数据 API（多班组得分走势）。
+     *
+     * @return \think\response\Json 返回趋势折线图所需数据
+     */
     public function trendData()
     {
         $req = Request::instance();
@@ -64,6 +91,11 @@ class TmDashboard extends Base
         return json(DefaultResponse(0, true, 'ok', $data));
     }
 
+    /**
+     * 班组排行榜数据 API。
+     *
+     * @return \think\response\Json 返回指定批次/组织下的排行列表
+     */
     public function rankData()
     {
         $req = Request::instance();
@@ -74,6 +106,11 @@ class TmDashboard extends Base
         return json(DefaultResponse(0, true, 'ok', $data));
     }
 
+    /**
+     * 导出班组排行榜 Excel 文件。
+     *
+     * @return void|\think\response\Json 无数据时返回 JSON 错误，否则直接下载 xls
+     */
     public function exportRank()
     {
         $req = Request::instance();

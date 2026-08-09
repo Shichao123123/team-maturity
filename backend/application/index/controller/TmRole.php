@@ -7,11 +7,21 @@ use think\Request;
 
 class TmRole extends Base
 {
+    /**
+     * 角色管理页。
+     *
+     * @return mixed 渲染 tm_role/index 视图
+     */
     public function index()
     {
         return $this->fetch('tm_role/index');
     }
 
+    /**
+     * 角色分页列表 API（含关联管理员数、权限数）。
+     *
+     * @return \think\response\Json Layui 分页格式的角色列表
+     */
     public function getList()
     {
         $req = Request::instance();
@@ -49,6 +59,11 @@ class TmRole extends Base
         return json(DefaultResponseList(0, $count, 'ok', $list));
     }
 
+    /**
+     * 新增或编辑角色 API。
+     *
+     * @return \think\response\Json 保存成功时返回 id（新增）或提示信息
+     */
     public function save()
     {
         $req = Request::instance();
@@ -90,6 +105,11 @@ class TmRole extends Base
         return json(DefaultResponse(0, true, '角色已新增', ['id' => $newId]));
     }
 
+    /**
+     * 删除角色 API（超级管理员角色及仍有管理员的角色不可删）。
+     *
+     * @return \think\response\Json 删除结果
+     */
     public function delete()
     {
         $id = (int)Request::instance()->param('id', 0);
@@ -110,7 +130,9 @@ class TmRole extends Base
     }
 
     /**
-     * 权限树（layui tree 格式）
+     * 权限树 API（layui tree 格式，含角色已勾选状态）。
+     *
+     * @return \think\response\Json 返回权限树节点列表
      */
     public function powerTree()
     {
@@ -125,6 +147,11 @@ class TmRole extends Base
         return json(DefaultResponse(0, true, 'ok', $tree));
     }
 
+    /**
+     * 保存角色菜单权限 API（自动补全父级权限）。
+     *
+     * @return \think\response\Json 保存结果
+     */
     public function savePowers()
     {
         $req = Request::instance();
@@ -190,6 +217,14 @@ class TmRole extends Base
         return json(DefaultResponse(0, true, '权限已保存'));
     }
 
+    /**
+     * 递归构建权限树（layui tree 节点格式）。
+     *
+     * @param array $rows     全部权限行
+     * @param int   $parentId 父级权限 id
+     * @param array $checked  已勾选的权限 id 列表
+     * @return array 含 children 与 checked 状态的树形数组
+     */
     private function buildPowerTree($rows, $parentId, $checked)
     {
         $tree = [];
