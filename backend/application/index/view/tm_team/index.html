@@ -18,7 +18,7 @@
                     </select>
                 </div>
                 <div class="layui-inline">
-                    <input type="text" name="keyword" placeholder="班组名称" class="layui-input">
+                    <input type="text" name="keyword" placeholder="班组名称（输入即筛选）" class="layui-input">
                 </div>
                 <div class="layui-inline">
                     <button type="button" class="pear-btn pear-btn-md" id="btnAdd">新增</button>
@@ -79,6 +79,7 @@
 <script>
 layui.use(['table','form','jquery','layer'], function(){
     var table = layui.table, form = layui.form, $ = layui.jquery, layer = layui.layer;
+    form.render();
     function reloadFilter(){
         table.reload('dataTable', {where: form.val('filterForm') || {}, page:{curr:1}});
     }
