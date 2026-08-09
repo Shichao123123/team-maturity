@@ -233,7 +233,7 @@ class TmMember extends Base
             return json(DefaultResponse(400, false, '文件无有效数据行'));
         }
         $adminId = isset($this->currentAdmin['id']) ? $this->currentAdmin['id'] : 0;
-        $result = ImportService::importMembers($rows, $adminId);
+        $result = ImportService::importMembers($rows, $adminId, $pathOrMsg);
         OpLogService::write('import', 'member', isset($result['job_id']) ? $result['job_id'] : null, $result);
         $msg = "导入完成：成功 {$result['success_cnt']}，失败 {$result['fail_cnt']}";
         return json(DefaultResponse(0, true, $msg, $result));

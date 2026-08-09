@@ -27,7 +27,20 @@ class ExcelHelper
     public static function readAssoc($filePath)
     {
         self::ensureAutoload();
-        $excel = \PHPExcel_IOFactory::load($filePath);
+        // PHPExcel 已停维；解析前关闭外部实体，降低 xlsx/XML XXE 风险
+        $prevEntityLoader = null;
+        if (function_exists('libxml_disable_entity_loader')) {
+            $prevEntityLoader = libxml_disable_entity_loader(true);
+        }
+        $prevLibxml = libxml_use_internal_errors(true);
+        try {
+            $excel = \PHPExcel_IOFactory::load($filePath);
+        } finally {
+            libxml_use_internal_errors($prevLibxml);
+            if (function_exists('libxml_disable_entity_loader') && $prevEntityLoader !== null) {
+                libxml_disable_entity_loader($prevEntityLoader);
+            }
+        }
         $sheet = $excel->getActiveSheet();
         $data = $sheet->toArray(null, true, true, false);
         if (empty($data)) {

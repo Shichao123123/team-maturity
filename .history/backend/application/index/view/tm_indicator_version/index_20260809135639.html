@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+    {include file="common/meta" /}
+    {include file="common/css" /}
+</head>
+<body class="pear-container">
+<div class="layui-card">
+    <div class="layui-card-body">
+        <div style="margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnAdd">从已有版本创建草稿</button>
+            <span style="color:#64748b;font-size:12px;">草稿 = 完整复制源题库，再增删改题目；指标树随源版本带入，不可改结构</span>
+        </div>
+        <table id="dataTable" lay-filter="dataTable"></table>
+    </div>
+</div>
+
+<script type="text/html" id="bar">
+    <a class="layui-btn layui-btn-normal layui-btn-xs" lay-event="viewBank">维护题库</a>
+    {{# if(d.can_edit){ }}
+    <a class="layui-btn layui-btn-xs" lay-event="edit">编辑信息</a>
+    <a class="layui-btn layui-btn-warm layui-btn-xs" lay-event="publish">发布</a>
+    {{# } }}
+    {{# if(d.status==1){ }}
+    <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="disable">停用</a>
+    {{# } }}
+
+    <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
+    {{# } }}
+</script>
+
+<script type="text/html" id="editTpl">
+    <form class="layui-form" style="padding:20px;" lay-filter="editForm">
+        <input type="hidden" name="id">
+        <div class="layui-form-item">
+            <label class="layui-form-label">版本名称</label>
+            <div class="layui-input-block">
+                <input type="text" name="name" required lay-verify="required" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">版本号</label>
+            <div class="layui-input-block">
+                <input type="text" name="version_no" required lay-verify="required" class="layui-input" placeholder="如 V1.1">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">抽题策略</label>
+            <div class="layui-input-block">
+                <select name="question_pick_mode">
+                    <option value="random">随机抽一</option>
+                    <option value="first">取首题</option>
+                    <option value="sequential">轮询抽一</option>
+                </select>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">备注</label>
+            <div class="layui-input-block">
+                <input type="text" name="remark" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <div class="layui-input-block">
+                <button class="pear-btn pear-btn-primary" lay-submit lay-filter="saveEdit">保存</button>
+            </div>
+        </div>
+    </form>
+</script>
+
+<script type="text/html" id="copyTpl">
+    <form class="layui-form" style="padding:20px;" lay-filter="copyForm">
+        <div class="layui-form-item">
+            <label class="layui-form-label">源版本</label>
+            <div class="layui-input-block">
+                <select name="source_id" lay-verify="required" lay-filter="sourceId" id="sourceIdSel">
+                    <option value="">请选择要复制的版本</option>
+                </select>
+                <div class="layui-word-aux">将完整复制指标树、题目、选项与赋能措施</div>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">新名称</label>
+            <div class="layui-input-block">
+                <input type="text" name="name" required lay-verify="required" class="layui-input" placeholder="草稿版本名称">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">新版本号</label>
+            <div class="layui-input-block">
+                <input type="text" name="version_no" required lay-verify="required" class="layui-input" placeholder="如 V1.1">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <div class="layui-input-block">
+                <button class="pear-btn pear-btn-primary" lay-submit lay-filter="saveCopy">创建草稿并打开题库</button>
+            </div>
+        </div>
+    </form>
+</script>
+
+<script src="/component/layui/layui.js"></script>
+<script src="/component/pear/pear.js"></script>
+<script>
+layui.use(['table','layer','form','jquery'], function(){
+    var table = layui.table, layer = layui.layer, form = layui.form, $ = layui.jquery;
+    var versionCache = [];
+
+    table.render({
+        elem: '#dataTable',
+        id: 'dataTable',
+        url: '/TmIndicatorVersion/getList',
+        page: true,
+        cols: [[
+            {field:'name', title:'版本名称', minWidth:160},
+            {field:'version_no', title:'版本号', width:120},
+            {field:'status_text', title:'状态', width:90},
+            {field:'pick_mode_text', title:'抽题策略', width:110},
+            {field:'l1_weight_sum', title:'一级权重合计', width:120},
+            {field:'indicator_cnt', title:'指标数', width:90},
+            {field:'question_cnt', title:'题目数', width:90},
+            {field:'published_at', title:'发布时间', width:170},
+            {title:'操作', toolbar:'#bar', width:400, fixed:'right'}
+        ]],
+        done: function(res){
+            if (res && res.data) versionCache = res.data;
+        }
+    });
+
+    function openBank(id, title){
+        var url = '/TmIndicator/index?versionId=' + id;
+        try {
+            if (parent && parent.layui && parent.layui.admin && typeof parent.layui.admin.addTab === 'function') {
+                parent.layui.admin.addTab('tm-bank-' + id, title, url);
+                return;
+            }
+        } catch (e) {}
+        layer.open({ type:2, title:title, area:['95%','92%'], maxmin:true, content:url });
+    }
+
+    function fillSourceOptions($sel, preferredId){
+        $sel.empty().append('<option value="">请选择要复制的版本</option>');
+        var rows = versionCache.slice().sort(function(a,b){ return (b.id||0)-(a.id||0); });
+        // 优先已发布，其次全部
+        rows.sort(function(a,b){
+            var sa = (a.status==1)?0:1, sb = (b.status==1)?0:1;
+            if (sa !== sb) return sa - sb;
+            return (b.id||0)-(a.id||0);
+        });
+        rows.forEach(function(r){
+            var st = r.status_text || '';
+            $sel.append('<option value="'+r.id+'">'+(r.name||'')+'（'+(r.version_no||'')+' · '+st+' · '+ (r.question_cnt||0) +'题）</option>');
+        });
+        if (preferredId) $sel.val(String(preferredId));
+        else if (rows.length) {
+            var pub = rows.filter(function(r){ return r.status==1; })[0];
+            $sel.val(String((pub || rows[0]).id));
+        }
+    }
+
+    function loadAllVersions(cb){
+        $.getJSON('/TmIndicatorVersion/getList', {page:1, limit:200}, function(res){
+            versionCache = (res && res.data) ? res.data : [];
+            if (cb) cb(versionCache);
+        });
+    }
+
+    function openCopyForm(preferredId){
+        loadAllVersions(function(list){
+            if (!list.length) {
+                layer.msg('暂无源版本可复制，请先导入或初始化题库');
+                return;
+            }
+            layer.open({
+                type: 1, title: '从已有版本创建草稿',
+                area: ['560px', '420px'],
+                content: $('#copyTpl').html(),
+                success: function(){
+                    fillSourceOptions($('#sourceIdSel'), preferredId);
+                    form.render(null, 'copyForm');
+                    var src = versionCache.filter(function(r){ return String(r.id) === String($('#sourceIdSel').val()); })[0];
+                    if (src) {
+                        form.val('copyForm', {
+                            source_id: src.id,
+                            name: (src.name || '') + '（草稿）',
+                            version_no: (src.version_no || 'V') + '-draft'
+                        });
+                    }
+                    form.on('select(sourceId)', function(data){
+                        var s = versionCache.filter(function(r){ return String(r.id) === String(data.value); })[0];
+                        if (s) {
+                            $('input[name=name]').val((s.name || '') + '（草稿）');
+                            $('input[name=version_no]').val((s.version_no || 'V') + '-draft');
+                        }
+                    });
+                    form.on('submit(saveCopy)', function(data){
+                        $.post('/TmIndicatorVersion/add', data.field, function(res){
+                            layer.msg(res.msg||'');
+                            if (res.success || res.code===0) {
+                                layer.closeAll();
+                                table.reload('dataTable');
+                                if (res.data && res.data.id) {
+                                    openBank(res.data.id, '题库 - ' + (data.field.name || '新草稿'));
+                                }
+                            }
+                        }, 'json');
+                        return false;
+                    });
+                }
+            });
+        });
+    }
+
+    function openEditForm(row){
+        layer.open({
+            type: 1, title: '编辑版本信息',
+            area: ['520px', '420px'],
+            content: $('#editTpl').html(),
+            success: function(){
+                form.render(null, 'editForm');
+                form.val('editForm', {
+                    id: row.id,
+                    name: row.name,
+                    version_no: row.version_no,
+                    question_pick_mode: row.question_pick_mode || 'random',
+                    remark: row.remark || ''
+                });
+                form.on('submit(saveEdit)', function(data){
+                    $.post('/TmIndicatorVersion/edit', data.field, function(res){
+                        layer.msg(res.msg||'');
+                        if (res.success || res.code===0) {
+                            layer.closeAll();
+                            table.reload('dataTable');
+                        }
+                    }, 'json');
+                    return false;
+                });
+            }
+        });
+    }
+
+    $('#btnAdd').on('click', function(){ openCopyForm(null); });
+
+    table.on('tool(dataTable)', function(obj){
+        var d = obj.data;
+        if (obj.event === 'viewBank') {
+            openBank(d.id, '题库 - ' + (d.name || d.version_no || ''));
+        }
+        if (obj.event === 'edit') openEditForm(d);
+        if (obj.event === 'publish') {
+            $.getJSON('/TmIndicatorVersion/validatePublish', {id: d.id}, function(vres){
+                var errs = (vres.data && vres.data.errors) || [];
+                var tip = errs.length
+                    ? ('发布前校验未通过：<br>' + errs.map(function(e){ return '· '+e; }).join('<br>'))
+                    : '确认发布该版本？发布后不可再改题目，需再复制新草稿修改。';
+                if (errs.length) {
+                    layer.alert(tip, {title:'无法发布'});
+                    return;
+                }
+                layer.confirm(tip, function(i){
+                    layer.close(i);
+                    $.post('/TmIndicatorVersion/publish', {id: d.id}, function(res){
+                        layer.msg(res.msg||'');
+                        if (res.success || res.code===0) table.reload('dataTable');
+                    }, 'json');
+                });
+            });
+        }
+        if (obj.event === 'disable') {
+            layer.confirm('确认停用该版本？停用后不可用于新批次开测。', function(i){
+                layer.close(i);
+                $.post('/TmIndicatorVersion/disable', {id: d.id}, function(res){
+                    layer.msg(res.msg||'');
+                    if (res.success || res.code===0) table.reload('dataTable');
+                }, 'json');
+            });
+        }
+        if (obj.event === 'copy') {
+            openCopyForm(d.id);
+        }
+        if (obj.event === 'del') {
+            layer.confirm('确认删除版本「' + (d.name || d.version_no) + '」？将同时删除其指标树与全部题目，且不可恢复。', function(i){
+                layer.close(i);
+                $.post('/TmIndicatorVersion/delete', {id: d.id}, function(res){
+                    layer.msg(res.msg||'');
+                    if (res.success || res.code===0) table.reload('dataTable');
+                }, 'json');
+            });
+        }
+    });
+});
+</script>
+</body>
+</html>

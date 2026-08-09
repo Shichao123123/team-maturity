@@ -158,13 +158,14 @@ class ImportService
     /**
      * 批量导入组织：按编码与上级关系多轮解析，同名更新、否则新增。
      *
-     * @param array $rows    关联数组行（组织编码、组织名称、上级组织编码等列）
-     * @param int   $adminId 操作管理员 ID
+     * @param array  $rows     关联数组行（组织编码、组织名称、上级组织编码等列）
+     * @param int    $adminId  操作管理员 ID
+     * @param string $filePath 上传文件本地路径，写入导入任务 file_path
      * @return array finishJob 返回的任务结果摘要
      */
-    public static function importOrgs($rows, $adminId)
+    public static function importOrgs($rows, $adminId, $filePath = 'upload')
     {
-        $jobId = self::beginJob('org', 'upload', $adminId);
+        $jobId = self::beginJob('org', $filePath ?: 'upload', $adminId);
         $errors = [];
         $success = 0;
         $codeMap = []; // code => id
@@ -259,13 +260,14 @@ class ImportService
     /**
      * 批量导入班组：按班组名称 + 所属组织名称匹配，存在则更新状态。
      *
-     * @param array $rows    关联数组行（班组名称、所属组织等列）
-     * @param int   $adminId 操作管理员 ID
+     * @param array  $rows     关联数组行（班组名称、所属组织等列）
+     * @param int    $adminId  操作管理员 ID
+     * @param string $filePath 上传文件本地路径，写入导入任务 file_path
      * @return array finishJob 返回的任务结果摘要
      */
-    public static function importTeams($rows, $adminId)
+    public static function importTeams($rows, $adminId, $filePath = 'upload')
     {
-        $jobId = self::beginJob('team', 'upload', $adminId);
+        $jobId = self::beginJob('team', $filePath ?: 'upload', $adminId);
         $errors = [];
         $success = 0;
 
@@ -317,13 +319,14 @@ class ImportService
     /**
      * 批量导入成员：按手机号唯一，校验格式与班组存在性。
      *
-     * @param array $rows    关联数组行（姓名、手机号、所属班组、角色等列）
-     * @param int   $adminId 操作管理员 ID
+     * @param array  $rows     关联数组行（姓名、手机号、所属班组、角色等列）
+     * @param int    $adminId  操作管理员 ID
+     * @param string $filePath 上传文件本地路径，写入导入任务 file_path
      * @return array finishJob 返回的任务结果摘要
      */
-    public static function importMembers($rows, $adminId)
+    public static function importMembers($rows, $adminId, $filePath = 'upload')
     {
-        $jobId = self::beginJob('member', 'upload', $adminId);
+        $jobId = self::beginJob('member', $filePath ?: 'upload', $adminId);
         $errors = [];
         $success = 0;
 

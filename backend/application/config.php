@@ -1,7 +1,26 @@
 <?php
 
+// 敏感项优先环境变量：TM_APP_DEBUG / TM_JWT_SECRET / TM_COOKIE_SECURE
+$tmAppDebugEnv = getenv('TM_APP_DEBUG');
+$tmAppDebug = ($tmAppDebugEnv === false || $tmAppDebugEnv === '')
+    ? true
+    : filter_var($tmAppDebugEnv, FILTER_VALIDATE_BOOLEAN);
+$tmJwtSecret = getenv('TM_JWT_SECRET');
+if ($tmJwtSecret === false || $tmJwtSecret === '') {
+    $tmJwtSecret = 'tm_mini_dev_secret_change_me';
+}
+$tmCookieSecureEnv = getenv('TM_COOKIE_SECURE');
+if ($tmCookieSecureEnv !== false && $tmCookieSecureEnv !== '') {
+    $tmCookieSecure = filter_var($tmCookieSecureEnv, FILTER_VALIDATE_BOOLEAN);
+} else {
+    $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+    $https = $https || (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443);
+    $https = $https || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+    $tmCookieSecure = $https;
+}
+
 return [
-    'app_debug'              => true,
+    'app_debug'              => $tmAppDebug,
     'app_trace'              => false,
     'app_status'             => '',
     'app_multi_module'       => true,
@@ -87,8 +106,9 @@ return [
         'expire'    => 0,
         'path'      => '/',
         'domain'    => '',
-        'secure'    => false,
-        'httponly'  => '',
+        // HTTPS 下自动 true；可用 TM_COOKIE_SECURE=0/1 强制
+        'secure'    => $tmCookieSecure,
+        'httponly'  => true,
         'setcookie' => true,
     ],
 
@@ -114,10 +134,11 @@ return [
 
     // 小程序：扫码自助登记（选班组+姓名入库），不依赖预导人员
     'mini' => [
-        'jwt_secret' => 'tm_mini_dev_secret_change_me',
+        // 上线务必设置环境变量 TM_JWT_SECRET
+        'jwt_secret' => $tmJwtSecret,
         'jwt_ttl'    => 604800,
-        'wx_appid'   => '',
-        'wx_secret'  => '',
+        'wx_appid'   => (getenv('TM_WX_APPID') !== false && getenv('TM_WX_APPID') !== '') ? getenv('TM_WX_APPID') : '',
+        'wx_secret'  => (getenv('TM_WX_SECRET') !== false && getenv('TM_WX_SECRET') !== '') ? getenv('TM_WX_SECRET') : '',
         // 生产必须为 false；仅本地联调且未配微信时，可临时改为 true（用 code 模拟 open_id）
         'dev_login'  => false,
         // PC 批次二维码内容前缀（小程序页面路径）；扫码后带 batch_id

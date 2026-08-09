@@ -106,6 +106,8 @@ class TmIndicator extends Base
         unset($row);
         $tree = $this->buildTree($rows, 0);
         $this->sumQuestionCnt($tree);
+        $this->sumScoreTotal($tree);
+        $this->decorateTreeTitles($tree);
         return json(DefaultResponse(0, true, 'ok', $tree));
     }
 
@@ -244,6 +246,35 @@ class TmIndicator extends Base
     }
 
     /**
+     * 单独更新选项权重 API（POST）。
+     * 参数：version_id、option_id、score_ratio（0～1，前端可称「权重」）。
+     *
+     * @return \think\response\Json
+     */
+    public function saveOptionWeight()
+    {
+        $req = Request::instance();
+        if (!$req->isPost()) {
+            return json(DefaultResponse(405, false, 'method not allowed'));
+        }
+        $versionId = (int)$req->param('version_id', 0);
+        $optionId = (int)$req->param('option_id', 0);
+        $ratio = $req->param('score_ratio', $req->param('weight', 0));
+        list($ok, $msg) = IndicatorService::updateOptionWeight($versionId, $optionId, $ratio);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+        OpLogService::write('option', 'weight', $optionId, [
+            'version_id'  => $versionId,
+            'score_ratio' => (float)$ratio,
+        ]);
+        return json(DefaultResponse(0, true, $msg, [
+            'option_id'   => $optionId,
+            'score_ratio' => (float)$ratio,
+        ]));
+    }
+
+    /**
      * 删除题目及其选项。
      *
      * @return \think\response\Json
@@ -281,7 +312,7 @@ class TmIndicator extends Base
     }
 
     /**
-     * 将扁平指标行组装为树；标题附带权重或题数提示。
+     * 将扁平指标行组装为树（标题在汇总后 decorateTreeTitles 生成）。
      *
      * @param array $rows     指标行
      * @param int   $parentId 父节点 ID
@@ -295,11 +326,7 @@ class TmIndicator extends Base
                 continue;
             }
             $node = $row;
-            $node['title'] = $row['name'] . (isset($row['question_cnt']) && (int)$row['level_no'] === 3
-                ? ('（' . (int)$row['question_cnt'] . '题）') : '');
-            if ((int)$row['level_no'] < 3 && isset($row['weight'])) {
-                $node['title'] = $row['name'] . ' [' . rtrim(rtrim(number_format((float)$row['weight'], 2, '.', ''), '0'), '.') . ']';
-            }
+            $node['title'] = $row['name'];
             $node['children'] = $this->buildTree($rows, $row['id']);
             $tree[] = $node;
         }
@@ -326,5 +353,60 @@ class TmIndicator extends Base
         }
         unset($n);
         return $sum;
+    }
+
+    /**
+     * 递归汇总满分：三级=自身权重（题目满分），一/二级=下级合计。
+     *
+     * @param array $nodes 树节点（引用）
+     * @return float 本层合计满分
+     */
+    private function sumScoreTotal(&$nodes)
+    {
+        $sum = 0.0;
+        foreach ($nodes as &$n) {
+            $levelNo = isset($n['level_no']) ? (int)$n['level_no'] : 0;
+            if ($levelNo === 3) {
+                $n['score_total'] = isset($n['weight']) ? (float)$n['weight'] : 0.0;
+            } else {
+                $childSum = 0.0;
+                if (!empty($n['children'])) {
+                    $childSum = $this->sumScoreTotal($n['children']);
+                }
+                $n['score_total'] = $childSum;
+            }
+            $sum += (float)$n['score_total'];
+        }
+        unset($n);
+        return $sum;
+    }
+
+    /**
+     * 格式化树节点标题：各级展示 [满分]，三级额外展示题数。
+     *
+     * @param array $nodes 树节点（引用）
+     * @return void
+     */
+    private function decorateTreeTitles(&$nodes)
+    {
+        foreach ($nodes as &$n) {
+            $name = isset($n['name']) ? $n['name'] : '';
+            $score = isset($n['score_total']) ? (float)$n['score_total'] : 0.0;
+            $w = rtrim(rtrim(number_format($score, 2, '.', ''), '0'), '.');
+            if ($w === '') {
+                $w = '0';
+            }
+            $levelNo = isset($n['level_no']) ? (int)$n['level_no'] : 0;
+            if ($levelNo === 3) {
+                $qCnt = isset($n['question_cnt']) ? (int)$n['question_cnt'] : 0;
+                $n['title'] = $name . ' [' . $w . ']（' . $qCnt . '题）';
+            } else {
+                $n['title'] = $name . ' [' . $w . ']';
+            }
+            if (!empty($n['children'])) {
+                $this->decorateTreeTitles($n['children']);
+            }
+        }
+        unset($n);
     }
 }

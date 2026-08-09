@@ -127,7 +127,11 @@ class IndicatorService
     }
 
     /**
-     * 发布前完整校验：一级权重、三级指标、抽题规则、题目选项数量。
+     * 发布前完整校验：权重口径（与算分一致）、三级指标、抽题规则、题目选项数量。
+     *
+     * 算分使用三级指标 weight 直接相乘累加，故必须以三级权重合计 100 为准；
+     * 同时校验一级合计 100，以及各一级下挂三级权重合计等于该一级权重。
+     * （二级权重在现有题库中可为 0，不作父子等权强制。）
      *
      * @param int $versionId 版本 ID
      * @return array string[] 错误信息列表，空数组表示通过
@@ -137,7 +141,17 @@ class IndicatorService
         $errors = [];
         $versionId = (int)$versionId;
 
-        // 一级指标启用项权重之和须为 100
+        // 三级指标权重之和须为 100（与 ScoreService 百分制口径一致）
+        $l3Sum = (float)Db::name('tm_indicator')
+            ->where('version_id', $versionId)
+            ->where('level_no', 3)
+            ->where('status', 1)
+            ->sum('weight');
+        if (abs($l3Sum - 100) > 0.05) {
+            $errors[] = '三级指标权重之和应为 100（当前 ' . round($l3Sum, 2) . '，算分按三级权重累加）';
+        }
+
+        // 一级指标启用项权重之和须为 100（展示/结构口径）
         $l1Sum = (float)Db::name('tm_indicator')
             ->where('version_id', $versionId)
             ->where('level_no', 1)
@@ -145,6 +159,34 @@ class IndicatorService
             ->sum('weight');
         if (abs($l1Sum - 100) > 0.05) {
             $errors[] = '一级指标权重之和应为 100（当前 ' . round($l1Sum, 2) . '）';
+        }
+
+        // 各一级下：子孙三级权重合计应等于该一级权重
+        $l1List = Db::name('tm_indicator')
+            ->where('version_id', $versionId)
+            ->where('level_no', 1)
+            ->where('status', 1)
+            ->field('id, name, weight')
+            ->select();
+        foreach ($l1List as $l1) {
+            $l2Ids = Db::name('tm_indicator')
+                ->where('version_id', $versionId)
+                ->where('parent_id', (int)$l1['id'])
+                ->where('status', 1)
+                ->column('id');
+            $childL3Sum = 0.0;
+            if (!empty($l2Ids)) {
+                $childL3Sum = (float)Db::name('tm_indicator')
+                    ->where('version_id', $versionId)
+                    ->where('parent_id', 'in', $l2Ids)
+                    ->where('level_no', 3)
+                    ->where('status', 1)
+                    ->sum('weight');
+            }
+            if (abs($childL3Sum - (float)$l1['weight']) > 0.05) {
+                $errors[] = '一级「' . $l1['name'] . '」权重为 ' . round((float)$l1['weight'], 2)
+                    . '，其下三级权重合计为 ' . round($childL3Sum, 2);
+            }
         }
 
         // 至少存在一个启用的三级指标
@@ -226,6 +268,54 @@ class IndicatorService
             'updated_at' => tmNow(),
         ]);
         return [true, '已停用'];
+    }
+
+    /**
+     * 删除指标版本（草稿或未被批次引用的停用版）；级联清理指标/题目/选项/措施。
+     * 已发布版本不可删（请先停用）；有批次引用时不可删。
+     *
+     * @param int $versionId 版本 ID
+     * @return array [bool ok, string msg]
+     */
+    public static function deleteVersion($versionId)
+    {
+        $versionId = (int)$versionId;
+        $ver = self::findVersion($versionId);
+        if (!$ver) {
+            return [false, '版本不存在'];
+        }
+        if ((int)$ver['status'] === 1) {
+            return [false, '已发布版本不可删除，请先停用'];
+        }
+        $batchCnt = (int)Db::name('tm_batch')
+            ->where('version_id', $versionId)
+            ->whereNull('deleted_at')
+            ->count();
+        if ($batchCnt > 0) {
+            return [false, '该版本已被 ' . $batchCnt . ' 个批次引用，无法删除'];
+        }
+
+        Db::startTrans();
+        try {
+            $qIds = Db::name('tm_question')->where('version_id', $versionId)->column('id');
+            if (!empty($qIds)) {
+                Db::name('tm_option')->where('question_id', 'in', $qIds)->delete();
+            }
+            Db::name('tm_question')->where('version_id', $versionId)->delete();
+
+            $indIds = Db::name('tm_indicator')->where('version_id', $versionId)->column('id');
+            if (!empty($indIds)) {
+                Db::name('tm_empower_measure')->where('indicator_id', 'in', $indIds)->delete();
+            }
+            Db::name('tm_indicator')->where('version_id', $versionId)->delete();
+            Db::name('tm_indicator_version')->where('id', $versionId)->delete();
+
+            Db::commit();
+            return [true, '已删除'];
+        } catch (\Exception $e) {
+            Db::rollback();
+            return [false, '删除失败：' . $e->getMessage()];
+        }
     }
 
     /**
@@ -348,76 +438,20 @@ class IndicatorService
     }
 
     /**
-     * 新增或更新指标节点（仅草稿版本可写）。
+     * 新增或更新指标节点。
+     * 产品约定：一/二/三级指标结构固定（由复制版本带入），草稿仅在三级下维护题目。
      *
      * @param int   $versionId 版本 ID
      * @param array $data 指标字段：id?、parent_id、name、code?、weight、sort_no、status?
-     * @return array [bool ok, string msg, int id] 成功时 id 为指标 ID，失败时为 0
+     * @return array [bool ok, string msg, int id]
      */
     public static function saveIndicator($versionId, array $data)
     {
-        list($ok, $msg) = self::assertDraft($versionId);
-        if (!$ok) {
-            return [$ok, $msg, 0];
-        }
-        $id = isset($data['id']) ? (int)$data['id'] : 0;
-        $parentId = isset($data['parent_id']) ? (int)$data['parent_id'] : 0;
-        $name = isset($data['name']) ? trim($data['name']) : '';
-        $code = isset($data['code']) ? trim($data['code']) : '';
-        $weight = isset($data['weight']) ? (float)$data['weight'] : 0;
-        $sortNo = isset($data['sort_no']) ? (int)$data['sort_no'] : 0;
-        $status = isset($data['status']) ? (int)$data['status'] : 1;
-        if ($name === '') {
-            return [false, '请填写指标名称', 0];
-        }
-
-        $levelNo = 1;
-        if ($parentId > 0) {
-            $parent = Db::name('tm_indicator')
-                ->where('id', $parentId)
-                ->where('version_id', (int)$versionId)
-                ->find();
-            if (!$parent) {
-                return [false, '上级指标不存在', 0];
-            }
-            $levelNo = (int)$parent['level_no'] + 1;
-            if ($levelNo > 3) {
-                return [false, '最多三级指标', 0];
-            }
-        }
-
-        $now = tmNow();
-        $row = [
-            'parent_id'  => $parentId,
-            'level_no'   => $levelNo,
-            'code'       => $code !== '' ? $code : null,
-            'name'       => $name,
-            'weight'     => $weight,
-            'sort_no'    => $sortNo,
-            'status'     => $status ? 1 : 0,
-            'updated_at' => $now,
-        ];
-        if ($id > 0) {
-            $exist = Db::name('tm_indicator')
-                ->where('id', $id)
-                ->where('version_id', (int)$versionId)
-                ->find();
-            if (!$exist) {
-                return [false, '指标不存在', 0];
-            }
-            // 不允许改层级结构到非法；保持 level_no 按 parent 重算
-            Db::name('tm_indicator')->where('id', $id)->update($row);
-            return [true, '保存成功', $id];
-        }
-        $row['version_id'] = (int)$versionId;
-        $row['created_at'] = $now;
-        unset($row['updated_at']);
-        $newId = (int)Db::name('tm_indicator')->insertGetId($row);
-        return [true, '添加成功', $newId];
+        return [false, '指标树结构固定，不可新增或修改指标；请在三级指标下维护题目', 0];
     }
 
     /**
-     * 删除指标节点（须无下级指标、无题目；同步删除关联赋能措施）。
+     * 删除指标节点（结构固定，接口保留但拒绝）。
      *
      * @param int $versionId   版本 ID
      * @param int $indicatorId 指标 ID
@@ -425,28 +459,7 @@ class IndicatorService
      */
     public static function deleteIndicator($versionId, $indicatorId)
     {
-        list($ok, $msg) = self::assertDraft($versionId);
-        if (!$ok) {
-            return [$ok, $msg];
-        }
-        $ind = Db::name('tm_indicator')
-            ->where('id', (int)$indicatorId)
-            ->where('version_id', (int)$versionId)
-            ->find();
-        if (!$ind) {
-            return [false, '指标不存在'];
-        }
-        $childCnt = (int)Db::name('tm_indicator')->where('parent_id', (int)$indicatorId)->count();
-        if ($childCnt > 0) {
-            return [false, '请先删除下级指标'];
-        }
-        $qCnt = (int)Db::name('tm_question')->where('indicator_id', (int)$indicatorId)->count();
-        if ($qCnt > 0) {
-            return [false, '请先删除该指标下的题目'];
-        }
-        Db::name('tm_empower_measure')->where('indicator_id', (int)$indicatorId)->delete();
-        Db::name('tm_indicator')->where('id', (int)$indicatorId)->delete();
-        return [true, '已删除'];
+        return [false, '指标树结构固定，不可删除指标；请在三级指标下维护题目'];
     }
 
     /**
@@ -576,6 +589,43 @@ class IndicatorService
             Db::rollback();
             return [false, $e->getMessage(), 0];
         }
+    }
+
+    /**
+     * 单独更新选项权重（score_ratio，仅草稿版本可写）。
+     *
+     * @param int   $versionId  版本 ID
+     * @param int   $optionId   选项 ID
+     * @param float $scoreRatio 权重，范围 0～1
+     * @return array [bool ok, string msg]
+     */
+    public static function updateOptionWeight($versionId, $optionId, $scoreRatio)
+    {
+        list($ok, $msg) = self::assertDraft($versionId);
+        if (!$ok) {
+            return [$ok, $msg];
+        }
+        $optionId = (int)$optionId;
+        $ratio = (float)$scoreRatio;
+        if ($optionId <= 0) {
+            return [false, '选项无效'];
+        }
+        if ($ratio < 0 || $ratio > 1) {
+            return [false, '选项权重须在 0～1 之间'];
+        }
+        $opt = Db::name('tm_option')->alias('o')
+            ->join('tm_question q', 'q.id = o.question_id')
+            ->where('o.id', $optionId)
+            ->where('q.version_id', (int)$versionId)
+            ->field('o.id')
+            ->find();
+        if (!$opt) {
+            return [false, '选项不存在或不属于该版本'];
+        }
+        Db::name('tm_option')->where('id', $optionId)->update([
+            'score_ratio' => $ratio,
+        ]);
+        return [true, '权重已更新'];
     }
 
     /**
