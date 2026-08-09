@@ -232,7 +232,8 @@ class MemberModel extends Model
         $levelNames = Db::name('tm_level_threshold')->column('level_name', 'level_code');
         $teamCode = $paper['team_level_code'] ?: '';
 
-        $answers = Db::name('tm_paper_answer')->alias('a')
+        // 先取答卷已作答明细，再按批次快照补齐「每一道题」
+        $answeredRows = Db::name('tm_paper_answer')->alias('a')
             ->join('tm_question q', 'q.id = a.question_id', 'LEFT')
             ->join('tm_option o', 'o.id = a.option_id', 'LEFT')
             ->join('tm_indicator i', 'i.id = a.indicator_id', 'LEFT')
@@ -241,6 +242,92 @@ class MemberModel extends Model
                 q.title as question_title, o.content as option_content, i.name as indicator_name')
             ->order('a.id asc')
             ->select();
+        $answerMap = [];
+        foreach ($answeredRows as $ar) {
+            $answerMap[(int)$ar['question_id']] = $ar;
+        }
+
+        $answers = [];
+        $snap = Db::name('tm_batch_indicator_snap')
+            ->where('batch_id', (int)$paper['batch_id'])
+            ->find();
+        $snapItems = [];
+        if ($snap && !empty($snap['snap_json'])) {
+            $snapJson = json_decode($snap['snap_json'], true);
+            if (is_array($snapJson) && !empty($snapJson['items']) && is_array($snapJson['items'])) {
+                $snapItems = $snapJson['items'];
+            }
+        }
+
+        if (!empty($snapItems)) {
+            $sortNo = 0;
+            foreach ($snapItems as $item) {
+                $sortNo++;
+                $qid = isset($item['question']['id']) ? (int)$item['question']['id'] : 0;
+                $ind = isset($item['indicator']) ? $item['indicator'] : [];
+                $qinfo = isset($item['question']) ? $item['question'] : [];
+                $weight = isset($ind['weight']) ? (float)$ind['weight'] : 0;
+                $row = [
+                    'sort_no'         => $sortNo,
+                    'question_id'     => $qid,
+                    'indicator_id'    => isset($ind['id']) ? (int)$ind['id'] : 0,
+                    'indicator_name'  => isset($ind['name']) ? $ind['name'] : '',
+                    'question_title'  => isset($qinfo['title']) ? $qinfo['title'] : '',
+                    'weight'          => $weight,
+                    'option_id'       => null,
+                    'option_content'  => '未作答',
+                    'score_ratio'     => null,
+                    'item_score'      => null,
+                    'answered_at'     => null,
+                    'is_answered'     => 0,
+                ];
+                if ($qid > 0 && isset($answerMap[$qid])) {
+                    $a = $answerMap[$qid];
+                    $row['option_id'] = (int)$a['option_id'];
+                    $row['option_content'] = $a['option_content'] !== '' && $a['option_content'] !== null
+                        ? $a['option_content'] : ('选项#' . $a['option_id']);
+                    $row['score_ratio'] = $a['score_ratio'];
+                    $row['item_score'] = $a['item_score'];
+                    $row['weight'] = $a['weight'] !== null && $a['weight'] !== '' ? $a['weight'] : $weight;
+                    $row['answered_at'] = $a['answered_at'];
+                    $row['is_answered'] = 1;
+                    if (!empty($a['indicator_name'])) {
+                        $row['indicator_name'] = $a['indicator_name'];
+                    }
+                    if (!empty($a['question_title'])) {
+                        $row['question_title'] = $a['question_title'];
+                    }
+                }
+                $answers[] = $row;
+            }
+        } else {
+            // 无快照时退回仅展示已答明细
+            $sortNo = 0;
+            foreach ($answeredRows as $a) {
+                $sortNo++;
+                $answers[] = [
+                    'sort_no'        => $sortNo,
+                    'question_id'    => (int)$a['question_id'],
+                    'indicator_id'   => (int)$a['indicator_id'],
+                    'indicator_name' => $a['indicator_name'],
+                    'question_title' => $a['question_title'],
+                    'weight'         => $a['weight'],
+                    'option_id'      => (int)$a['option_id'],
+                    'option_content' => $a['option_content'],
+                    'score_ratio'    => $a['score_ratio'],
+                    'item_score'     => $a['item_score'],
+                    'answered_at'    => $a['answered_at'],
+                    'is_answered'    => 1,
+                ];
+            }
+        }
+
+        $answeredCnt = 0;
+        foreach ($answers as $a) {
+            if (!empty($a['is_answered'])) {
+                $answeredCnt++;
+            }
+        }
 
         return [
             'paper' => [
@@ -265,9 +352,12 @@ class MemberModel extends Model
                 'team_submit_cnt'=> $paper['team_submit_cnt'],
                 'scored_at'      => $paper['scored_at'],
                 'weak_indicators'=> $paper['weak_indicator_json'] ? json_decode($paper['weak_indicator_json'], true) : [],
+                'question_cnt'   => count($answers),
+                'answered_cnt'   => $answeredCnt,
             ],
             'answers' => $answers,
-            'answered_cnt' => count($answers),
+            'answered_cnt' => $answeredCnt,
+            'question_cnt' => count($answers),
         ];
     }
 }

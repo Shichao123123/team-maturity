@@ -117,6 +117,7 @@
     <div style="padding:14px 16px 18px;">
         <div class="tip" id="paperDetailMeta"></div>
         <div class="result-hero" id="paperResultHero"></div>
+        <div class="tip" style="font-weight:600;color:#1e293b;margin-top:4px;" id="answerSectionTitle">逐题作答结果</div>
         <div class="result-table-wrap">
             <table id="answerTable" lay-filter="answerTable"></table>
         </div>
@@ -373,22 +374,31 @@ layui.use(['table','form','jquery','layer'], function(){
                         hero += '<div class="result-box" style="grid-column:1/-1;"><div class="label">等级特征</div><div class="sub" style="font-size:13px;line-height:1.6;">' + p.personal_feature + '</div></div>';
                     }
                     layero.find('#paperResultHero').html(hero);
+                    var qcnt = (res.data.question_cnt != null) ? res.data.question_cnt : answers.length;
+                    var acnt = (res.data.answered_cnt != null) ? res.data.answered_cnt : answers.length;
+                    layero.find('#answerSectionTitle').text('逐题作答结果（共 ' + qcnt + ' 题，已答 ' + acnt + ' 题）');
                     setTimeout(function(){
                         table.render({
                             elem: layero.find('#answerTable')[0],
                             id: 'answerTable',
                             data: answers,
                             page: false,
-                            limit: answers.length || 10,
+                            limit: Math.max(answers.length, 10),
                             even: true,
                             cellMinWidth: 70,
                             cols: [[
-                                {type:'numbers', title:'#', width:56, align:'center'},
-                                {field:'indicator_name', title:'指标', width:130, align:'center', templet: function(d){ return d.indicator_name||'—'; }},
+                                {field:'sort_no', title:'题号', width:66, align:'center', templet: function(d){ return d.sort_no || ''; }},
+                                {field:'indicator_name', title:'指标', width:130, templet: function(d){ return d.indicator_name||'—'; }},
                                 {field:'question_title', title:'题目', minWidth:240, templet: function(d){ return d.question_title || ('题目#'+d.question_id); }},
-                                {field:'option_content', title:'作答', width:150, align:'center', templet: function(d){ return d.option_content || ('选项#'+d.option_id); }},
-                                {field:'item_score', title:'得分', width:90, align:'center', templet: function(d){ return fmtScore(d.item_score); }},
-                                {field:'answered_at', title:'作答时间', width:170, align:'center'}
+                                {field:'option_content', title:'所选答案', width:150, align:'center', templet: function(d){
+                                    if (!d.is_answered) return '<span style="color:#94a3b8;">未作答</span>';
+                                    return d.option_content || ('选项#'+d.option_id);
+                                }},
+                                {field:'item_score', title:'得分', width:90, align:'center', templet: function(d){
+                                    return d.is_answered ? fmtScore(d.item_score) : '—';
+                                }},
+                                {field:'weight', title:'满分', width:80, align:'center', templet: function(d){ return fmtScore(d.weight); }},
+                                {field:'answered_at', title:'作答时间', width:170, align:'center', templet: function(d){ return d.answered_at || '—'; }}
                             ]],
                             done: function(){ setTimeout(function(){ table.resize('answerTable'); }, 50); }
                         });
