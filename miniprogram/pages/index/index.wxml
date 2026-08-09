@@ -1,0 +1,69 @@
+<view class="page">
+  <view class="page-bg" aria-hidden="true">
+    <image class="page-bg-img" src="/assets/bg-page.jpg" mode="aspectFill" />
+    <view class="page-bg-mask"></view>
+  </view>
+
+  <view class="page-body">
+    <view class="org-bar">
+      <image class="org-logo" src="/assets/logo.png" mode="aspectFit" />
+    </view>
+
+    <view class="hero-panel">
+      <image class="hero-panel-img" src="/assets/bg-campus-sm.jpg" mode="aspectFill" />
+      <view class="hero-panel-mask"></view>
+      <view class="hero-panel-body">
+        <view class="brand">{{orgShortName}} · {{orgGroup}}</view>
+        <view class="hero-title">{{appName}}</view>
+        <view class="hero-sub">扫码进场 · 现场作答 · 即时查看个人得分</view>
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">当前答卷规则</view>
+      <view class="rule-list">
+        <view class="rule-item" wx:for="{{rules}}" wx:key="index">
+          <text class="rule-no">{{index + 1}}</text>
+          <text class="rule-text">{{item}}</text>
+        </view>
+      </view>
+      <view class="notice-box">
+        <view class="notice-title">注意事项</view>
+        <view class="tip" wx:for="{{notices}}" wx:key="index">· {{item}}</view>
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="row-between" style="margin-bottom: 16rpx;">
+        <view class="card-title" style="margin-bottom: 0;">我的测评</view>
+        <text class="muted" style="font-size: 24rpx;" wx:if="{{!loading}}">共 {{list.length}} 场</text>
+      </view>
+
+      <view wx:if="{{loading}}" class="empty empty-in-card">加载中…</view>
+      <view wx:elif="{{err}}" class="empty empty-in-card">{{err}}</view>
+      <view wx:elif="{{!list.length}}" class="empty empty-in-card">暂无记录，请先扫码进入批次</view>
+
+      <block wx:else>
+        <view
+          class="batch-item"
+          wx:for="{{list}}"
+          wx:key="batch_id"
+          data-item="{{item}}"
+          bindtap="openItem"
+        >
+          <view class="row-between">
+            <view class="batch-name">{{item.name}}</view>
+            <text class="tag {{item.status_class}}">{{item.status_tag}}</text>
+          </view>
+          <view class="batch-meta">
+            <text>{{item.team_name || '未选班组'}}</text>
+            <text class="dot">·</text>
+            <text>个人分 {{item.score_text}}</text>
+          </view>
+        </view>
+      </block>
+    </view>
+
+    <brand-footer />
+  </view>
+</view>

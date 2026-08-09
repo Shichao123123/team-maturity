@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>班组安全成熟度测评系统</title>
+    <title>中钢安环院 · 班组安全成熟度测评</title>
     {include file="common/meta" /}
     {include file="common/css" /}
 </head>
@@ -32,7 +32,7 @@
     <div class="layui-side layui-bg-black">
         <div class="layui-logo">
             <img class="logo">
-            <span>班组成熟度</span>
+            <span>中钢安环院</span>
         </div>
         <div class="layui-side-scroll">
             <div id="sideMenu"></div>
@@ -44,8 +44,8 @@
     </div>
 
     <div class="layui-footer layui-text">
-        <span class="left">班组安全成熟度测评系统</span>
-        <span class="right">PC First · Local Dev</span>
+        <span class="left">中钢安环院 · 班组安全成熟度测评</span>
+        <span class="right">Copyright © 2026 中钢武汉安全环保研究院股份有限公司 版权所有</span>
     </div>
     <div class="pear-cover"></div>
     <div class="loader-main"><div class="loader"></div></div>
@@ -58,16 +58,13 @@
 <script src="/component/layui/layui.js"></script>
 <script src="/component/pear/pear.js"></script>
 <script>
-    layui.use(['admin','jquery','popup'], function() {
+    layui.use(['admin','jquery'], function() {
         var admin = layui.admin;
-        var popup = layui.popup;
         admin.setConfigType("yml");
         admin.setConfigPath("/config/pear.config.yml");
         admin.render();
         admin.logout(function(){
-            popup.success("注销成功", function(){
-                location.href = "/Login";
-            });
+            // 交给链接 /Index/backsys 直接跳转，不弹「注销成功」
             return true;
         });
     });

@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "中钢安环院 · 班组成熟度",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "brand-footer": "/components/brand-footer/brand-footer"
+  }
+}

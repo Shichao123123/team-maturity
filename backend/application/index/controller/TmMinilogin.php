@@ -82,13 +82,22 @@ class TmMinilogin extends MiniBase
         $secret = isset($cfg['wx_secret']) ? trim($cfg['wx_secret']) : '';
         $dev = !empty($cfg['dev_login']);
 
-        if ($appid === '' || $secret === '') {
-            if (!$dev) {
-                return [false, '', '', '未配置微信小程序 appid/secret'];
+        // 本地联调：固定测试 open_id（勿用 wx.login 的 code 哈希，否则每次都是新用户）
+        if ($dev) {
+            $devKey = Request::instance()->param('dev_key', '', 'trim');
+            if ($devKey === '') {
+                $devKey = 'local_tester';
             }
-            // 本地联调：code 即 open_id
-            $openId = 'dev_' . substr(md5($code), 0, 28);
+            // 仅保留安全字符，保证同一测试账号稳定
+            $devKey = preg_replace('/[^a-zA-Z0-9_\-]/', '', $devKey);
+            if ($devKey === '') {
+                $devKey = 'local_tester';
+            }
+            $openId = 'dev_' . $devKey;
             return [true, $openId, '', ''];
+        }
+        if ($appid === '' || $secret === '') {
+            return [false, '', '', '未配置微信小程序 appid/secret'];
         }
 
         $url = 'https://api.weixin.qq.com/sns/jscode2session?appid='

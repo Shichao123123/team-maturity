@@ -4,6 +4,7 @@ namespace app\index\controller;
 use app\index\model\OrgModel;
 use app\index\service\DashboardService;
 use app\index\service\ExcelHelper;
+use app\index\service\PdfHelper;
 use think\Request;
 
 class TmDashboard extends Base
@@ -135,5 +136,190 @@ class TmDashboard extends Base
         }
         $name = '班组排行_' . ($data['batch'] ? preg_replace('/[\\\\\/:*?"<>|]/', '_', $data['batch']['name']) : 'export') . '.xls';
         ExcelHelper::download($name, $headers, $rows);
+    }
+
+    /**
+     * 导出班组排行榜 PDF 文件（含柱状图）。
+     *
+     * @return void|\think\response\Json
+     */
+    public function exportRankPdf()
+    {
+        $req = Request::instance();
+        $batchId = (int)$req->param('batch_id', 0);
+        $orgId = (int)$req->param('org_id', 0);
+        $data = DashboardService::rank($batchId, $orgId, 500);
+        if (empty($data['list'])) {
+            return json(DefaultResponse(400, false, '暂无可导出的排行数据'));
+        }
+        $batchName = $data['batch'] ? $data['batch']['name'] : '排行导出';
+        $chartPath = null;
+        try {
+            $chartPath = \app\index\service\PdfChartHelper::renderRankBars($data['list'], 15);
+        } catch (\Exception $e) {
+            $chartPath = null;
+        }
+        $pdf = PdfHelper::create('数据分析 · 班组排行', $batchName);
+        PdfHelper::writeMeta($pdf, [
+            ['label' => '批次', 'value' => $batchName],
+            ['label' => '上榜班组数', 'value' => (string)count($data['list'])],
+            ['label' => '说明', 'value' => isset($data['tip']) ? $data['tip'] : ''],
+        ]);
+        if ($chartPath) {
+            PdfHelper::writeSection($pdf, '排行图表');
+            PdfHelper::writeImage($pdf, $chartPath, 186);
+        }
+        PdfHelper::writeSection($pdf, '排行明细');
+        $rows = [];
+        foreach ($data['list'] as $r) {
+            $rows[] = [
+                $r['rank_no'],
+                $r['team_name'],
+                $r['org_name'] ?: '—',
+                PdfHelper::fmtScore($r['team_score']),
+                $r['level_name'] ?: '—',
+                $r['submit_cnt'],
+                $r['advice'] ?: '—',
+            ];
+        }
+        PdfHelper::writeTable(
+            $pdf,
+            ['排名', '班组', '所属组织', '得分', '成熟度等级', '提交人数', '管理建议'],
+            $rows,
+            [8, 18, 18, 10, 14, 10, 22]
+        );
+        PdfHelper::cleanupImages($chartPath);
+        PdfHelper::download($pdf, '班组排行_' . PdfHelper::safeFilename($batchName) . '.pdf');
+    }
+
+    /**
+     * 导出成熟度看板 PDF（含等级分布图）。
+     *
+     * @return void|\think\response\Json
+     */
+    public function exportLevelDistPdf()
+    {
+        $req = Request::instance();
+        $batchId = (int)$req->param('batch_id', 0);
+        $orgId = (int)$req->param('org_id', 0);
+        $data = DashboardService::levelDist($batchId, $orgId);
+        if (empty($data['result_team_cnt'])) {
+            return json(DefaultResponse(400, false, '暂无可导出的看板数据'));
+        }
+        $chartPath = null;
+        try {
+            $chartPath = \app\index\service\PdfChartHelper::renderPieLevels(isset($data['levels']) ? $data['levels'] : []);
+        } catch (\Exception $e) {
+            return json(DefaultResponse(500, false, '图表生成失败：' . $e->getMessage()));
+        }
+        $orgName = '';
+        if ($orgId > 0) {
+            $orgName = (string)\think\Db::name('tm_org')->where('id', $orgId)->value('name');
+        }
+        $pdf = PdfHelper::create('数据分析 · 成熟度看板', $data['batch_name'] ?: '');
+        PdfHelper::writeMeta($pdf, [
+            ['label' => '批次', 'value' => $data['batch_name'] ?: '—'],
+            ['label' => '组织', 'value' => $orgName !== '' ? $orgName : '全部组织'],
+            ['label' => '算分时间', 'value' => !empty($data['scored_at']) ? $data['scored_at'] : '—'],
+            ['label' => '统计班组数', 'value' => (string)$data['result_team_cnt']],
+            ['label' => '平均成熟得分', 'value' => PdfHelper::fmtScore($data['avg_score'])],
+            ['label' => '本质安全型', 'value' => (string)$data['essential_cnt']],
+            ['label' => '被动型', 'value' => (string)$data['passive_cnt']],
+        ]);
+        PdfHelper::writeSection($pdf, '等级分布图');
+        PdfHelper::writeImage($pdf, $chartPath, 186);
+
+        PdfHelper::writeSection($pdf, '等级明细清单');
+        $levelRows = [];
+        foreach ($data['levels'] as $lv) {
+            $levelRows[] = [
+                $lv['level_name'],
+                $lv['count'],
+                $lv['percent_text'],
+                isset($lv['advice']) ? $lv['advice'] : '—',
+            ];
+        }
+        PdfHelper::writeTable($pdf, ['等级', '数量', '占比', '管理建议'], $levelRows, [28, 14, 18, 40]);
+
+        PdfHelper::writeSection($pdf, '班组得分清单');
+        $teamRows = [];
+        foreach ($data['teams'] as $i => $t) {
+            $teamRows[] = [
+                $i + 1,
+                $t['team_name'],
+                PdfHelper::fmtScore($t['team_score']),
+                isset($t['level_name']) ? $t['level_name'] : '—',
+            ];
+        }
+        PdfHelper::writeTable($pdf, ['序号', '班组', '得分', '成熟度等级'], $teamRows, [12, 40, 20, 28]);
+        PdfHelper::cleanupImages($chartPath);
+        PdfHelper::download($pdf, '成熟度看板_' . PdfHelper::safeFilename($data['batch_name'] ?: 'export') . '.pdf');
+    }
+
+    /**
+     * 导出成长趋势 PDF（含折线图）。
+     *
+     * @return void|\think\response\Json
+     */
+    public function exportTrendPdf()
+    {
+        $req = Request::instance();
+        $orgId = (int)$req->param('org_id', 0);
+        $teamIds = $req->param('team_ids/a', []);
+        if (empty($teamIds) && $req->param('team_ids', '') !== '') {
+            $raw = $req->param('team_ids', '');
+            $teamIds = is_array($raw) ? $raw : explode(',', $raw);
+        }
+        $data = DashboardService::trend($orgId, $teamIds);
+        if (empty($data['batches']) || empty($data['series'])) {
+            return json(DefaultResponse(400, false, isset($data['tip']) ? $data['tip'] : '暂无可导出的趋势数据'));
+        }
+        $chartPath = null;
+        try {
+            $chartPath = \app\index\service\PdfChartHelper::renderTrendLines($data['batches'], $data['series']);
+        } catch (\Exception $e) {
+            return json(DefaultResponse(500, false, '图表生成失败：' . $e->getMessage()));
+        }
+        $orgName = '';
+        if ($orgId > 0) {
+            $orgName = (string)\think\Db::name('tm_org')->where('id', $orgId)->value('name');
+        }
+        $teamNames = [];
+        foreach ($data['series'] as $s) {
+            $teamNames[] = $s['team_name'];
+        }
+        $pdf = PdfHelper::create('数据分析 · 成长趋势', implode('、', array_slice($teamNames, 0, 4)));
+        PdfHelper::writeMeta($pdf, [
+            ['label' => '组织', 'value' => $orgName !== '' ? $orgName : '全部组织'],
+            ['label' => '班组', 'value' => implode('、', $teamNames)],
+            ['label' => '批次跨度', 'value' => count($data['batches']) . ' 个批次'],
+            ['label' => '说明', 'value' => isset($data['tip']) ? $data['tip'] : ''],
+        ]);
+        PdfHelper::writeSection($pdf, '趋势折线图');
+        PdfHelper::writeImage($pdf, $chartPath, 186);
+
+        PdfHelper::writeSection($pdf, '得分明细');
+        $headers = ['班组'];
+        foreach ($data['batches'] as $b) {
+            $headers[] = $b['batch_name'];
+        }
+        $widths = [18];
+        $rest = 82;
+        $bn = count($data['batches']);
+        $each = $bn > 0 ? round($rest / $bn, 2) : $rest;
+        for ($i = 0; $i < $bn; $i++) {
+            $widths[] = $each;
+        }
+        $rows = [];
+        foreach ($data['series'] as $s) {
+            $row = [$s['team_name']];
+            foreach ($s['scores'] as $sc) {
+                $row[] = ($sc === null || $sc === '') ? '—' : PdfHelper::fmtScore($sc);
+            }
+            $rows[] = $row;
+        }
+        PdfHelper::writeTable($pdf, $headers, $rows, $widths);
+        PdfHelper::cleanupImages($chartPath);
+        PdfHelper::download($pdf, '成长趋势_' . PdfHelper::safeFilename(implode('_', array_slice($teamNames, 0, 3))) . '.pdf');
     }
 }

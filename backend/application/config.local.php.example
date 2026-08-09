@@ -1,0 +1,10 @@
+<?php
+/**
+ * 复制本文件为 config.local.php 后填写真实密钥（config.local.php 不会进 Git）。
+ */
+return [
+    'wx_appid'  => 'wxc23577d86aaf957c',
+    'wx_secret' => '在此填写 AppSecret',
+    // 本地联调 true；上线务必 false
+    'dev_login' => true,
+];

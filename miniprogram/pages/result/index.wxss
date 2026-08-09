@@ -1,0 +1,173 @@
+.score-card {
+  text-align: center;
+  padding: 40rpx 28rpx;
+}
+
+.level-pill {
+  display: inline-block;
+  margin-top: 16rpx;
+  padding: 8rpx 24rpx;
+  border-radius: 999rpx;
+  background: rgba(14, 124, 102, 0.12);
+  color: var(--teal);
+  font-weight: 650;
+  font-size: 26rpx;
+}
+
+.stat-row {
+  margin-top: 18rpx;
+  font-size: 24rpx;
+  color: var(--muted);
+}
+
+.stat-row .dot {
+  margin: 0 10rpx;
+}
+
+.team-line {
+  margin-top: 12rpx;
+  color: var(--muted);
+  font-size: 26rpx;
+}
+
+.card-head {
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.toggle {
+  font-size: 24rpx;
+  color: var(--teal);
+}
+
+.answer-item {
+  padding: 20rpx 0;
+  border-top: 1rpx solid #e8eef2;
+}
+
+.answer-item:first-of-type {
+  border-top: none;
+  padding-top: 4rpx;
+}
+
+.ans-top {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 8rpx;
+}
+
+.ans-no {
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 40rpx;
+  text-align: center;
+  border-radius: 10rpx;
+  background: var(--mist);
+  font-size: 22rpx;
+  font-weight: 650;
+  flex-shrink: 0;
+}
+
+.ans-ind {
+  flex: 1;
+  font-size: 24rpx;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ans-tag {
+  font-size: 20rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  flex-shrink: 0;
+}
+
+.tag-ok {
+  background: rgba(14, 124, 102, 0.12);
+  color: var(--ok);
+}
+
+.tag-warn {
+  background: rgba(180, 83, 9, 0.12);
+  color: var(--warn);
+}
+
+.ans-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 1.45;
+  margin-bottom: 8rpx;
+}
+
+.ans-opt {
+  font-size: 26rpx;
+  color: var(--steel);
+  line-height: 1.45;
+}
+
+.ans-score {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+}
+
+.kv {
+  display: flex;
+  justify-content: space-between;
+  padding: 14rpx 0;
+  border-bottom: 1rpx solid #e8eef2;
+  font-size: 28rpx;
+}
+
+.kv:last-child {
+  border-bottom: none;
+}
+
+.k {
+  color: var(--muted);
+}
+
+.v {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.feature {
+  margin-top: 16rpx;
+}
+
+.weak-item {
+  padding: 16rpx 0;
+  border-top: 1rpx solid #e8eef2;
+}
+
+.weak-item:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.weak-name {
+  font-weight: 600;
+}
+
+.weak-score {
+  color: var(--muted);
+  font-size: 24rpx;
+}
+
+.measure {
+  padding: 16rpx 0;
+  border-top: 1rpx solid #e8eef2;
+}
+
+.measure:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.measure-title {
+  font-weight: 650;
+  margin-bottom: 8rpx;
+}

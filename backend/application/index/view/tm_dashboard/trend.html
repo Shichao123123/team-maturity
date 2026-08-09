@@ -37,6 +37,7 @@
         </div>
         <div class="layui-inline">
             <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnReload">刷新趋势</button>
+            <button type="button" class="pear-btn pear-btn-md pear-btn-normal" id="btnExportPdf">导出PDF</button>
         </div>
         <div class="team-pick">
             <div style="color:#64748b;font-size:12px;margin-bottom:6px;">可选班组（勾选即时刷新；不选则按组织或最近批次高分班组自动取最多 8 个）</div>
@@ -105,6 +106,13 @@ layui.use(['jquery','form','echarts','layer'], function(){
     form.on('select(orgFilter)', load);
     form.on('checkbox(teamPick)', load);
     $('#btnReload').on('click', load);
+    $('#btnExportPdf').on('click', function(){
+        var orgId = (form.val('filterForm') || {}).org_id || '';
+        var teamIds = [];
+        $('input[name="team_ids"]:checked').each(function(){ teamIds.push($(this).val()); });
+        var q = $.param({ org_id: orgId, team_ids: teamIds });
+        window.location.href = '/TmDashboard/exportTrendPdf?' + q;
+    });
     load();
     window.addEventListener('resize', function(){ chart.resize(); });
 });

@@ -6,6 +6,8 @@ use app\index\model\TeamModel;
 use app\index\service\ExcelHelper;
 use app\index\service\ImportService;
 use app\index\service\OpLogService;
+use app\index\service\ResultService;
+use think\Db;
 use think\Request;
 
 class TmTeam extends Base
@@ -52,6 +54,100 @@ class TmTeam extends Base
             return json(DefaultResponse(404, false, '记录不存在'));
         }
         return json(DefaultResponse(0, true, 'ok', $row));
+    }
+
+    /**
+     * 班组参评批次及得分摘要（班组管理「班组详情」入口）。
+     *
+     * @return \think\response\Json
+     */
+    public function batchResults()
+    {
+        $teamId = (int)Request::instance()->param('team_id', 0);
+        list($ok, $msg, $data) = ResultService::teamBatchList($teamId);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+        return json(DefaultResponse(0, true, 'ok', $data));
+    }
+
+    /**
+     * 班组某批次详细结果：得分、薄弱指标、成员答卷。
+     *
+     * @return \think\response\Json
+     */
+    public function resultDetail()
+    {
+        $req = Request::instance();
+        $teamId = (int)$req->param('team_id', 0);
+        $batchId = (int)$req->param('batch_id', 0);
+        list($ok, $msg, $data) = ResultService::teamDetail($batchId, $teamId);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+        return json(DefaultResponse(0, true, 'ok', $data));
+    }
+
+    /**
+     * 个人答卷详情（校验归属该班组）。
+     *
+     * @return \think\response\Json
+     */
+    public function paperDetail()
+    {
+        $req = Request::instance();
+        $paperId = (int)$req->param('paper_id', 0);
+        $teamId = (int)$req->param('team_id', 0);
+        list($ok, $msg, $detail) = ResultService::paperDetail($paperId);
+        if (!$ok) {
+            return json(DefaultResponse(404, false, $msg));
+        }
+        $paperTeamId = isset($detail['paper']['team_id']) ? (int)$detail['paper']['team_id'] : 0;
+        if ($teamId > 0 && $paperTeamId !== $teamId) {
+            return json(DefaultResponse(403, false, '答卷不属于该班组'));
+        }
+        return json(DefaultResponse(0, true, 'ok', $detail));
+    }
+
+    /**
+     * 导出班组某批次详情 PDF。
+     *
+     * @return void|\think\response\Json
+     */
+    public function exportTeamDetailPdf()
+    {
+        $req = Request::instance();
+        $batchId = (int)$req->param('batch_id', 0);
+        $teamId = (int)$req->param('team_id', 0);
+        list($ok, $msg) = ResultService::exportTeamDetailPdf($batchId, $teamId);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+    }
+
+    /**
+     * 导出个人答卷 PDF（校验归属该班组）。
+     *
+     * @return void|\think\response\Json
+     */
+    public function exportPaperPdf()
+    {
+        $req = Request::instance();
+        $paperId = (int)$req->param('paper_id', 0);
+        $teamId = (int)$req->param('team_id', 0);
+        if ($paperId <= 0) {
+            return json(DefaultResponse(400, false, '参数错误'));
+        }
+        if ($teamId > 0) {
+            $paperTeamId = (int)Db::name('tm_paper')->where('id', $paperId)->value('team_id');
+            if ($paperTeamId !== $teamId) {
+                return json(DefaultResponse(403, false, '答卷不属于该班组'));
+            }
+        }
+        list($ok, $msg) = ResultService::exportPaperPdf($paperId);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
     }
 
     /**

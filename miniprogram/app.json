@@ -1,0 +1,18 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/exam/index",
+    "pages/paper/index",
+    "pages/result/index"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#0B3A5C",
+    "navigationBarTitleText": "中钢安环院 · 班组成熟度",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#0A2744",
+    "backgroundTextStyle": "light"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

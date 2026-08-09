@@ -1,0 +1,123 @@
+.paper-page {
+  padding-bottom: 64rpx;
+}
+
+.progress-wrap {
+  margin-bottom: 20rpx;
+  padding: 0 4rpx;
+}
+
+.progress-label {
+  font-size: 24rpx;
+  color: var(--muted);
+}
+
+.progress-bar {
+  margin-top: 12rpx;
+  height: 10rpx;
+  background: #d5e0e8;
+  border-radius: 999rpx;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #1b4f72, #0e7c66);
+  border-radius: 999rpx;
+  transition: width 0.2s ease;
+}
+
+.save-tip {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: var(--teal);
+}
+
+.q-saving {
+  opacity: 0.92;
+}
+
+.opt-disabled {
+  pointer-events: none;
+}
+
+.q-card {
+  min-height: 520rpx;
+}
+
+.q-ind {
+  display: inline-block;
+  font-size: 22rpx;
+  color: var(--teal);
+  background: #e6f2ef;
+  padding: 6rpx 14rpx;
+  border-radius: 999rpx;
+  margin-bottom: 18rpx;
+}
+
+.q-title {
+  font-size: 34rpx;
+  font-weight: 650;
+  line-height: 1.45;
+  margin-bottom: 12rpx;
+}
+
+.q-remark {
+  margin-bottom: 12rpx;
+}
+
+.opts {
+  margin-top: 28rpx;
+}
+
+.opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 18rpx;
+  padding: 24rpx 22rpx;
+  margin-bottom: 16rpx;
+  border: 2rpx solid var(--line);
+  border-radius: 14rpx;
+  background: #f7fafc;
+}
+
+.opt-on {
+  border-color: var(--teal);
+  background: #eef8f5;
+}
+
+.opt-radio {
+  width: 32rpx;
+  height: 32rpx;
+  margin-top: 6rpx;
+  border-radius: 50%;
+  border: 3rpx solid #9db0bf;
+  flex-shrink: 0;
+}
+
+.opt-on .opt-radio {
+  border-color: var(--teal);
+  box-shadow: inset 0 0 0 7rpx var(--teal);
+}
+
+.opt-text {
+  flex: 1;
+  font-size: 28rpx;
+  line-height: 1.45;
+}
+
+.nav-row {
+  display: flex;
+  gap: 16rpx;
+  margin: 8rpx 0 20rpx;
+}
+
+.nav-btn {
+  flex: 1;
+  margin-top: 0;
+}
+
+.center {
+  text-align: center;
+  margin-top: 16rpx;
+}

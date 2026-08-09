@@ -1,6 +1,7 @@
 <?php
 namespace app\index\controller;
 
+use app\index\service\OpLogService;
 use think\Db;
 use think\Request;
 
@@ -13,6 +14,7 @@ class TmLog extends Base
      */
     public function index()
     {
+        $this->assign('modules', OpLogService::moduleOptions());
         return $this->fetch('tm_log/index');
     }
 
@@ -67,10 +69,11 @@ class TmLog extends Base
 
         foreach ($list as &$row) {
             if (empty($row['admin_name'])) {
-                $row['admin_name'] = $row['admin_username'] ?: ('#' . $row['admin_id']);
+                $row['admin_name'] = $row['admin_username'] ?: '系统';
             }
         }
         unset($row);
+        $list = OpLogService::decorateList($list);
 
         return json(DefaultResponseList(0, $count, 'ok', $list));
     }

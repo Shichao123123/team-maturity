@@ -3,6 +3,40 @@
 <head>
     {include file="common/meta" /}
     {include file="common/css" /}
+    <style>
+        .tip { color:#64748b; font-size:12px; line-height:1.6; margin:0 0 10px; }
+        .team-meta {
+            background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;
+            padding:10px 14px; margin-bottom:12px; color:#334155; font-size:13px;
+        }
+        .result-hero {
+            display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;
+        }
+        .result-box {
+            background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 14px;
+        }
+        .result-box .label { color:#64748b; font-size:12px; margin-bottom:4px; }
+        .result-box .value { font-size:22px; font-weight:700; color:#1e293b; }
+        .result-box .sub { color:#475569; font-size:12px; margin-top:4px; }
+        .weak-item { border-top:1px solid #edf2f7; padding:10px 0; }
+        .weak-item:first-child { border-top:0; }
+        .weak-name { font-weight:600; color:#0f172a; margin-bottom:4px; }
+        .weak-score { color:#64748b; font-size:12px; margin-bottom:6px; }
+        .weak-measure { color:#334155; font-size:13px; line-height:1.55; background:#f8fafc; padding:8px 10px; border-radius:6px; }
+        .empty-hint { color:#94a3b8; padding:24px 0; text-align:center; }
+        .result-table-wrap { width:100%; overflow:auto; }
+        .result-table-wrap .layui-table-view { margin:0; }
+        .result-table-wrap .layui-table-cell {
+            height:auto; min-height:28px; line-height:22px; padding:6px 12px;
+            white-space:normal; word-break:break-word;
+        }
+        .detail-toolbar {
+            display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+            justify-content:space-between; margin-bottom:12px;
+        }
+        .detail-toolbar .layui-form-select { min-width:280px; }
+        @media (max-width:720px){ .result-hero { grid-template-columns:1fr; } }
+    </style>
 </head>
 <body class="pear-container">
 <div class="layui-card">
@@ -33,6 +67,7 @@
 </div>
 
 <script type="text/html" id="bar">
+    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="result">班组详情</a>
     <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
     <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
 </script>
@@ -74,12 +109,60 @@
     </form>
 </script>
 
+<script type="text/html" id="teamResultTpl">
+    <div style="padding:14px 18px 18px;">
+        <div class="team-meta" id="teamMeta"></div>
+        <div class="detail-toolbar">
+            <form class="layui-form" lay-filter="batchPickForm" onsubmit="return false;" style="margin:0;">
+                <select name="batch_id" lay-filter="batchPick" lay-search id="batchPickSelect">
+                    <option value="">请选择测评批次</option>
+                </select>
+            </form>
+            <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnExportTeamDetailPdf">导出班组PDF</button>
+        </div>
+        <div id="batchEmpty" class="empty-hint" style="display:none;">该班组尚未参与任何测评批次</div>
+        <div id="resultPanel">
+            <div class="result-hero" id="teamHero"></div>
+            <div class="tip" id="teamFeature"></div>
+            <div class="tip" style="font-weight:600;color:#1e293b;">薄弱指标与赋能措施</div>
+            <div id="weakBox" style="margin-bottom:14px;"></div>
+            <div class="tip" style="font-weight:600;color:#1e293b;">成员答卷 / 个人结果</div>
+            <div class="result-table-wrap">
+                <table id="teamPaperTable" lay-filter="teamPaperTable"></table>
+            </div>
+        </div>
+    </div>
+</script>
+
+<script type="text/html" id="paperBar">
+    <a class="layui-btn layui-btn-xs" lay-event="detail">查看结果</a>
+</script>
+
+<script type="text/html" id="paperDetailTpl">
+    <div style="padding:14px 16px 18px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;">
+            <div class="tip" id="paperDetailMeta" style="flex:1;min-width:0;margin:0;"></div>
+            <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnExportPaperPdf">导出PDF</button>
+        </div>
+        <div class="result-hero" id="paperResultHero"></div>
+        <div class="tip" style="font-weight:600;color:#1e293b;margin-top:4px;" id="answerSectionTitle">逐题作答结果</div>
+        <div class="result-table-wrap">
+            <table id="answerTable" lay-filter="answerTable"></table>
+        </div>
+    </div>
+</script>
+
 <script src="/component/layui/layui.js"></script>
 <script src="/component/pear/pear.js"></script>
 <script>
 layui.use(['table','form','jquery','layer'], function(){
     var table = layui.table, form = layui.form, $ = layui.jquery, layer = layui.layer;
     form.render();
+
+    function fmtScore(v){
+        if (v === null || v === undefined || v === '') return '—';
+        return Number(v).toFixed(1);
+    }
     function reloadFilter(){
         table.reload('dataTable', {where: form.val('filterForm') || {}, page:{curr:1}});
     }
@@ -89,6 +172,7 @@ layui.use(['table','form','jquery','layer'], function(){
         clearTimeout(keywordTimer);
         keywordTimer = setTimeout(reloadFilter, 300);
     });
+
     table.render({
         elem: '#dataTable',
         id: 'dataTable',
@@ -98,9 +182,10 @@ layui.use(['table','form','jquery','layer'], function(){
             {field:'name', title:'班组名称'},
             {field:'org_name', title:'所属组织'},
             {field:'status', title:'状态', width:80, templet: function(d){ return d.status==1?'启用':'停用'; }},
-            {title:'操作', toolbar:'#bar', width:140}
+            {title:'操作', toolbar:'#bar', width:220}
         ]]
     });
+
     function openForm(row){
         layer.open({
             type:1, title: row && row.id ? '编辑班组':'新增班组', area:['480px','360px'],
@@ -112,13 +197,214 @@ layui.use(['table','form','jquery','layer'], function(){
                     var url = d.field.id ? '/TmTeam/edit' : '/TmTeam/add';
                     $.post(url, d.field, function(res){
                         layer.msg(res.msg||'');
-                        if (res.success || res.code===0){ layer.closeAll(); table.reload('dataTable'); }
+                        if (res.success || res.code===0){ layer.closeAll('page'); table.reload('dataTable'); }
                     }, 'json');
                     return false;
                 });
             }
         });
     }
+
+    function openTeamResult(team){
+        var teamId = team.id;
+        var load = layer.load(2);
+        $.getJSON('/TmTeam/batchResults', { team_id: teamId }, function(res){
+            layer.close(load);
+            if (!(res.success || res.code===0) || !res.data) {
+                layer.msg(res.msg || '加载失败');
+                return;
+            }
+            var meta = res.data.team || {};
+            var batches = res.data.list || [];
+            layer.open({
+                type: 1,
+                title: '班组详情 — ' + (meta.team_name || team.name || ''),
+                closeBtn: 1,
+                maxmin: true,
+                offset: '10px',
+                area: ['96%', '90%'],
+                btn: ['关闭'],
+                yes: function(index){ layer.close(index); },
+                content: $('#teamResultTpl').html(),
+                success: function(layero){
+                    layero.find('#teamMeta').html(
+                        '班组：<b>' + (meta.team_name || '') + '</b>' +
+                        (meta.org_name ? (' · 组织：' + meta.org_name) : '') +
+                        ' · 成员 ' + (meta.member_cnt || 0) + ' 人' +
+                        ' · 参评批次 ' + batches.length + ' 个'
+                    );
+                    var $sel = layero.find('#batchPickSelect');
+                    $sel.empty();
+                    if (!batches.length) {
+                        $sel.append('<option value="">暂无参评批次</option>');
+                        layero.find('#batchEmpty').show();
+                        layero.find('#resultPanel').hide();
+                        layero.find('#btnExportTeamDetailPdf').prop('disabled', true);
+                        form.render('select', 'batchPickForm');
+                        return;
+                    }
+                    batches.forEach(function(b){
+                        var label = b.batch_name +
+                            '（' + (b.status_text || '') +
+                            (b.team_score !== null && b.team_score !== undefined && b.team_score !== ''
+                                ? (' / 得分 ' + fmtScore(b.team_score)) : ' / 未算分') + '）';
+                        $sel.append('<option value="' + b.batch_id + '">' + label + '</option>');
+                    });
+                    form.render('select', 'batchPickForm');
+
+                    function loadBatchDetail(batchId){
+                        if (!batchId) return;
+                        var ld = layer.load(2);
+                        $.getJSON('/TmTeam/resultDetail', { team_id: teamId, batch_id: batchId }, function(r2){
+                            layer.close(ld);
+                            if (!(r2.success || r2.code===0) || !r2.data) {
+                                layer.msg(r2.msg || '加载失败');
+                                return;
+                            }
+                            var d = r2.data;
+                            var s = d.summary || {};
+                            var hero = '';
+                            hero += '<div class="result-box"><div class="label">班组得分</div><div class="value">' + fmtScore(s.team_score) + '</div>';
+                            hero += '<div class="sub">' + (s.level_name ? ('等级：' + s.level_name) : '尚未算分') +
+                                (s.rank_no ? (' · 排名第 ' + s.rank_no) : '') + '</div></div>';
+                            hero += '<div class="result-box"><div class="label">提交情况</div><div class="value">' + (s.submitted_cnt||0) + '</div>';
+                            hero += '<div class="sub">答题中 ' + (s.answering_cnt||0) + ' 人' +
+                                (s.scored_at ? (' · 算分于 ' + s.scored_at) : '') + '</div></div>';
+                            layero.find('#teamHero').html(hero);
+                            layero.find('#teamFeature').text(d.feature_desc ? ('等级特征：' + d.feature_desc) : '');
+
+                            var weak = d.weak_indicators || [];
+                            if (!weak.length) {
+                                layero.find('#weakBox').html('<div class="empty-hint">暂无薄弱指标（未算分或均已达标）</div>');
+                            } else {
+                                var html = '';
+                                weak.forEach(function(w){
+                                    html += '<div class="weak-item"><div class="weak-name">' + (w.indicator_name||('指标#'+w.indicator_id)) + '</div>';
+                                    html += '<div class="weak-score">均分 ' + fmtScore(w.avg_score) +
+                                        (w.full_score!==undefined ? (' / 满分 ' + fmtScore(w.full_score)) : '') + '</div>';
+                                    html += '<div class="weak-measure">' + (w.measure || '暂无') + '</div></div>';
+                                });
+                                layero.find('#weakBox').html(html);
+                            }
+
+                            table.render({
+                                elem: layero.find('#teamPaperTable')[0],
+                                id: 'teamPaperTable',
+                                data: d.papers || [],
+                                page: false,
+                                limit: 500,
+                                even: true,
+                                cellMinWidth: 80,
+                                cols: [[
+                                    {field:'member_name', title:'姓名', width:100, align:'center'},
+                                    {field:'role_name', title:'角色', width:110, align:'center'},
+                                    {field:'status_text', title:'状态', width:90, align:'center'},
+                                    {field:'personal_score', title:'个人分', width:100, align:'center', templet: function(r){ return fmtScore(r.personal_score); }},
+                                    {field:'personal_level_name', title:'个人判级', width:120, align:'center', templet: function(r){ return r.personal_level_name||'—'; }},
+                                    {field:'answered_cnt', title:'已答', width:80, align:'center'},
+                                    {field:'submitted_at', title:'提交时间', minWidth:170, align:'center', templet: function(r){ return r.submitted_at||'—'; }},
+                                    {title:'操作', toolbar:'#paperBar', width:110, align:'center'}
+                                ]],
+                                done: function(){ setTimeout(function(){ table.resize('teamPaperTable'); }, 50); }
+                            });
+                            table.on('tool(teamPaperTable)', function(obj){
+                                if (obj.event === 'detail') openPaperDetail(obj.data.paper_id, teamId);
+                            });
+                        }).fail(function(){ layer.close(ld); layer.msg('加载失败'); });
+                    }
+
+                    form.on('select(batchPick)', function(data){
+                        loadBatchDetail(parseInt(data.value || 0, 10) || 0);
+                    });
+                    layero.find('#btnExportTeamDetailPdf').on('click', function(){
+                        var bid = parseInt(($sel.val() || 0), 10) || 0;
+                        if (!bid) { layer.msg('请先选择批次'); return; }
+                        window.location.href = '/TmTeam/exportTeamDetailPdf?batch_id=' + bid + '&team_id=' + teamId;
+                    });
+                    $sel.val(String(batches[0].batch_id));
+                    form.render('select', 'batchPickForm');
+                    loadBatchDetail(batches[0].batch_id);
+                }
+            });
+        }).fail(function(){ layer.close(load); layer.msg('加载失败'); });
+    }
+
+    function openPaperDetail(paperId, teamId){
+        var load = layer.load(2);
+        $.getJSON('/TmTeam/paperDetail', { paper_id: paperId, team_id: teamId }, function(res){
+            layer.close(load);
+            if (!(res.success || res.code===0) || !res.data) {
+                layer.msg(res.msg || '加载失败');
+                return;
+            }
+            var p = res.data.paper || {};
+            var answers = res.data.answers || [];
+            layer.open({
+                type: 1,
+                title: '测评结果 — ' + (p.member_name || ''),
+                closeBtn: 1,
+                maxmin: true,
+                shadeClose: true,
+                offset: '0',
+                area: ['100%', '100%'],
+                btn: ['关闭'],
+                yes: function(index){ layer.close(index); },
+                content: $('#paperDetailTpl').html(),
+                success: function(layero, index){
+                    try { layer.full(index); } catch (e) {}
+                    layero.find('#btnExportPaperPdf').on('click', function(){
+                        window.location.href = '/TmTeam/exportPaperPdf?paper_id=' + paperId + '&team_id=' + teamId;
+                    });
+                    layero.find('#paperDetailMeta').html(
+                        '<div><b>' + (p.batch_name||'') + '</b> · ' + (p.team_name||'') +
+                        ' · ' + (p.status_text||'') +
+                        (p.submitted_at ? (' · 提交于 ' + p.submitted_at) : '') + '</div>'
+                    );
+                    var hero = '';
+                    hero += '<div class="result-box"><div class="label">个人得分</div><div class="value">' + fmtScore(p.personal_score) + '</div>';
+                    hero += '<div class="sub">' + (p.personal_level_name ? ('判级：' + p.personal_level_name) : '未提交') + '</div></div>';
+                    hero += '<div class="result-box"><div class="label">班组结果</div><div class="value">' + fmtScore(p.team_score) + '</div>';
+                    hero += '<div class="sub">' + (p.team_level_name ? ('等级：' + p.team_level_name) : '班组尚未算分') + '</div></div>';
+                    if (p.personal_feature) {
+                        hero += '<div class="result-box" style="grid-column:1/-1;"><div class="label">等级特征</div><div class="sub" style="font-size:13px;line-height:1.6;">' + p.personal_feature + '</div></div>';
+                    }
+                    layero.find('#paperResultHero').html(hero);
+                    var qcnt = (res.data.question_cnt != null) ? res.data.question_cnt : answers.length;
+                    var acnt = (res.data.answered_cnt != null) ? res.data.answered_cnt : answers.length;
+                    layero.find('#answerSectionTitle').text('逐题作答结果（共 ' + qcnt + ' 题，已答 ' + acnt + ' 题）');
+                    setTimeout(function(){
+                        table.render({
+                            elem: layero.find('#answerTable')[0],
+                            id: 'teamAnswerTable',
+                            data: answers,
+                            page: false,
+                            limit: Math.max(answers.length, 10),
+                            even: true,
+                            cellMinWidth: 70,
+                            cols: [[
+                                {field:'sort_no', title:'题号', width:66, align:'center', templet: function(d){ return d.sort_no || ''; }},
+                                {field:'indicator_name', title:'指标', width:120, templet: function(d){ return d.indicator_name || '—'; }},
+                                {field:'question_title', title:'题目', minWidth:220, templet: function(d){
+                                    return d.question_title || ('题目#' + d.question_id);
+                                }},
+                                {field:'option_content', title:'所选答案', width:140, templet: function(d){
+                                    if (!d.is_answered) return '<span style="color:#94a3b8;">未作答</span>';
+                                    return d.option_content || ('选项#' + d.option_id);
+                                }},
+                                {field:'item_score', title:'得分', width:80, align:'center', templet: function(d){
+                                    return d.is_answered ? fmtScore(d.item_score) : '—';
+                                }},
+                                {field:'weight', title:'满分', width:80, align:'center', templet: function(d){ return fmtScore(d.weight); }},
+                                {field:'answered_at', title:'作答时间', width:160, templet: function(d){ return d.answered_at || '—'; }}
+                            ]],
+                            done: function(){ setTimeout(function(){ table.resize('teamAnswerTable'); }, 50); }
+                        });
+                    }, 80);
+                }
+            });
+        }).fail(function(){ layer.close(load); layer.msg('加载失败'); });
+    }
+
     $('#btnAdd').on('click', function(){ openForm(null); });
     $('#btnImport').on('click', function(){ $('#fileImport').click(); });
     $('#fileImport').on('change', function(){
@@ -140,8 +426,9 @@ layui.use(['table','form','jquery','layer'], function(){
         });
     });
     table.on('tool(dataTable)', function(obj){
-        if (obj.event==='edit') openForm(obj.data);
-        if (obj.event==='del') {
+        if (obj.event === 'result') openTeamResult(obj.data);
+        if (obj.event === 'edit') openForm(obj.data);
+        if (obj.event === 'del') {
             layer.confirm('确认删除？', function(i){
                 $.post('/TmTeam/delete', {id:obj.data.id}, function(res){
                     layer.msg(res.msg||'');

@@ -1,53 +1,58 @@
 ﻿# 班组安全成熟度测评系统
 
-独立代码仓，与旧「企业安全发展指数」项目（`qa-dev/bk-code-repository`）隔离。
+独立代码仓。**PC 管理端**负责组织 / 题库 / 批次 / 算分 / 看板 / 权限；**微信小程序**负责扫码进场与答题。
 
-**PC 管理端是核心**（组织 / 题库 / 批次 / 算分 / 看板 / 权限）；小程序仅扫码答题（未建）。
+## 怎么启动？
+
+完整步骤（PC + 小程序 + 真机 + 排错）见：
+
+**→ [`docs/启动说明.md`](docs/启动说明.md)**
+
+快速摘要：
+
+```powershell
+# 1. 启动后端（推荐：PC 和小程序都能用）
+cd d:\phpstudy_pro\WWW\team-maturity
+powershell -ExecutionPolicy Bypass -File scripts\start-mini-api.ps1
+
+# 浏览器打开 PC：http://127.0.0.1:8088/   账号 admin / 123456
+# 微信开发者工具导入：miniprogram/   AppID wxc23577d86aaf957c
+# 编译模式：pages/exam/index   参数 batch_id=进行中批次ID
+```
+
+| 项 | 值 |
+|----|-----|
+| PC 地址 | http://127.0.0.1:8088/ |
+| 库 | `team_maturity` @ `127.0.0.1` / `root` / `123456` |
+| 管理员 | `admin` / `123456` |
+| 小程序目录 | `miniprogram/` |
+| 小程序说明 | [`miniprogram/README.md`](miniprogram/README.md) |
 
 ## 目录
 
 | 路径 | 说明 |
 |------|------|
-| `sql/` | 建库与增量脚本（含 PC 管理员 / 菜单） |
-| `docs/` | 需求、API、架构、交接文档 → 见 [`docs/README.md`](docs/README.md) |
-| `backend/` | ThinkPHP 5 PC 后台（业务代码） |
-| `miniprogram/` | 微信小程序（空，待建） |
-| `scripts/` | 启动、样例导入、题库导入等 |
-
-## 本地快速启动
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\start-dev.ps1
-```
-
-| 项 | 值 |
-|----|-----|
-| 地址 | http://127.0.0.1:8088/ |
-| 库 | `team_maturity` @ `127.0.0.1` / `root` / `123456` |
-| 账号 | `admin` / `123456` |
-| PHP | `D:\phpstudy_pro\Extensions\php\php7.3.4nts\php.exe` |
-
-## 功能进度（摘要）
-
-**已完成：** 登录与 RBAC、工作台壳、组织/班组/成员（含 Excel 导入）、指标版本与题库浏览、标准题库入库（40 题）、等级阈值与赋能措施（一指标四等级）、系统管理（管理员/角色/导入任务/操作日志）、**模拟做题**（个人算分+判级）。
-
-**未完成：** 正式测评批次、班组算分落库、结果查询页、统计分析看板深化、小程序。
-
-详情与接手清单见 **[`docs/交接文档.md`](docs/交接文档.md)**。
+| `sql/` | 建库与增量脚本 |
+| `docs/` | 需求、API、启动与交接文档 → [`docs/README.md`](docs/README.md) |
+| `backend/` | ThinkPHP 5 PC 后台 + 小程序 API |
+| `miniprogram/` | 微信小程序（进场 / 答题 / 结果） |
+| `scripts/` | 启动、样例导入、联调脚本等 |
 
 ## 常用脚本
 
 ```powershell
-# 组织/班组/成员样例
-php scripts\seed-import.php
+# 仅本机 127.0.0.1（旧方式，真机连不上）
+powershell -ExecutionPolicy Bypass -File scripts\start-dev.ps1
 
-# 标准题库导入（含措施补齐规则）
-php scripts\import-question-bank.php
+# 全网卡 0.0.0.0（小程序真机 / 开发者工具推荐）
+powershell -ExecutionPolicy Bypass -File scripts\start-mini-api.ps1
 
-# 按指标补齐四等级措施（缺省「暂无」）
-php scripts\fill-indicator-measures.php
+# 小程序答卷 API 联调（不依赖微信）
+php scripts\test-mini-paper.php
 ```
 
-## 参考旧系统
+## 更多文档
 
-`D:\phpstudy_pro\WWW\qa-dev\bk-code-repository`（仅参考 ThinkPHP + Pear 壳与登录模式，**禁止**写其远程 `qa` 库）。
+- 启动：[`docs/启动说明.md`](docs/启动说明.md)
+- 交接进度：[`docs/交接说明-开发进度与待办.md`](docs/交接说明-开发进度与待办.md)
+- 小程序 API：[`docs/03-mini-api.md`](docs/03-mini-api.md)

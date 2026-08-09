@@ -18,6 +18,34 @@ if ($tmCookieSecureEnv !== false && $tmCookieSecureEnv !== '') {
     $https = $https || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
     $tmCookieSecure = $https;
 }
+// 本地私密覆盖（不入库）：application/config.local.php
+// 也可直接设置环境变量 TM_WX_APPID / TM_WX_SECRET
+$tmLocal = [];
+$tmLocalFile = __DIR__ . DIRECTORY_SEPARATOR . 'config.local.php';
+if (is_file($tmLocalFile)) {
+    $loaded = include $tmLocalFile;
+    if (is_array($loaded)) {
+        $tmLocal = $loaded;
+    }
+}
+// 小程序 AppID 可公开；Secret 只用环境变量或 config.local.php
+$tmWxAppid = getenv('TM_WX_APPID');
+if ($tmWxAppid === false || $tmWxAppid === '') {
+    $tmWxAppid = isset($tmLocal['wx_appid']) ? (string)$tmLocal['wx_appid'] : 'wxc23577d86aaf957c';
+}
+$tmWxSecret = getenv('TM_WX_SECRET');
+if ($tmWxSecret === false || $tmWxSecret === '') {
+    $tmWxSecret = isset($tmLocal['wx_secret']) ? (string)$tmLocal['wx_secret'] : '';
+}
+// 本地联调开关：config.local.php 的 dev_login，或环境变量 TM_WX_DEV_LOGIN
+$tmWxDevLoginEnv = getenv('TM_WX_DEV_LOGIN');
+if ($tmWxDevLoginEnv !== false && $tmWxDevLoginEnv !== '') {
+    $tmWxDevLogin = filter_var($tmWxDevLoginEnv, FILTER_VALIDATE_BOOLEAN);
+} elseif (array_key_exists('dev_login', $tmLocal)) {
+    $tmWxDevLogin = (bool)$tmLocal['dev_login'];
+} else {
+    $tmWxDevLogin = false;
+}
 
 return [
     'app_debug'              => $tmAppDebug,
@@ -137,10 +165,10 @@ return [
         // 上线务必设置环境变量 TM_JWT_SECRET
         'jwt_secret' => $tmJwtSecret,
         'jwt_ttl'    => 604800,
-        'wx_appid'   => (getenv('TM_WX_APPID') !== false && getenv('TM_WX_APPID') !== '') ? getenv('TM_WX_APPID') : '',
-        'wx_secret'  => (getenv('TM_WX_SECRET') !== false && getenv('TM_WX_SECRET') !== '') ? getenv('TM_WX_SECRET') : '',
-        // 生产必须为 false；仅本地联调且未配微信时，可临时改为 true（用 code 模拟 open_id）
-        'dev_login'  => false,
+        'wx_appid'   => $tmWxAppid,
+        'wx_secret'  => $tmWxSecret,
+        // 生产必须为 false；本地联调在 config.local.php 设 dev_login=true
+        'dev_login'  => $tmWxDevLogin,
         // PC 批次二维码内容前缀（小程序页面路径）；扫码后带 batch_id
         'qr_path'    => 'pages/exam/index',
     ],

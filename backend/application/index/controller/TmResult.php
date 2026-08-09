@@ -142,4 +142,62 @@ class TmResult extends Base
             return json(DefaultResponse(400, false, $msg));
         }
     }
+
+    /**
+     * 导出批次班组汇总 PDF。
+     *
+     * @return void|\think\response\Json
+     */
+    public function exportTeamPdf()
+    {
+        $batchId = (int)Request::instance()->param('batch_id', 0);
+        list($ok, $msg) = ResultService::exportTeamPdf($batchId);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+    }
+
+    /**
+     * 导出批次班组排行 PDF。
+     *
+     * @return void|\think\response\Json
+     */
+    public function exportRankPdf()
+    {
+        $batchId = (int)Request::instance()->param('batch_id', 0);
+        list($ok, $msg) = ResultService::exportRankPdf($batchId);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+    }
+
+    /**
+     * 导出班组详情 PDF。
+     *
+     * @return void|\think\response\Json
+     */
+    public function exportTeamDetailPdf()
+    {
+        $req = Request::instance();
+        $batchId = (int)$req->param('batch_id', 0);
+        $teamId = (int)$req->param('team_id', 0);
+        list($ok, $msg) = ResultService::exportTeamDetailPdf($batchId, $teamId);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+    }
+
+    /**
+     * 导出个人答卷 PDF。
+     *
+     * @return void|\think\response\Json
+     */
+    public function exportPaperPdf()
+    {
+        $paperId = (int)Request::instance()->param('paper_id', 0);
+        list($ok, $msg) = ResultService::exportPaperPdf($paperId);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+    }
 }

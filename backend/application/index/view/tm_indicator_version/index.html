@@ -177,6 +177,50 @@ layui.use(['table','layer','form','jquery'], function(){
         });
     }
 
+    // 弹窗内 form.on 只注册一次，避免重复打开导致多次提交
+    var copyFormBound = false;
+    var editFormBound = false;
+
+    function bindCopyFormOnce(){
+        if (copyFormBound) return;
+        copyFormBound = true;
+        form.on('select(sourceId)', function(data){
+            var s = versionCache.filter(function(r){ return String(r.id) === String(data.value); })[0];
+            if (s) {
+                $('input[name=name]').val((s.name || '') + '（草稿）');
+                $('input[name=version_no]').val((s.version_no || 'V') + '-draft');
+            }
+        });
+        form.on('submit(saveCopy)', function(data){
+            $.post('/TmIndicatorVersion/add', data.field, function(res){
+                layer.msg(res.msg||'');
+                if (res.success || res.code===0) {
+                    layer.closeAll();
+                    table.reload('dataTable');
+                    if (res.data && res.data.id) {
+                        openBank(res.data.id, '题库 - ' + (data.field.name || '新草稿'));
+                    }
+                }
+            }, 'json');
+            return false;
+        });
+    }
+
+    function bindEditFormOnce(){
+        if (editFormBound) return;
+        editFormBound = true;
+        form.on('submit(saveEdit)', function(data){
+            $.post('/TmIndicatorVersion/edit', data.field, function(res){
+                layer.msg(res.msg||'');
+                if (res.success || res.code===0) {
+                    layer.closeAll();
+                    table.reload('dataTable');
+                }
+            }, 'json');
+            return false;
+        });
+    }
+
     function openCopyForm(preferredId){
         loadAllVersions(function(list){
             if (!list.length) {
@@ -198,26 +242,7 @@ layui.use(['table','layer','form','jquery'], function(){
                             version_no: (src.version_no || 'V') + '-draft'
                         });
                     }
-                    form.on('select(sourceId)', function(data){
-                        var s = versionCache.filter(function(r){ return String(r.id) === String(data.value); })[0];
-                        if (s) {
-                            $('input[name=name]').val((s.name || '') + '（草稿）');
-                            $('input[name=version_no]').val((s.version_no || 'V') + '-draft');
-                        }
-                    });
-                    form.on('submit(saveCopy)', function(data){
-                        $.post('/TmIndicatorVersion/add', data.field, function(res){
-                            layer.msg(res.msg||'');
-                            if (res.success || res.code===0) {
-                                layer.closeAll();
-                                table.reload('dataTable');
-                                if (res.data && res.data.id) {
-                                    openBank(res.data.id, '题库 - ' + (data.field.name || '新草稿'));
-                                }
-                            }
-                        }, 'json');
-                        return false;
-                    });
+                    bindCopyFormOnce();
                 }
             });
         });
@@ -237,16 +262,7 @@ layui.use(['table','layer','form','jquery'], function(){
                     question_pick_mode: row.question_pick_mode || 'random',
                     remark: row.remark || ''
                 });
-                form.on('submit(saveEdit)', function(data){
-                    $.post('/TmIndicatorVersion/edit', data.field, function(res){
-                        layer.msg(res.msg||'');
-                        if (res.success || res.code===0) {
-                            layer.closeAll();
-                            table.reload('dataTable');
-                        }
-                    }, 'json');
-                    return false;
-                });
+                bindEditFormOnce();
             }
         });
     }

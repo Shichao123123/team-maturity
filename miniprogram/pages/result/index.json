@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "测评结果",
+  "usingComponents": {
+    "brand-footer": "/components/brand-footer/brand-footer"
+  }
+}

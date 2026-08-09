@@ -120,10 +120,10 @@ class MemberSelfRegisterService
                         }
                     }
                 }
+                // 已有成员：更新班组/姓名，但不覆盖既有角色（避免班组长被降为普通成员）
                 Db::name('tm_member')->where('id', $member['id'])->update([
                     'team_id'    => $teamId,
                     'name'       => $name,
-                    'role_code'  => $roleCode,
                     'status'     => 1,
                     'wx_user_id' => $wxUserId,
                     'updated_at' => $now,

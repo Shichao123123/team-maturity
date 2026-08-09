@@ -72,6 +72,7 @@ class TmImport extends Base
                 ? $this->statusNames[(int)$row['status']]
                 : (string)$row['status'];
             $row['file_name'] = $row['file_path'] ? basename($row['file_path']) : '';
+            unset($row['file_path']);
             if (empty($row['admin_name'])) {
                 $row['admin_name'] = $row['admin_username'] ?: '';
             }
@@ -111,7 +112,7 @@ class TmImport extends Base
             : (string)$row['status'];
         $row['errors'] = $errors;
         $row['file_name'] = $row['file_path'] ? basename($row['file_path']) : '';
-        unset($row['error_json']);
+        unset($row['error_json'], $row['file_path']);
 
         return json(DefaultResponse(0, true, 'ok', $row));
     }

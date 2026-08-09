@@ -87,6 +87,7 @@ class Index extends Base
             ], $user['id']);
         }
         Session::clear();
-        $this->success('您已退出', '/Login');
+        // 直接回登录页，不展示 ThinkPHP 默认跳转页
+        $this->redirect('/Login');
     }
 }

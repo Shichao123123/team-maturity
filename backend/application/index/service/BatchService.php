@@ -388,16 +388,24 @@ class BatchService
             ];
             if ($exist) {
                 Db::name('tm_batch_indicator_snap')->where('id', $exist['id'])->update($snapData);
+                $snapId = (int)$exist['id'];
             } else {
                 $snapData['batch_id'] = (int)$batchId;
                 $snapData['created_at'] = $now;
-                Db::name('tm_batch_indicator_snap')->insert($snapData);
+                $snapId = (int)Db::name('tm_batch_indicator_snap')->insertGetId($snapData);
             }
             Db::name('tm_batch')->where('id', (int)$batchId)->update([
                 'status'     => 1,
                 'updated_at' => $now,
             ]);
             Db::commit();
+            // 清理小程序答题用的快照文件缓存，避免重复开测后仍用旧题
+            $cacheFile = dirname(dirname(dirname(__DIR__))) . DIRECTORY_SEPARATOR
+                . 'runtime' . DIRECTORY_SEPARATOR . 'snap-cache' . DIRECTORY_SEPARATOR
+                . 'b' . (int)$batchId . '_' . $snapId . '.json';
+            if (is_file($cacheFile)) {
+                @unlink($cacheFile);
+            }
         } catch (\Exception $e) {
             Db::rollback();
             return [false, '开测失败：' . $e->getMessage(), null];

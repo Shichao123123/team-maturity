@@ -1,6 +1,6 @@
 logo:
-  title: "班组成熟度"
-  image: "/admin/images/logo.png"
+  title: "中钢安环院"
+  image: "/admin/images/brand/logo.png"
 menu:
   data: "/Index/menu"
   method: "GET"

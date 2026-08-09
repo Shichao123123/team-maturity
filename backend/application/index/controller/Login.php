@@ -28,6 +28,7 @@ class Login extends Controller
         if (Session::get('tm_user')) {
             $this->redirect('/Index/index');
         }
+        $this->assign('loginError', Session::get('login_error') ?: '');
         return $this->fetch('login/index');
     }
 
@@ -75,11 +76,13 @@ class Login extends Controller
             return $this->loginFailResponse($request, '账号或密码错误', 401);
         }
 
-        if ((int)$admin['status'] !== 1) {
-            return $this->loginFailResponse($request, '账号已停用', 403);
+        if (!password_verify($password, $admin['password_hash'])) {
+            $this->recordLoginFail($lockKey);
+            return $this->loginFailResponse($request, '账号或密码错误', 401);
         }
 
-        if (!password_verify($password, $admin['password_hash'])) {
+        // 停用与错误密码统一文案，避免暴露账号是否存在/已停用
+        if ((int)$admin['status'] !== 1) {
             $this->recordLoginFail($lockKey);
             return $this->loginFailResponse($request, '账号或密码错误', 401);
         }
@@ -93,7 +96,8 @@ class Login extends Controller
         if ($request->isAjax()) {
             return json(DefaultResponse(0, true, '登录成功', ['redirect' => '/Index/index']));
         }
-        $this->success('登录成功', '/Index/index');
+        // 直接进入主界面，不展示 ThinkPHP 默认「登录成功」跳转页
+        $this->redirect('/Index/index');
     }
 
     /**
@@ -153,6 +157,8 @@ class Login extends Controller
         if ($request->isAjax()) {
             return json(DefaultResponse($code, false, $msg));
         }
-        $this->error($msg, '/Login');
+        // 失败也直接回登录页，避免中间跳转页
+        Session::flash('login_error', $msg);
+        $this->redirect('/Login');
     }
 }

@@ -1,0 +1,70 @@
+<view class="page paper-page page--light">
+  <view class="page-bg" aria-hidden="true">
+    <image class="page-bg-img" src="/assets/bg-page.jpg" mode="aspectFill" />
+    <view class="page-bg-mask"></view>
+  </view>
+
+  <view class="page-body">
+    <view wx:if="{{loading}}" class="empty">正在加载试卷…</view>
+    <view wx:elif="{{err}}" class="empty">{{err}}</view>
+
+    <block wx:elif="{{current}}">
+      <view class="progress-wrap">
+        <view class="row-between">
+          <text class="progress-label">进度 {{progressText}}</text>
+          <text class="progress-label">{{progressPct}}%</text>
+        </view>
+        <view class="progress-bar">
+          <view class="progress-fill" style="width: {{progressPct}}%;"></view>
+        </view>
+        <view class="save-tip" wx:if="{{saveTip || saving}}">
+          {{saving ? '正在保存…' : saveTip}}
+        </view>
+      </view>
+
+      <view class="card q-card {{saving ? 'q-saving' : ''}}">
+        <view class="q-ind">{{current.indicator_name}}</view>
+        <view class="q-title">{{current.sort_no}}. {{current.title}}</view>
+        <view class="q-remark tip" wx:if="{{current.remark}}">{{current.remark}}</view>
+
+        <view class="opts">
+          <view
+            class="opt {{current.selected_option_id == item.option_id ? 'opt-on' : ''}} {{saving ? 'opt-disabled' : ''}}"
+            wx:for="{{current.options}}"
+            wx:key="option_id"
+            data-id="{{item.option_id}}"
+            bindtap="chooseOption"
+          >
+            <view class="opt-radio"></view>
+            <text class="opt-text">{{item.content}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="nav-row">
+        <button
+          class="btn btn-ghost nav-btn"
+          disabled="{{index <= 0 || saving}}"
+          bindtap="prevQ"
+        >上一题</button>
+        <button
+          class="btn btn-ghost nav-btn"
+          disabled="{{index >= total - 1 || saving}}"
+          bindtap="nextQ"
+        >下一题</button>
+      </view>
+
+      <button
+        class="btn btn-teal btn-block"
+        loading="{{submitting}}"
+        disabled="{{submitting || readonly || saving || answered < total}}"
+        bindtap="submitPaper"
+      >
+        {{answered < total ? '请答完所有题目（' + answered + '/' + total + '）' : '提交答卷'}}
+      </button>
+      <view class="tip center">选中选项后自动保存，确认后请点「下一题」</view>
+    </block>
+
+    <brand-footer light="{{true}}" />
+  </view>
+</view>

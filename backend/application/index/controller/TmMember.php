@@ -6,6 +6,7 @@ use app\index\model\TeamModel;
 use app\index\service\ExcelHelper;
 use app\index\service\ImportService;
 use app\index\service\OpLogService;
+use app\index\service\ResultService;
 use think\Db;
 use think\Request;
 
@@ -80,6 +81,29 @@ class TmMember extends Base
             return json(DefaultResponse(404, false, '答卷不存在'));
         }
         return json(DefaultResponse(0, true, 'ok', $detail));
+    }
+
+    /**
+     * 导出成员个人答卷 PDF。
+     *
+     * @return void|\think\response\Json
+     */
+    public function exportPaperPdf()
+    {
+        $req = Request::instance();
+        $paperId = (int)$req->param('paper_id', 0);
+        $memberId = (int)$req->param('member_id', 0);
+        if ($paperId <= 0) {
+            return json(DefaultResponse(400, false, '参数错误'));
+        }
+        // 校验答卷归属，避免仅凭 paper_id 越权导出
+        if (!(new MemberModel())->paperDetail($paperId, $memberId)) {
+            return json(DefaultResponse(404, false, '答卷不存在'));
+        }
+        list($ok, $msg) = ResultService::exportPaperPdf($paperId);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
     }
 
     /**

@@ -1,0 +1,78 @@
+<view class="page">
+  <view class="page-bg" aria-hidden="true">
+    <image class="page-bg-img" src="/assets/bg-page.jpg" mode="aspectFill" />
+    <view class="page-bg-mask"></view>
+  </view>
+
+  <view class="page-body">
+    <view class="org-bar">
+      <image class="org-logo" src="/assets/logo.png" mode="aspectFit" />
+    </view>
+
+    <view wx:if="{{loading}}" class="empty">加载批次信息…</view>
+
+    <block wx:elif="{{err}}">
+      <view class="card">
+        <view class="card-title">无法进入</view>
+        <view class="tip">{{err}}</view>
+      </view>
+      <button class="btn btn-primary btn-block" bindtap="goHome">进入首页查看历史</button>
+    </block>
+
+    <block wx:elif="{{showForm}}">
+      <view class="hero-panel">
+        <image class="hero-panel-img" src="/assets/bg-campus-sm.jpg" mode="aspectFill" />
+        <view class="hero-panel-mask"></view>
+        <view class="hero-panel-body">
+          <view class="brand">现场登记 · {{orgShortName}}</view>
+          <view class="hero-title">{{batchName || '测评批次'}}</view>
+          <view class="hero-sub">选择所属班组并填写真实姓名后开始作答</view>
+        </view>
+      </view>
+
+      <view class="card">
+        <text class="label">所属班组</text>
+        <picker
+          mode="selector"
+          range="{{teams}}"
+          range-key="team_name"
+          value="{{teamIndex >= 0 ? teamIndex : 0}}"
+          bindchange="onTeamChange"
+        >
+          <view class="field">
+            <text class="{{teamLabel ? 'picker-value' : 'picker-placeholder'}}">
+              {{teamLabel || '请选择班组'}}
+            </text>
+          </view>
+        </picker>
+        <view class="org-path tip" wx:if="{{teamIndex >= 0 && teams[teamIndex].org_path}}">
+          {{teams[teamIndex].org_path}}
+        </view>
+      </view>
+
+      <view class="card">
+        <text class="label">姓名</text>
+        <view class="field">
+          <input
+            class="field-input"
+            placeholder="请输入真实姓名"
+            maxlength="32"
+            value="{{name}}"
+            bindinput="onNameInput"
+          />
+        </view>
+      </view>
+
+      <button
+        class="btn btn-teal btn-block"
+        loading="{{submitting}}"
+        disabled="{{submitting}}"
+        bindtap="submitEnter"
+      >
+        确认并开始答题
+      </button>
+    </block>
+
+    <brand-footer />
+  </view>
+</view>

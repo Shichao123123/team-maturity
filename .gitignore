@@ -20,12 +20,23 @@ Desktop.ini
 .env
 .env.*
 !.env.example
+backend/application/config.local.php
 
 # Temp / extract
 scripts/_docx_tmp/
 scripts/_level_err.html
 backend/runtime/temp/
 *.tmp
+
+# Local PDF Chinese font copies (auto-copied from OS fonts)
+backend/extend/fonts/*.ttf
+backend/extend/fonts/*.ttc
+backend/extend/fonts/*.otf
+
+# PDF chart temp images
+backend/runtime/pdf-charts/
+backend/runtime/pdf-fonts/
+backend/runtime/snap-cache/
 
 # Office lock / temp files
 ~$*

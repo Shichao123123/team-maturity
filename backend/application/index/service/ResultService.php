@@ -107,6 +107,82 @@ class ResultService
     }
 
     /**
+     * 某班组参与过的测评批次及得分摘要（班组管理详情入口）。
+     *
+     * @param int $teamId
+     * @return array [bool ok, string msg, array|null data]
+     */
+    public static function teamBatchList($teamId)
+    {
+        $teamId = (int)$teamId;
+        $team = Db::name('tm_team')->where('id', $teamId)->whereNull('deleted_at')->find();
+        if (!$team) {
+            return [false, '班组不存在', null];
+        }
+        $orgName = '';
+        if (!empty($team['org_id'])) {
+            $orgName = (string)Db::name('tm_org')->where('id', (int)$team['org_id'])->value('name');
+        }
+        $rows = Db::name('tm_batch_team')->alias('bt')
+            ->join('tm_batch b', 'b.id = bt.batch_id')
+            ->join('tm_team_result tr', 'tr.batch_id = bt.batch_id AND tr.team_id = bt.team_id', 'LEFT')
+            ->where('bt.team_id', $teamId)
+            ->whereNull('b.deleted_at')
+            ->field('b.id as batch_id, b.name as batch_name, b.start_time, b.end_time, b.status, b.score_status,
+                tr.team_score, tr.level_code, tr.submit_cnt, tr.scored_at')
+            ->order('b.id desc')
+            ->select();
+        $levelNames = Db::name('tm_level_threshold')->column('level_name', 'level_code');
+        $list = [];
+        foreach ($rows as $row) {
+            $bid = (int)$row['batch_id'];
+            $score = $row['team_score'];
+            $rankNo = null;
+            if ($score !== null && $score !== '') {
+                $higher = (int)Db::name('tm_team_result')
+                    ->where('batch_id', $bid)
+                    ->where('team_score', '>', $score)
+                    ->count();
+                $rankNo = $higher + 1;
+            }
+            $code = $row['level_code'] ?: '';
+            $list[] = [
+                'batch_id'          => $bid,
+                'batch_name'        => $row['batch_name'],
+                'start_time'        => $row['start_time'],
+                'end_time'          => $row['end_time'],
+                'status'            => (int)$row['status'],
+                'status_text'       => BatchService::statusText($row['status']),
+                'score_status'      => (int)$row['score_status'],
+                'score_status_text' => BatchService::scoreStatusText($row['score_status']),
+                'team_score'        => $score,
+                'level_code'        => $code,
+                'level_name'        => ($code && isset($levelNames[$code])) ? $levelNames[$code] : '',
+                'submit_cnt'        => $row['submit_cnt'] !== null ? (int)$row['submit_cnt'] : null,
+                'scored_at'         => $row['scored_at'],
+                'rank_no'           => $rankNo,
+            ];
+        }
+        $memberCnt = (int)Db::name('tm_member')
+            ->where('team_id', $teamId)
+            ->whereNull('deleted_at')
+            ->count();
+
+        return [true, 'ok', [
+            'team' => [
+                'team_id'    => $teamId,
+                'team_name'  => $team['name'],
+                'org_id'     => (int)$team['org_id'],
+                'org_name'   => $orgName,
+                'status'     => (int)$team['status'],
+                'member_cnt' => $memberCnt,
+            ],
+            'list'  => $list,
+            'count' => count($list),
+        ]];
+    }
+
+    /**
      * 获取单班组在某批次下的详细结果（汇总、等级特征、薄弱指标、成员答卷）。
      *
      * @param int $batchId 批次 ID
@@ -271,6 +347,239 @@ class ResultService
         }
         $name = '班组排行_' . preg_replace('/[\\\\\/:*?"<>|]/', '_', $data['batch']['name']) . '.xls';
         ExcelHelper::download($name, $headers, $rows);
+        return [true, 'ok'];
+    }
+
+    /**
+     * 导出批次下班组汇总 PDF。
+     *
+     * @param int $batchId
+     * @return array [bool ok, string msg]
+     */
+    public static function exportTeamPdf($batchId)
+    {
+        list($ok, $msg, $data) = self::teamList($batchId);
+        if (!$ok) {
+            return [false, $msg];
+        }
+        $batch = $data['batch'];
+        $pdf = PdfHelper::create('班组测评结果汇总', $batch['name']);
+        PdfHelper::writeMeta($pdf, [
+            ['label' => '批次', 'value' => $batch['name']],
+            ['label' => '测评时段', 'value' => ($batch['start_time'] ?: '') . ' ~ ' . ($batch['end_time'] ?: '')],
+            ['label' => '批次状态', 'value' => $batch['status_text'] . ' / 算分：' . $batch['score_status_text']],
+            ['label' => '班组数', 'value' => (string)$data['count']],
+        ]);
+        PdfHelper::writeSection($pdf, '班组结果列表');
+        $rows = [];
+        foreach ($data['list'] as $r) {
+            $rows[] = [
+                $r['rank_no'] === null ? '—' : $r['rank_no'],
+                $r['team_name'],
+                $r['submitted_cnt'],
+                $r['answering_cnt'],
+                PdfHelper::fmtScore($r['team_score']),
+                $r['level_name'] ?: '—',
+                $r['scored_at'] ?: '—',
+            ];
+        }
+        PdfHelper::writeTable(
+            $pdf,
+            ['排名', '班组', '已提交', '答题中', '得分', '成熟度等级', '算分时间'],
+            $rows,
+            [8, 22, 10, 10, 12, 18, 20]
+        );
+        PdfHelper::download($pdf, '班组结果_' . PdfHelper::safeFilename($batch['name']) . '.pdf');
+        return [true, 'ok'];
+    }
+
+    /**
+     * 导出批次班组排行 PDF。
+     *
+     * @param int $batchId
+     * @return array [bool ok, string msg]
+     */
+    public static function exportRankPdf($batchId)
+    {
+        list($ok, $msg, $data) = self::teamList($batchId);
+        if (!$ok) {
+            return [false, $msg];
+        }
+        $batch = $data['batch'];
+        $rows = [];
+        foreach ($data['list'] as $r) {
+            if ($r['rank_no'] === null) {
+                continue;
+            }
+            $rows[] = [
+                $r['rank_no'],
+                $r['team_name'],
+                PdfHelper::fmtScore($r['team_score']),
+                $r['level_name'] ?: '—',
+                $r['submitted_cnt'],
+            ];
+        }
+        if (!$rows) {
+            return [false, '暂无可导出的排行数据'];
+        }
+        $pdf = PdfHelper::create('班组测评排行榜', $batch['name']);
+        PdfHelper::writeMeta($pdf, [
+            ['label' => '批次', 'value' => $batch['name']],
+            ['label' => '测评时段', 'value' => ($batch['start_time'] ?: '') . ' ~ ' . ($batch['end_time'] ?: '')],
+            ['label' => '上榜班组数', 'value' => (string)count($rows)],
+        ]);
+        PdfHelper::writeSection($pdf, '排行明细');
+        PdfHelper::writeTable(
+            $pdf,
+            ['排名', '班组', '班组得分', '成熟度等级', '提交人数'],
+            $rows,
+            [10, 30, 15, 25, 20]
+        );
+        PdfHelper::download($pdf, '班组排行_' . PdfHelper::safeFilename($batch['name']) . '.pdf');
+        return [true, 'ok'];
+    }
+
+    /**
+     * 导出单班组详情 PDF（薄弱指标 + 成员答卷摘要）。
+     *
+     * @param int $batchId
+     * @param int $teamId
+     * @return array [bool ok, string msg]
+     */
+    public static function exportTeamDetailPdf($batchId, $teamId)
+    {
+        list($ok, $msg, $data) = self::teamDetail($batchId, $teamId);
+        if (!$ok) {
+            return [false, $msg];
+        }
+        $batch = $data['batch'];
+        $team = $data['team'];
+        $s = $data['summary'] ?: [];
+        $titleTeam = $team['team_name'];
+        $pdf = PdfHelper::create('班组测评详情', $batch['name'] . ' · ' . $titleTeam);
+        PdfHelper::writeMeta($pdf, [
+            ['label' => '批次', 'value' => $batch['name']],
+            ['label' => '班组', 'value' => $titleTeam],
+            ['label' => '班组得分', 'value' => PdfHelper::fmtScore(isset($s['team_score']) ? $s['team_score'] : null)],
+            ['label' => '成熟度等级', 'value' => !empty($s['level_name']) ? $s['level_name'] : '尚未算分'],
+            ['label' => '排名', 'value' => !empty($s['rank_no']) ? ('第 ' . $s['rank_no'] . ' 名') : '—'],
+            ['label' => '提交情况', 'value' => '已提交 ' . (isset($s['submitted_cnt']) ? $s['submitted_cnt'] : 0)
+                . ' 人，答题中 ' . (isset($s['answering_cnt']) ? $s['answering_cnt'] : 0) . ' 人'],
+            ['label' => '算分时间', 'value' => !empty($s['scored_at']) ? $s['scored_at'] : '—'],
+        ]);
+        if (!empty($data['feature_desc'])) {
+            PdfHelper::writeSection($pdf, '等级特征');
+            PdfHelper::writeParagraph($pdf, $data['feature_desc']);
+        }
+
+        PdfHelper::writeSection($pdf, '薄弱指标与赋能措施');
+        $weak = isset($data['weak_indicators']) ? $data['weak_indicators'] : [];
+        if (!$weak) {
+            PdfHelper::writeParagraph($pdf, '暂无薄弱指标（未算分或均已达标）');
+        } else {
+            $wrows = [];
+            foreach ($weak as $i => $w) {
+                $wrows[] = [
+                    $i + 1,
+                    isset($w['indicator_name']) ? $w['indicator_name'] : ('指标#' . $w['indicator_id']),
+                    PdfHelper::fmtScore(isset($w['avg_score']) ? $w['avg_score'] : null)
+                        . ' / ' . PdfHelper::fmtScore(isset($w['full_score']) ? $w['full_score'] : null),
+                    isset($w['measure']) ? $w['measure'] : '暂无',
+                ];
+            }
+            PdfHelper::writeTable(
+                $pdf,
+                ['序号', '指标', '均分/满分', '赋能措施'],
+                $wrows,
+                [8, 28, 16, 48]
+            );
+        }
+
+        PdfHelper::writeSection($pdf, '成员答卷摘要');
+        $prows = [];
+        foreach ($data['papers'] as $p) {
+            $prows[] = [
+                $p['member_name'] ?: '—',
+                $p['role_name'] ?: '—',
+                $p['status_text'] ?: '—',
+                PdfHelper::fmtScore($p['personal_score']),
+                $p['personal_level_name'] ?: '—',
+                isset($p['answered_cnt']) ? $p['answered_cnt'] : 0,
+                $p['submitted_at'] ?: '—',
+            ];
+        }
+        PdfHelper::writeTable(
+            $pdf,
+            ['姓名', '角色', '状态', '个人分', '个人判级', '已答', '提交时间'],
+            $prows,
+            [12, 12, 10, 10, 16, 8, 32]
+        );
+        PdfHelper::download(
+            $pdf,
+            '班组详情_' . PdfHelper::safeFilename($batch['name'] . '_' . $titleTeam) . '.pdf'
+        );
+        return [true, 'ok'];
+    }
+
+    /**
+     * 导出个人答卷 PDF（含逐题作答）。
+     *
+     * @param int $paperId
+     * @return array [bool ok, string msg]
+     */
+    public static function exportPaperPdf($paperId)
+    {
+        list($ok, $msg, $detail) = self::paperDetail($paperId);
+        if (!$ok) {
+            return [false, $msg];
+        }
+        $p = $detail['paper'];
+        $answers = isset($detail['answers']) ? $detail['answers'] : [];
+        $sub = ($p['batch_name'] ?: '') . ' · ' . ($p['team_name'] ?: '') . ' · ' . ($p['member_name'] ?: '');
+        $pdf = PdfHelper::create('个人测评答卷', $sub);
+        PdfHelper::writeMeta($pdf, [
+            ['label' => '批次', 'value' => $p['batch_name']],
+            ['label' => '班组', 'value' => $p['team_name']],
+            ['label' => '成员', 'value' => $p['member_name']],
+            ['label' => '答卷状态', 'value' => $p['status_text']],
+            ['label' => '提交时间', 'value' => $p['submitted_at'] ?: '—'],
+            ['label' => '个人得分', 'value' => PdfHelper::fmtScore($p['personal_score'])
+                . ($p['personal_level_name'] ? ('（' . $p['personal_level_name'] . '）') : '')],
+            ['label' => '班组得分', 'value' => PdfHelper::fmtScore($p['team_score'])
+                . ($p['team_level_name'] ? ('（' . $p['team_level_name'] . '）') : '')],
+            ['label' => '答题进度', 'value' => '已答 ' . (int)$detail['answered_cnt']
+                . ' / 共 ' . (int)$detail['question_cnt'] . ' 题'],
+        ]);
+        if (!empty($p['personal_feature'])) {
+            PdfHelper::writeSection($pdf, '等级特征');
+            PdfHelper::writeParagraph($pdf, $p['personal_feature']);
+        }
+
+        PdfHelper::writeSection($pdf, '逐题作答结果');
+        $arows = [];
+        foreach ($answers as $a) {
+            $answered = !empty($a['is_answered']);
+            $arows[] = [
+                isset($a['sort_no']) ? $a['sort_no'] : '',
+                isset($a['indicator_name']) ? $a['indicator_name'] : '—',
+                isset($a['question_title']) ? $a['question_title'] : ('题目#' . $a['question_id']),
+                $answered
+                    ? (isset($a['option_content']) ? $a['option_content'] : '—')
+                    : '未作答',
+                $answered ? PdfHelper::fmtScore($a['item_score']) : '—',
+                PdfHelper::fmtScore($a['weight']),
+            ];
+        }
+        PdfHelper::writeTable(
+            $pdf,
+            ['题号', '指标', '题目', '所选答案', '得分', '满分'],
+            $arows,
+            [8, 16, 34, 22, 10, 10]
+        );
+        PdfHelper::download(
+            $pdf,
+            '个人答卷_' . PdfHelper::safeFilename(($p['member_name'] ?: 'member') . '_' . ($p['batch_name'] ?: 'batch')) . '.pdf'
+        );
         return [true, 'ok'];
     }
 

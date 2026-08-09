@@ -1,0 +1,6 @@
+<view class="brand-footer {{light ? 'light' : ''}}">
+  <view class="brand-footer-org">{{orgShortName}}</view>
+  <view class="brand-footer-full">{{orgName}}</view>
+  <view class="brand-footer-copy">{{copyright}}</view>
+  <view class="brand-footer-site" wx:if="{{orgSite}}">{{orgSite}} · All Rights Reserved</view>
+</view>

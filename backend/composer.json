@@ -25,7 +25,8 @@
         "firebase/php-jwt": "^5.0",
         "phpoffice/phpexcel": "^1.8",
         "flc/dysms": "^1.0",
-        "qiniu/php-sdk": "^7.1"
+        "qiniu/php-sdk": "^7.1",
+        "tecnickcom/tcpdf": "^6.6"
     },
     "autoload": {
         "psr-4": {
@@ -39,6 +40,9 @@
         "preferred-install": "dist",
         "allow-plugins": {
             "topthink/think-installer": true
+        },
+        "audit": {
+            "block-insecure": false
         }
     }
 }

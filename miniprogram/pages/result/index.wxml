@@ -1,0 +1,107 @@
+<view class="page">
+  <view class="page-bg" aria-hidden="true">
+    <image class="page-bg-img" src="/assets/bg-page.jpg" mode="aspectFill" />
+    <view class="page-bg-mask"></view>
+  </view>
+
+  <view class="page-body">
+    <view class="org-bar">
+      <image class="org-logo" src="/assets/logo.png" mode="aspectFit" />
+    </view>
+
+    <view wx:if="{{loading}}" class="empty">加载结果…</view>
+    <view wx:elif="{{err}}" class="empty">{{err}}</view>
+
+    <block wx:else>
+      <view class="hero-panel">
+        <image class="hero-panel-img" src="/assets/bg-campus-sm.jpg" mode="aspectFill" />
+        <view class="hero-panel-mask"></view>
+        <view class="hero-panel-body">
+          <view class="brand">{{orgShortName}} · 个人结果</view>
+          <view class="hero-title">个人测评结果</view>
+          <view class="hero-sub" wx:if="{{batchName}}">{{batchName}}</view>
+          <view class="hero-sub" wx:if="{{submittedAt}}">
+            {{memberName ? memberName + ' · ' : ''}}提交于 {{submittedAt}}
+          </view>
+        </view>
+      </view>
+
+      <view class="card score-card">
+        <view class="muted">个人成熟得分</view>
+        <view class="score-num">{{personalScore}}</view>
+        <view class="level-pill" wx:if="{{personalLevel}}">{{personalLevel}}</view>
+        <view class="stat-row" wx:if="{{questionCnt}}">
+          <text>共 {{questionCnt}} 题</text>
+          <text class="dot">·</text>
+          <text>满分项 {{fullCnt}}</text>
+          <text class="dot">·</text>
+          <text>待提升 {{questionCnt - fullCnt}}</text>
+        </view>
+        <view class="team-line" wx:if="{{teamName}}">所属班组 · {{teamName}}</view>
+        <view class="feature tip" wx:if="{{personalFeature}}">{{personalFeature}}</view>
+      </view>
+
+      <view class="card" wx:if="{{personalWeak.length}}">
+        <view class="card-title">个人薄弱指标</view>
+        <view class="tip" style="margin-bottom: 12rpx;">以下指标未拿满分，可重点关注</view>
+        <view class="weak-item" wx:for="{{personalWeak}}" wx:key="indicator_id">
+          <view class="row-between">
+            <text class="weak-name">{{item.name}}</text>
+            <text class="weak-score">
+              {{item.avg_score != null ? item.avg_score : '—'}}
+              <text wx:if="{{item.full_score != null}}"> / {{item.full_score}}</text>
+            </text>
+          </view>
+        </view>
+      </view>
+
+      <view class="card">
+        <view class="row-between card-head" bindtap="toggleAnswers">
+          <view class="card-title" style="margin-bottom: 0;">答题明细</view>
+          <text class="toggle">{{showAnswers ? '收起' : '展开'}} · {{answers.length}} 题</text>
+        </view>
+        <block wx:if="{{showAnswers}}">
+          <view
+            class="answer-item {{item.is_full ? 'ans-full' : 'ans-weak'}}"
+            wx:for="{{answers}}"
+            wx:key="question_id"
+          >
+            <view class="ans-top">
+              <text class="ans-no">{{item.sort_no}}</text>
+              <text class="ans-ind">{{item.indicator_name}}</text>
+              <text class="ans-tag {{item.is_full ? 'tag-ok' : 'tag-warn'}}">
+                {{item.is_full ? '满分' : (item.is_answered ? '待提升' : '未答')}}
+              </text>
+            </view>
+            <view class="ans-title">{{item.title}}</view>
+            <view class="ans-opt">所选：{{item.option_content}}</view>
+            <view class="ans-score muted" wx:if="{{item.item_score != null}}">
+              本题得分 {{item.item_score}} / {{item.full_score}}
+            </view>
+          </view>
+        </block>
+      </view>
+
+      <view class="card" wx:if="{{measures.length}}">
+        <view class="card-title">赋能措施建议</view>
+        <view class="measure" wx:for="{{measures}}" wx:key="index">
+          <view class="measure-title">{{item.title}}</view>
+          <view class="tip">{{item.content}}</view>
+        </view>
+      </view>
+
+      <button
+        wx:if="{{canRetake}}"
+        class="btn btn-teal btn-block"
+        loading="{{retaking}}"
+        disabled="{{retaking}}"
+        bindtap="retakeExam"
+      >
+        重新测评（测试模式）
+      </button>
+      <button class="btn btn-primary btn-block" bindtap="goHome">返回首页</button>
+    </block>
+
+    <brand-footer />
+  </view>
+</view>
