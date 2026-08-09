@@ -19,14 +19,14 @@ if ($versionId <= 0) {
     $versionId = (int)$p->lastInsertId();
 }
 
-$batch = $p->query("SELECT id FROM tm_batch WHERE deleted_at IS NULL AND status IN (0,1) ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+// 仅进行中批次可登记（须已开测）；没有则新建一条进行中批次
+$batch = $p->query("SELECT id FROM tm_batch WHERE deleted_at IS NULL AND status=1 ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
 if (!$batch) {
     $p->prepare("INSERT INTO tm_batch (name, version_id, start_time, end_time, status, created_at) VALUES (?,?,?,?,1,NOW())")
         ->execute(['联调自助登记批次', $versionId, date('Y-m-d H:i:s', time() - 3600), date('Y-m-d H:i:s', time() + 86400 * 7)]);
     $batchId = (int)$p->lastInsertId();
 } else {
     $batchId = (int)$batch['id'];
-    $p->exec("UPDATE tm_batch SET status=1 WHERE id={$batchId}");
 }
 
 $bind = $p->prepare("SELECT id FROM tm_batch_team WHERE batch_id=? AND team_id=?");

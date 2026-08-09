@@ -28,18 +28,18 @@ class MemberSelfRegisterService
 
         $now = tmNow();
         $status = (int)$batch['status'];
+        // 须管理员显式开测（写快照且 status=1）后才可登记/作答
+        if ($status === 0) {
+            return [false, '测评尚未开测，请等待管理员开始', $batch];
+        }
         if ($status === 2) {
             return [false, '测评已结束', $batch];
         }
-        if ($status === 0 && !empty($batch['start_time']) && $batch['start_time'] > $now) {
-            return [false, '测评尚未开始', $batch];
+        if ($status !== 1) {
+            return [false, '当前批次不可作答', $batch];
         }
         if (!empty($batch['end_time']) && $batch['end_time'] < $now) {
             return [false, '测评已超过截止时间', $batch];
-        }
-        // status=0 但已到开始时间，或 status=1，均允许进入
-        if ($status !== 1 && $status !== 0) {
-            return [false, '当前批次不可作答', $batch];
         }
 
         $bind = Db::name('tm_batch_team')
