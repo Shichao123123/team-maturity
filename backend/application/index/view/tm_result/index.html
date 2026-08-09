@@ -24,6 +24,18 @@
         .weak-score { color:#64748b; font-size:12px; margin-bottom:6px; }
         .weak-measure { color:#334155; font-size:13px; line-height:1.55; background:#f8fafc; padding:8px 10px; border-radius:6px; }
         .empty-hint { color:#94a3b8; padding:24px 0; text-align:center; }
+        .result-table-wrap { width:100%; overflow:auto; }
+        .result-table-wrap .layui-table-view { margin:0; }
+        .result-table-wrap .layui-table-cell {
+            height:auto; min-height:28px; line-height:22px; padding:6px 12px;
+            white-space:normal; word-break:break-word;
+        }
+        .paper-filter-bar {
+            display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+            margin-bottom:12px;
+        }
+        .paper-filter-bar .layui-form-select { width:140px; }
+        .paper-filter-bar .layui-input { width:200px; }
         @media (max-width:720px){ .result-hero { grid-template-columns:1fr; } }
     </style>
 </head>
@@ -75,25 +87,25 @@
         <div class="tip" style="font-weight:600;color:#1e293b;">薄弱指标与赋能措施</div>
         <div id="weakBox" style="margin-bottom:14px;"></div>
         <div class="tip" style="font-weight:600;color:#1e293b;">成员答卷</div>
-        <table id="teamPaperTable" lay-filter="teamPaperTable"></table>
+        <div class="result-table-wrap">
+            <table id="teamPaperTable" lay-filter="teamPaperTable"></table>
+        </div>
     </div>
 </script>
 
 <script type="text/html" id="paperListTpl">
     <div style="padding:12px 16px 16px;">
-        <form class="layui-form" lay-filter="paperFilterForm" onsubmit="return false;" style="margin-bottom:8px;">
-            <div class="layui-inline">
-                <input type="text" name="keyword" placeholder="姓名（输入即筛选）" class="layui-input" style="width:180px;">
-            </div>
-            <div class="layui-inline">
-                <select name="status" lay-filter="paperAutoFilter">
-                    <option value="">全部状态</option>
-                    <option value="1">已提交</option>
-                    <option value="0">答题中</option>
-                </select>
-            </div>
+        <form class="layui-form paper-filter-bar" lay-filter="paperFilterForm" onsubmit="return false;">
+            <input type="text" name="keyword" placeholder="姓名（输入即筛选）" class="layui-input">
+            <select name="status" lay-filter="paperAutoFilter">
+                <option value="">全部状态</option>
+                <option value="1">已提交</option>
+                <option value="0">答题中</option>
+            </select>
         </form>
-        <table id="paperTable" lay-filter="paperTable"></table>
+        <div class="result-table-wrap">
+            <table id="paperTable" lay-filter="paperTable"></table>
+        </div>
     </div>
 </script>
 
@@ -105,7 +117,9 @@
     <div style="padding:14px 16px 18px;">
         <div class="tip" id="paperDetailMeta"></div>
         <div class="result-hero" id="paperResultHero"></div>
-        <table id="answerTable" lay-filter="answerTable"></table>
+        <div class="result-table-wrap">
+            <table id="answerTable" lay-filter="answerTable"></table>
+        </div>
     </div>
 </script>
 
@@ -238,16 +252,19 @@ layui.use(['table','form','jquery','layer'], function(){
                         data: d.papers || [],
                         page: false,
                         limit: 500,
+                        even: true,
+                        cellMinWidth: 80,
                         cols: [[
-                            {field:'member_name', title:'姓名', width:100},
-                            {field:'role_name', title:'角色', width:100},
-                            {field:'status_text', title:'状态', width:80},
-                            {field:'personal_score', title:'个人分', width:90, templet: function(r){ return fmtScore(r.personal_score); }},
-                            {field:'personal_level_name', title:'个人判级', width:110, templet: function(r){ return r.personal_level_name||'—'; }},
-                            {field:'answered_cnt', title:'已答', width:70, align:'center'},
-                            {field:'submitted_at', title:'提交时间', width:160, templet: function(r){ return r.submitted_at||'—'; }},
-                            {title:'操作', toolbar:'#paperBar', width:100}
-                        ]]
+                            {field:'member_name', title:'姓名', width:100, align:'center'},
+                            {field:'role_name', title:'角色', width:110, align:'center'},
+                            {field:'status_text', title:'状态', width:90, align:'center'},
+                            {field:'personal_score', title:'个人分', width:100, align:'center', templet: function(r){ return fmtScore(r.personal_score); }},
+                            {field:'personal_level_name', title:'个人判级', width:120, align:'center', templet: function(r){ return r.personal_level_name||'—'; }},
+                            {field:'answered_cnt', title:'已答', width:80, align:'center'},
+                            {field:'submitted_at', title:'提交时间', minWidth:170, align:'center', templet: function(r){ return r.submitted_at||'—'; }},
+                            {title:'操作', toolbar:'#paperBar', width:110, align:'center'}
+                        ]],
+                        done: function(){ setTimeout(function(){ table.resize('teamPaperTable'); }, 50); }
                     });
                     table.on('tool(teamPaperTable)', function(obj){
                         if (obj.event === 'detail') openPaperDetail(obj.data.paper_id);
@@ -268,7 +285,7 @@ layui.use(['table','form','jquery','layer'], function(){
             btn: ['关闭'],
             yes: function(index){ layer.close(index); },
             content: $('#paperListTpl').html(),
-            success: function(){
+            success: function(layero){
                 form.render(null, 'paperFilterForm');
                 function reloadPapers(){
                     var pf = form.val('paperFilterForm') || {};
@@ -283,27 +300,34 @@ layui.use(['table','form','jquery','layer'], function(){
                         page: false
                     });
                 }
-                table.render({
-                    elem: '#paperTable',
-                    id: 'paperTable',
-                    url: '/TmResult/paperList',
-                    where: { batch_id: batchId, team_id: teamId || 0 },
-                    page: false,
-                    cols: [[
-                        {field:'member_name', title:'姓名', width:100},
-                        {field:'team_name', title:'班组', width:120},
-                        {field:'role_name', title:'角色', width:100},
-                        {field:'status_text', title:'状态', width:80},
-                        {field:'personal_score', title:'个人分', width:90, templet: function(r){ return fmtScore(r.personal_score); }},
-                        {field:'personal_level_name', title:'个人判级', width:110, templet: function(r){ return r.personal_level_name||'—'; }},
-                        {field:'answered_cnt', title:'已答', width:70, align:'center'},
-                        {field:'submitted_at', title:'提交时间', width:160, templet: function(r){ return r.submitted_at||'—'; }},
-                        {title:'操作', toolbar:'#paperBar', width:100, fixed:'right'}
-                    ]]
-                });
+                // 弹层内延后渲染，避免表头/表体宽度错位
+                setTimeout(function(){
+                    table.render({
+                        elem: layero.find('#paperTable')[0],
+                        id: 'paperTable',
+                        url: '/TmResult/paperList',
+                        where: { batch_id: batchId, team_id: teamId || 0 },
+                        page: false,
+                        even: true,
+                        cellMinWidth: 80,
+                        cols: [[
+                            {field:'member_name', title:'姓名', width:100, align:'center'},
+                            {field:'team_name', title:'班组', minWidth:120, align:'center'},
+                            {field:'role_name', title:'角色', width:110, align:'center'},
+                            {field:'status_text', title:'状态', width:90, align:'center'},
+                            {field:'personal_score', title:'个人分', width:100, align:'center', templet: function(r){ return fmtScore(r.personal_score); }},
+                            {field:'personal_level_name', title:'个人判级', width:120, align:'center', templet: function(r){ return r.personal_level_name||'—'; }},
+                            {field:'answered_cnt', title:'已答', width:80, align:'center'},
+                            {field:'submitted_at', title:'提交时间', minWidth:170, align:'center', templet: function(r){ return r.submitted_at||'—'; }},
+                            {title:'操作', toolbar:'#paperBar', width:110, align:'center'}
+                        ]],
+                        done: function(){ setTimeout(function(){ table.resize('paperTable'); }, 50); }
+                    });
+                    table.resize('paperTable');
+                }, 80);
                 form.on('select(paperAutoFilter)', function(){ reloadPapers(); });
                 var t = null;
-                $('form[lay-filter="paperFilterForm"] input[name="keyword"]').on('input', function(){
+                layero.find('form[lay-filter="paperFilterForm"] input[name="keyword"]').on('input', function(){
                     clearTimeout(t);
                     t = setTimeout(reloadPapers, 300);
                 });
@@ -334,8 +358,8 @@ layui.use(['table','form','jquery','layer'], function(){
                 btn: ['关闭'],
                 yes: function(index){ layer.close(index); },
                 content: $('#paperDetailTpl').html(),
-                success: function(){
-                    $('#paperDetailMeta').html(
+                success: function(layero){
+                    layero.find('#paperDetailMeta').html(
                         '<div><b>' + (p.batch_name||'') + '</b> · ' + (p.team_name||'') +
                         ' · ' + (p.status_text||'') +
                         (p.submitted_at ? (' · 提交于 ' + p.submitted_at) : '') + '</div>'
@@ -348,21 +372,27 @@ layui.use(['table','form','jquery','layer'], function(){
                     if (p.personal_feature) {
                         hero += '<div class="result-box" style="grid-column:1/-1;"><div class="label">等级特征</div><div class="sub" style="font-size:13px;line-height:1.6;">' + p.personal_feature + '</div></div>';
                     }
-                    $('#paperResultHero').html(hero);
-                    table.render({
-                        elem: '#answerTable',
-                        data: answers,
-                        page: false,
-                        limit: answers.length || 10,
-                        cols: [[
-                            {type:'numbers', title:'#', width:50},
-                            {field:'indicator_name', title:'指标', width:120, templet: function(d){ return d.indicator_name||'—'; }},
-                            {field:'question_title', title:'题目', minWidth:220, templet: function(d){ return d.question_title || ('题目#'+d.question_id); }},
-                            {field:'option_content', title:'作答', width:140, templet: function(d){ return d.option_content || ('选项#'+d.option_id); }},
-                            {field:'item_score', title:'得分', width:80, templet: function(d){ return fmtScore(d.item_score); }},
-                            {field:'answered_at', title:'作答时间', width:160}
-                        ]]
-                    });
+                    layero.find('#paperResultHero').html(hero);
+                    setTimeout(function(){
+                        table.render({
+                            elem: layero.find('#answerTable')[0],
+                            id: 'answerTable',
+                            data: answers,
+                            page: false,
+                            limit: answers.length || 10,
+                            even: true,
+                            cellMinWidth: 70,
+                            cols: [[
+                                {type:'numbers', title:'#', width:56, align:'center'},
+                                {field:'indicator_name', title:'指标', width:130, align:'center', templet: function(d){ return d.indicator_name||'—'; }},
+                                {field:'question_title', title:'题目', minWidth:240, templet: function(d){ return d.question_title || ('题目#'+d.question_id); }},
+                                {field:'option_content', title:'作答', width:150, align:'center', templet: function(d){ return d.option_content || ('选项#'+d.option_id); }},
+                                {field:'item_score', title:'得分', width:90, align:'center', templet: function(d){ return fmtScore(d.item_score); }},
+                                {field:'answered_at', title:'作答时间', width:170, align:'center'}
+                            ]],
+                            done: function(){ setTimeout(function(){ table.resize('answerTable'); }, 50); }
+                        });
+                    }, 80);
                 }
             });
         }).fail(function(){ layer.close(load); layer.msg('加载失败'); });
