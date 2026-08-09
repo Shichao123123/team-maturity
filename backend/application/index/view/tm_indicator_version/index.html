@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    {include file="common/meta" /}
+    {include file="common/css" /}
+</head>
+<body class="pear-container">
+<div class="layui-card">
+    <div class="layui-card-body">
+        <table id="dataTable" lay-filter="dataTable"></table>
+    </div>
+</div>
+
+<script type="text/html" id="bar">
+    <a class="layui-btn layui-btn-normal layui-btn-xs" lay-event="viewBank">查看题库</a>
+</script>
+
+<script src="/component/layui/layui.js"></script>
+<script src="/component/pear/pear.js"></script>
+<script>
+layui.use(['table','layer'], function(){
+    var table = layui.table;
+    var layer = layui.layer;
+
+    table.render({
+        elem: '#dataTable',
+        url: '/TmIndicatorVersion/getList',
+        page: true,
+        cols: [[
+            {field:'name', title:'版本名称'},
+            {field:'version_no', title:'版本号', width:100},
+            {field:'status_text', title:'状态', width:90},
+            {field:'pick_mode_text', title:'抽题策略', width:110},
+            {field:'l1_weight_sum', title:'一级权重合计', width:120},
+            {field:'question_cnt', title:'题目数', width:90},
+            {field:'published_at', title:'发布时间', width:170},
+            {title:'操作', toolbar:'#bar', width:120, fixed:'right'}
+        ]]
+    });
+
+    table.on('tool(dataTable)', function(obj){
+        if (obj.event === 'viewBank') {
+            var url = '/TmIndicator/index?versionId=' + obj.data.id;
+            var title = '题库 - ' + (obj.data.name || obj.data.version_no || '');
+            // Pear 多标签：优先新开/切到题库页；否则本页跳转
+            try {
+                if (parent && parent.layui && parent.layui.admin && typeof parent.layui.admin.addTab === 'function') {
+                    parent.layui.admin.addTab('tm-bank-' + obj.data.id, title, url);
+                    return;
+                }
+            } catch (e) {}
+            layer.open({
+                type: 2,
+                title: title,
+                area: ['95%', '92%'],
+                maxmin: true,
+                content: url
+            });
+        }
+    });
+});
+</script>
+</body>
+</html>

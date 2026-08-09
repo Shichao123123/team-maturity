@@ -1,0 +1,12 @@
+﻿*************************** 1. row ***************************
+       Database: team_maturity
+Create Database: CREATE DATABASE `team_maturity` /*!40100 DEFAULT CHARACTER SET utf8mb4 */
+table_cnt
+18
+level_code	level_name	min_score	max_score
+passive	???	0.00	69.99
+dependent	???	70.00	79.99
+independent	???	80.00	90.00
+essential	?????	90.01	NULL
+measure_cnt
+4

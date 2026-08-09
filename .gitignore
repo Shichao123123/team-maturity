@@ -1,0 +1,32 @@
+# ThinkPHP / runtime
+backend/runtime/
+runtime/
+*.log
+
+# Dependencies & linked shells (junctions to old bk)
+backend/vendor/
+backend/thinkphp/
+backend/public/component/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Local env / secrets
+.env
+.env.*
+!.env.example
+
+# Temp / extract
+scripts/_docx_tmp/
+scripts/_level_err.html
+backend/runtime/temp/
+*.tmp
+
+# Office lock / temp files
+~$*
+*.tmp.docx

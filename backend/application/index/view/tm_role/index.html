@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+    {include file="common/meta" /}
+    {include file="common/css" /}
+    <style>
+        .power-box { max-height: 420px; overflow: auto; padding: 8px 4px; border: 1px solid #eee; border-radius: 4px; }
+    </style>
+</head>
+<body class="pear-container">
+<div class="layui-card">
+    <div class="layui-card-body">
+        <form class="layui-form" onsubmit="return false;">
+            <div class="layui-form-item">
+                <div class="layui-inline">
+                    <select name="status">
+                        <option value="">全部状态</option>
+                        <option value="1">启用</option>
+                        <option value="0">停用</option>
+                    </select>
+                </div>
+                <div class="layui-inline">
+                    <input type="text" name="keyword" placeholder="角色名/备注" class="layui-input">
+                </div>
+                <div class="layui-inline">
+                    <button class="pear-btn pear-btn-md pear-btn-primary" lay-submit lay-filter="search">查询</button>
+                    <button type="button" class="pear-btn pear-btn-md pear-btn-success" id="btnAdd">新增角色</button>
+                </div>
+            </div>
+        </form>
+        <table id="dataTable" lay-filter="dataTable"></table>
+    </div>
+</div>
+
+<script type="text/html" id="bar">
+    <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="power">分配权限</a>
+    <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
+</script>
+
+<script type="text/html" id="editTpl">
+    <form class="layui-form" style="padding:20px 24px 10px;" lay-filter="editForm">
+        <input type="hidden" name="id">
+        <div class="layui-form-item">
+            <label class="layui-form-label">角色名称</label>
+            <div class="layui-input-block">
+                <input type="text" name="name" required lay-verify="required" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">备注</label>
+            <div class="layui-input-block">
+                <input type="text" name="remark" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">状态</label>
+            <div class="layui-input-block">
+                <select name="status">
+                    <option value="1">启用</option>
+                    <option value="0">停用</option>
+                </select>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <div class="layui-input-block">
+                <button class="pear-btn pear-btn-primary" lay-submit lay-filter="save">保存</button>
+            </div>
+        </div>
+    </form>
+</script>
+
+<script type="text/html" id="powerTpl">
+    <div style="padding:16px 20px;">
+        <div class="power-box">
+            <div id="powerTree"></div>
+        </div>
+        <div style="margin-top:14px; text-align:right;">
+            <button type="button" class="pear-btn pear-btn-primary" id="btnSavePower">保存权限</button>
+        </div>
+    </div>
+</script>
+
+<script src="/component/layui/layui.js"></script>
+<script src="/component/pear/pear.js"></script>
+<script>
+layui.use(['table','form','tree','jquery','layer'], function(){
+    var table = layui.table, form = layui.form, tree = layui.tree;
+    var $ = layui.jquery, layer = layui.layer;
+
+    table.render({
+        elem: '#dataTable',
+        id: 'dataTable',
+        url: '/TmRole/getList',
+        page: true,
+        cols: [[
+            {field:'name', title:'角色名称', width:160},
+            {field:'remark', title:'备注', minWidth:180, templet: function(d){ return d.remark || ''; }},
+            {field:'admin_cnt', title:'管理员数', width:100},
+            {field:'power_cnt', title:'权限数', width:90},
+            {field:'status', title:'状态', width:80, templet: function(d){ return d.status==1?'启用':'停用'; }},
+            {field:'created_at', title:'创建时间', width:170},
+            {title:'操作', toolbar:'#bar', width:240, fixed:'right'}
+        ]]
+    });
+
+    form.on('submit(search)', function(data){
+        table.reload('dataTable', {where: data.field, page:{curr:1}});
+        return false;
+    });
+
+    function openForm(row){
+        layer.open({
+            type: 1,
+            title: row && row.id ? '编辑角色' : '新增角色',
+            area: ['480px', '380px'],
+            content: $('#editTpl').html(),
+            success: function(){
+                form.render(null, 'editForm');
+                if (row) form.val('editForm', row);
+                form.on('submit(save)', function(d){
+                    $.post('/TmRole/save', d.field, function(res){
+                        layer.msg(res.msg || '');
+                        if (res.success || res.code===0) {
+                            layer.closeAll();
+                            table.reload('dataTable');
+                        }
+                    }, 'json');
+                    return false;
+                });
+            }
+        });
+    }
+
+    function openPower(row){
+        layer.open({
+            type: 1,
+            title: '分配权限 - ' + (row.name || ''),
+            area: ['520px', '560px'],
+            content: $('#powerTpl').html(),
+            success: function(){
+                $.getJSON('/TmRole/powerTree', {roleId: row.id}, function(res){
+                    var data = (res && res.data) ? res.data : [];
+                    tree.render({
+                        elem: '#powerTree',
+                        id: 'powerTree',
+                        data: data,
+                        showCheckbox: true,
+                        accordion: false
+                    });
+                });
+                $('#btnSavePower').off('click').on('click', function(){
+                    var checked = tree.getChecked('powerTree') || [];
+                    var ids = [];
+                    (function walk(nodes){
+                        (nodes || []).forEach(function(n){
+                            ids.push(n.id);
+                            if (n.children && n.children.length) walk(n.children);
+                        });
+                    })(checked);
+                    $.post('/TmRole/savePowers', {role_id: row.id, power_ids: ids.join(',')}, function(res){
+                        layer.msg(res.msg || '');
+                        if (res.success || res.code===0) {
+                            layer.closeAll();
+                            table.reload('dataTable');
+                        }
+                    }, 'json');
+                });
+            }
+        });
+    }
+
+    $('#btnAdd').on('click', function(){ openForm(null); });
+
+    table.on('tool(dataTable)', function(obj){
+        if (obj.event === 'edit') openForm(obj.data);
+        if (obj.event === 'power') openPower(obj.data);
+        if (obj.event === 'del') {
+            layer.confirm('确认删除该角色？', function(i){
+                $.post('/TmRole/delete', {id: obj.data.id}, function(res){
+                    layer.msg(res.msg || '');
+                    if (res.success || res.code===0) table.reload('dataTable');
+                }, 'json');
+                layer.close(i);
+            });
+        }
+    });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>技术方案图表预览</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    body { font-family: "Microsoft YaHei", sans-serif; margin: 24px; background: #f5f7fb; color: #1f2937; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    h2 { font-size: 18px; margin: 28px 0 12px; border-left: 4px solid #1677ff; padding-left: 10px; }
+    .tip { color: #64748b; font-size: 13px; margin-bottom: 24px; line-height: 1.6; }
+    .box { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; margin-bottom: 20px; overflow-x: auto; }
+    .mermaid { display: flex; justify-content: center; }
+  </style>
+</head>
+<body>
+  <h1>班组安全成熟度测评系统 — 图表预览</h1>
+  <p class="tip">
+    Markdown / Word 默认不会渲染 Mermaid 代码块，所以 ER 图会显示成源代码。<br>
+    本页用浏览器打开即可看到图。文件路径：docs/技术方案设计方案-图表预览.html
+  </p>
+
+  <h2>1. 总体架构</h2>
+  <div class="box">
+    <pre class="mermaid">
+flowchart TB
+  subgraph PC["PC 管理端"]
+    A1[组织/班组（人员事后同步）]
+    A2[指标版本/题库]
+    A3[等级阈值/赋能措施]
+    A4[测评批次]
+    A5[结果查询/工作台看板]
+    A6[系统管理 RBAC]
+  end
+
+  subgraph Core["领域服务"]
+    S1[QuestionPickService 抽题]
+    S2[ScoreService 个人算分]
+    S3[LevelJudgeService 判级]
+  end
+
+  subgraph Mini["微信小程序"]
+    M1[扫码/选单位/填姓名]
+    M2[答题/提交同步]
+    M3[结果/建议]
+  end
+
+  DB[(MySQL team_maturity)]
+
+  A1 --> DB
+  A2 --> DB
+  A3 --> DB
+  A4 --> S1
+  A4 --> DB
+  M2 --> DB
+  A4 --> S2
+  S2 --> S3
+  S2 --> A5
+  M3 --> A5
+  A6 --> DB
+    </pre>
+  </div>
+
+  <h2>2. 功能模块关联</h2>
+  <div class="box">
+    <pre class="mermaid">
+flowchart LR
+  Org[组织档案] --> Team[班组]
+  Team --> Member[成员(事后同步)]
+  Member --> Paper[个人答卷]
+  Paper -.-> Member
+  Ver[指标版本] --> Ind[指标树]
+  Ind --> Q[题目/选项]
+  Ind --> Measure[赋能措施]
+  Ver --> Batch[测评批次]
+  Team --> Batch
+  Batch --> Snap[开测快照]
+  Snap --> Paper
+  Paper --> Answer[答题明细]
+  Paper --> Score[个人分]
+  Score --> TeamResult[班组结果]
+  Level[等级阈值] --> TeamResult
+  Measure --> TeamResult
+  TeamResult --> Dash[工作台/看板]
+    </pre>
+  </div>
+
+  <h2>3. 正式测评时序</h2>
+  <div class="box">
+    <pre class="mermaid">
+sequenceDiagram
+  participant Admin as PC管理员
+  participant Sys as 后台服务
+  participant DB as 数据库
+  participant User as 小程序用户
+
+  Admin->>Sys: 维护组织/班组（不必预导人员）
+  Admin->>Sys: 维护/发布指标版本与题库
+  Admin->>Sys: 配置等级阈值与赋能措施
+  Admin->>Sys: 创建测评批次并绑定班组
+  Admin->>Sys: 开始批次
+  Sys->>Sys: QuestionPickService 每三级抽1题
+  Sys->>DB: 写入 tm_batch_indicator_snap
+  User->>Sys: 扫码进入批次
+  User->>Sys: 选择单位并填写姓名
+  User->>Sys: 按快照答题并提交
+  Sys->>DB: 同步成员/答卷并锁定 tm_paper
+  Admin->>Sys: 触发/自动算分
+  Sys->>Sys: ScoreService + LevelJudgeService
+  Sys->>DB: 写个人分/班组结果/薄弱项
+  Admin->>Sys: 查看结果/看板/导出
+  User->>Sys: 查看本人与本班结果、建议
+    </pre>
+  </div>
+
+  <h2>4. 表关系 ER 图</h2>
+  <div class="box">
+    <pre class="mermaid">
+erDiagram
+  tm_org ||--o{ tm_org : parent_id
+  tm_org ||--o{ tm_team : org_id
+  tm_team ||--o{ tm_member : team_id
+  tm_member ||--o| tm_wx_user : bind
+
+  tm_indicator_version ||--o{ tm_indicator : version_id
+  tm_indicator ||--o{ tm_indicator : parent_id
+  tm_indicator ||--o{ tm_question : indicator_id
+  tm_indicator_version ||--o{ tm_question : version_id
+  tm_question ||--o{ tm_option : question_id
+  tm_indicator ||--o{ tm_empower_measure : indicator_id
+
+  tm_indicator_version ||--o{ tm_batch : version_id
+  tm_batch ||--o{ tm_batch_team : batch_id
+  tm_team ||--o{ tm_batch_team : team_id
+  tm_batch ||--|| tm_batch_indicator_snap : batch_id
+  tm_batch ||--o{ tm_paper : batch_id
+  tm_member ||--o{ tm_paper : member_id
+  tm_team ||--o{ tm_paper : team_id
+  tm_paper ||--o{ tm_paper_answer : paper_id
+  tm_batch ||--o{ tm_team_result : batch_id
+  tm_team ||--o{ tm_team_result : team_id
+
+  tm_role ||--o{ tm_admin : role_id
+  tm_role ||--o{ tm_role_power : role_id
+  tm_power ||--o{ tm_role_power : power_id
+  tm_admin ||--o{ tm_op_log : admin_id
+    </pre>
+  </div>
+
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose' });
+  </script>
+</body>
+</html>

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+    {include file="common/meta" /}
+    {include file="common/css" /}
+    <style>
+        body.pear-container { background: #f2f5fa !important; }
+        .mock-wrap { max-width: 960px; margin: 0 auto; }
+        .card {
+            background: #fff;
+            border-radius: 10px;
+            border: 1px solid #e8eef6;
+            box-shadow: 0 1px 3px rgba(15,45,90,.05);
+            padding: 22px 24px;
+            margin-bottom: 14px;
+        }
+        .card h2 { margin: 0 0 8px; font-size: 20px; color: #1f2d3d; }
+        .sub { color: #64748b; font-size: 13px; line-height: 1.6; margin-bottom: 16px; }
+        .start-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .start-row .layui-form-select { min-width: 280px; }
+        .progress-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 12px; color: #475569; font-size: 13px;
+        }
+        .q-item {
+            border: 1px solid #e8eef6;
+            border-radius: 10px;
+            padding: 16px 18px;
+            margin-bottom: 12px;
+            background: #fff;
+        }
+        .q-item.done { border-color: #93c5fd; background: #f8fbff; }
+        .q-meta { color: #64748b; font-size: 12px; margin-bottom: 6px; }
+        .q-ind { color: #0f766e; font-weight: 600; font-size: 13px; margin-bottom: 6px; line-height: 1.45; }
+        .q-title { font-size: 15px; color: #1e293b; font-weight: 600; margin-bottom: 12px; line-height: 1.55; }
+        .opt-line { display: block; padding: 8px 10px; margin: 4px 0; border-radius: 6px; cursor: pointer; }
+        .opt-line:hover { background: #f1f5f9; }
+        .opt-line input { margin-right: 8px; }
+        .sticky-actions {
+            position: sticky; bottom: 0; background: rgba(242,245,250,.95);
+            padding: 12px 0; display: flex; gap: 10px; justify-content: flex-end;
+            border-top: 1px solid #e2e8f0; margin-top: 8px;
+        }
+        .score-hero {
+            display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px;
+        }
+        .score-num { font-size: 48px; font-weight: 700; color: #1677ff; line-height: 1.1; }
+        .level-tag {
+            display: inline-block; margin-top: 8px;
+            background: #e6f4ff; color: #0958d9;
+            padding: 4px 12px; border-radius: 999px; font-weight: 600;
+        }
+        .feature { color: #475569; font-size: 13px; line-height: 1.65; margin-top: 10px; }
+        .weak-item {
+            border-top: 1px solid #edf2f7; padding: 12px 0;
+        }
+        .weak-item:first-child { border-top: 0; }
+        .weak-name { font-weight: 600; color: #0f172a; margin-bottom: 4px; }
+        .weak-score { color: #64748b; font-size: 12px; margin-bottom: 6px; }
+        .weak-measure { color: #334155; font-size: 13px; line-height: 1.55; background: #f8fafc; padding: 10px 12px; border-radius: 6px; }
+        .hidden { display: none !important; }
+        @media (max-width: 800px) {
+            .score-hero { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body class="pear-container">
+<div class="mock-wrap">
+
+    <div class="card" id="panelStart">
+        <h2>模拟做题</h2>
+        <div class="sub">
+            按正式规则从题库抽题：每个三级指标 1 道题，答完即时算个人分并判级。
+            <br>仅供联调演示，不写入测评批次 / 班组结果。
+        </div>
+        <form class="layui-form" onsubmit="return false;">
+            <div class="start-row">
+                <div class="layui-inline">
+                    <select name="version_id" id="versionId" lay-search>
+                        {volist name="versions" id="v"}
+                        <option value="{$v.id}">{$v.name}{if condition="$v.version_no"}（{$v.version_no}）{/if}</option>
+                        {/volist}
+                    </select>
+                </div>
+                <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnStart">开始模拟</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="card hidden" id="panelExam">
+        <div class="progress-bar">
+            <div>
+                <strong id="examTitle">模拟试卷</strong>
+                <span id="examMeta" style="margin-left:8px;"></span>
+            </div>
+            <div>已答 <span id="answeredCnt">0</span> / <span id="totalCnt">0</span></div>
+        </div>
+        <div id="questionList"></div>
+        <div class="sticky-actions">
+            <button type="button" class="pear-btn pear-btn-md" id="btnAbort">放弃</button>
+            <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnSubmit">交卷并算分</button>
+        </div>
+    </div>
+
+    <div class="hidden" id="panelResult">
+        <div class="card">
+            <h2>模拟结果</h2>
+            <div class="score-hero" style="margin-top:12px;">
+                <div>
+                    <div style="color:#64748b;font-size:13px;">个人得分</div>
+                    <div class="score-num" id="resScore">0</div>
+                    <div style="color:#94a3b8;font-size:13px;margin-top:4px;">满分 <span id="resFull">100</span></div>
+                    <div class="level-tag" id="resLevel">—</div>
+                    <div class="feature" id="resFeature"></div>
+                </div>
+                <div>
+                    <div style="color:#64748b;font-size:13px;margin-bottom:8px;">作答概况</div>
+                    <div style="line-height:1.9;color:#334155;font-size:14px;">
+                        <div>题数：<span id="resQcnt">0</span></div>
+                        <div>已答：<span id="resAnswered">0</span></div>
+                        <div>薄弱指标：<span id="resWeakCnt">0</span></div>
+                        <div>版本：<span id="resVersion">—</span></div>
+                    </div>
+                    <div style="margin-top:16px;">
+                        <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnAgain">再测一次</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <h2 style="font-size:16px;">薄弱指标与赋能建议</h2>
+            <div class="sub" style="margin-bottom:4px;">未拿满分的题目，按失分从高到低排列；建议优先取本质安全型建设措施。</div>
+            <div id="weakList"></div>
+        </div>
+    </div>
+</div>
+
+<script src="/component/layui/layui.js"></script>
+<script src="/component/pear/pear.js"></script>
+<script>
+layui.use(['form','jquery','layer'], function(){
+    var form = layui.form, $ = layui.jquery, layer = layui.layer;
+    form.render('select');
+
+    var state = { token: '', questions: [], answers: {} };
+
+    function show(panel){
+        $('#panelStart,#panelExam,#panelResult').addClass('hidden');
+        $('#'+panel).removeClass('hidden');
+    }
+
+    function refreshProgress(){
+        var n = 0;
+        state.questions.forEach(function(q){
+            if (state.answers[q.question_id]) n++;
+        });
+        $('#answeredCnt').text(n);
+        $('#totalCnt').text(state.questions.length);
+        state.questions.forEach(function(q){
+            var el = $('#q-'+q.question_id);
+            if (state.answers[q.question_id]) el.addClass('done');
+            else el.removeClass('done');
+        });
+    }
+
+    function renderQuestions(list){
+        var html = '';
+        list.forEach(function(q){
+            html += '<div class="q-item" id="q-'+q.question_id+'">';
+            html += '<div class="q-meta">第 '+q.seq+' 题</div>';
+            html += '<div class="q-ind">'+escapeHtml(q.indicator_name)+'</div>';
+            html += '<div class="q-title">'+escapeHtml(q.title)+'</div>';
+            (q.options||[]).forEach(function(opt){
+                html += '<label class="opt-line">'
+                    + '<input type="radio" name="q_'+q.question_id+'" value="'+opt.id+'">'
+                    + escapeHtml(opt.content)
+                    + '</label>';
+            });
+            html += '</div>';
+        });
+        $('#questionList').html(html);
+        $('#questionList input[type=radio]').on('change', function(){
+            var name = this.name; // q_123
+            var qid = parseInt(name.replace('q_',''), 10);
+            state.answers[qid] = parseInt(this.value, 10);
+            refreshProgress();
+        });
+        refreshProgress();
+    }
+
+    function escapeHtml(s){
+        return String(s==null?'':s)
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    $('#btnStart').on('click', function(){
+        var vid = $('#versionId').val();
+        if (!vid) { layer.msg('请选择指标版本'); return; }
+        var load = layer.load(2);
+        $.post('/TmMockExam/start', {version_id: vid}, function(res){
+            layer.close(load);
+            if (!(res.success || res.code===0)) { layer.msg(res.msg||'开始失败'); return; }
+            state.token = res.data.token;
+            state.answers = {};
+            $.getJSON('/TmMockExam/paper', {token: state.token}, function(p){
+                if (!(p.success || p.code===0)) { layer.msg(p.msg||'加载试卷失败'); return; }
+                state.questions = p.data.questions || [];
+                $('#examTitle').text(p.data.version_name || '模拟试卷');
+                $('#examMeta').text('共 '+state.questions.length+' 题');
+                renderQuestions(state.questions);
+                show('panelExam');
+                window.scrollTo(0,0);
+            });
+        }, 'json');
+    });
+
+    $('#btnAbort').on('click', function(){
+        layer.confirm('确认放弃本次模拟？', function(i){
+            $.post('/TmMockExam/clear', {}, function(){
+                state = { token:'', questions:[], answers:{} };
+                show('panelStart');
+            }, 'json');
+            layer.close(i);
+        });
+    });
+
+    $('#btnSubmit').on('click', function(){
+        var total = state.questions.length;
+        var answered = Object.keys(state.answers).length;
+        if (answered < total) {
+            layer.confirm('还有 '+(total-answered)+' 题未答，未答按 0 分计，确认交卷？', function(i){
+                layer.close(i);
+                doSubmit();
+            });
+        } else {
+            doSubmit();
+        }
+    });
+
+    function doSubmit(){
+        var load = layer.load(2);
+        $.ajax({
+            url: '/TmMockExam/submit',
+            type: 'POST',
+            dataType: 'json',
+            data: {
+                token: state.token,
+                answers: JSON.stringify(state.answers)
+            },
+            success: function(res){
+                layer.close(load);
+                if (!(res.success || res.code===0)) { layer.msg(res.msg||'提交失败'); return; }
+                renderResult(res.data || {});
+                show('panelResult');
+                window.scrollTo(0,0);
+            },
+            error: function(){ layer.close(load); layer.msg('提交失败'); }
+        });
+    }
+
+    function renderResult(d){
+        $('#resScore').text(d.total_score != null ? d.total_score : '—');
+        $('#resFull').text(d.full_score != null ? d.full_score : '100');
+        $('#resQcnt').text(d.question_cnt || 0);
+        $('#resAnswered').text(d.answered_cnt || 0);
+        $('#resWeakCnt').text((d.weak_list||[]).length);
+        $('#resVersion').text(d.version_name || '—');
+        if (d.level) {
+            $('#resLevel').text(d.level.level_name || '—');
+            $('#resFeature').text(d.level.feature_desc || '');
+        } else {
+            $('#resLevel').text('未判级');
+            $('#resFeature').text('');
+        }
+        var html = '';
+        (d.weak_list || []).forEach(function(w, i){
+            html += '<div class="weak-item">'
+                + '<div class="weak-name">'+(i+1)+'. '+escapeHtml(w.indicator_name)+'</div>'
+                + '<div class="weak-measure">'+escapeHtml(w.measure||'暂无')+'</div>'
+                + '</div>';
+        });
+        if (!html) html = '<div style="color:#94a3b8;padding:8px 0;">全部满分，暂无薄弱指标。</div>';
+        $('#weakList').html(html);
+    }
+
+    $('#btnAgain').on('click', function(){
+        state = { token:'', questions:[], answers:{} };
+        show('panelStart');
+    });
+});
+</script>
+</body>
+</html>

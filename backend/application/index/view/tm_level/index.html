@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html>
+<head>
+    {include file="common/meta" /}
+    {include file="common/css" /}
+    <style>
+        .tip { color:#666; font-size:13px; margin:0 0 12px; line-height:1.6; }
+        .feature-cell { white-space:normal; line-height:1.45; }
+        #measureTableBox .layui-table-view { width: 100% !important; }
+        #measureTableBox .layui-table-box,
+        #measureTableBox .layui-table-header,
+        #measureTableBox .layui-table-body,
+        #measureTableBox .layui-table-main { overflow: visible !important; }
+        #measureTableBox .layui-table-cell {
+            height: auto !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            white-space: normal !important;
+            word-break: break-word;
+            line-height: 1.55;
+            padding: 12px 14px;
+        }
+        #measureTableBox td, #measureTableBox th { vertical-align: top; }
+        .measure-cell {
+            white-space: normal;
+            word-break: break-word;
+            line-height: 1.55;
+            font-size: 13px;
+            color: #333;
+        }
+        .measure-cell.is-empty { color: #999; }
+        .measure-cell .m-edit {
+            display: inline-block;
+            margin-top: 8px;
+            color: #1E9FFF;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .measure-cell .m-edit:hover { text-decoration: underline; }
+        .ind-name {
+            white-space: normal;
+            word-break: break-word;
+            line-height: 1.55;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="pear-container">
+<div class="layui-card">
+    <div class="layui-card-body">
+        <div class="layui-tab layui-tab-brief" lay-filter="levelTab">
+            <ul class="layui-tab-title">
+                <li class="layui-this">等级阈值</li>
+                <li>赋能措施</li>
+            </ul>
+            <div class="layui-tab-content">
+                <div class="layui-tab-item layui-show">
+                    <p class="tip">
+                        判级口径（可改）：被动型 &lt;70 · 依赖型 70～80 · 自立型 80～90 · 本质安全型 &gt;90～100。
+                        满分按 100 分计。点「编辑」修改，保存时会校验区间是否重叠。
+                    </p>
+                    <table id="thresholdTable" lay-filter="thresholdTable"></table>
+                </div>
+                <div class="layui-tab-item">
+                    <p class="tip">每个三级指标对应四个等级的建设措施，一行展示；点击单元格下方「编辑」可修改。</p>
+                    <form class="layui-form" onsubmit="return false;" style="margin-bottom:8px;">
+                        <div class="layui-inline">
+                            <input type="text" name="keyword" placeholder="指标/措施内容" class="layui-input" style="width:240px;">
+                        </div>
+                        <div class="layui-inline">
+                            <button class="pear-btn pear-btn-md pear-btn-primary" lay-submit lay-filter="mfSearch">查询</button>
+                        </div>
+                    </form>
+                    <div id="measureTableBox">
+                        <table id="measureTable" lay-filter="measureTable"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/html" id="thBar">
+    <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+</script>
+
+<script type="text/html" id="thresholdTpl">
+    <form class="layui-form" style="padding:20px 24px 10px;" lay-filter="thresholdForm">
+        <input type="hidden" name="id">
+        <input type="hidden" name="level_code">
+        <input type="hidden" name="sort_no">
+        <input type="hidden" name="status">
+        <div class="layui-form-item">
+            <label class="layui-form-label">等级名称</label>
+            <div class="layui-input-block">
+                <input type="text" name="level_name" required lay-verify="required" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">最低分</label>
+            <div class="layui-input-block">
+                <input type="number" name="min_score" step="0.01" required lay-verify="required" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">最高分</label>
+            <div class="layui-input-block">
+                <input type="number" name="max_score" step="0.01" class="layui-input" placeholder="最高档可留空表示到满分">
+            </div>
+        </div>
+        <div class="layui-form-item layui-form-text">
+            <label class="layui-form-label">阶段特征</label>
+            <div class="layui-input-block">
+                <textarea name="feature_desc" class="layui-textarea" style="min-height:120px;"></textarea>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <div class="layui-input-block">
+                <button class="pear-btn pear-btn-primary" lay-submit lay-filter="thresholdSave">保存</button>
+            </div>
+        </div>
+    </form>
+</script>
+
+<script type="text/html" id="measureTpl">
+    <form class="layui-form" style="padding:20px 24px 10px;" lay-filter="measureForm">
+        <input type="hidden" name="id">
+        <input type="hidden" name="level_code">
+        <input type="hidden" name="indicator_id">
+        <input type="hidden" name="title">
+        <div class="layui-form-item">
+            <label class="layui-form-label">指标</label>
+            <div class="layui-input-block">
+                <input type="text" name="indicator_name" class="layui-input" readonly>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">等级</label>
+            <div class="layui-input-block">
+                <input type="text" name="level_name" class="layui-input" readonly>
+            </div>
+        </div>
+        <div class="layui-form-item layui-form-text">
+            <label class="layui-form-label">措施内容</label>
+            <div class="layui-input-block">
+                <textarea name="content" required lay-verify="required" class="layui-textarea" style="min-height:160px;" placeholder="建设措施正文，没有可填暂无"></textarea>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <div class="layui-input-block">
+                <button class="pear-btn pear-btn-primary" lay-submit lay-filter="measureSave">保存</button>
+            </div>
+        </div>
+    </form>
+</script>
+
+<script src="/component/layui/layui.js"></script>
+<script src="/component/pear/pear.js"></script>
+<script>
+layui.use(['table','form','element','jquery','layer'], function(){
+    var table = layui.table, form = layui.form, element = layui.element;
+    var $ = layui.jquery, layer = layui.layer;
+
+    var levelMeta = {
+        passive: '被动型',
+        dependent: '依赖型',
+        independent: '自立型',
+        essential: '本质安全型'
+    };
+
+    function loadThreshold(){
+        table.render({
+            elem: '#thresholdTable',
+            id: 'thresholdTable',
+            url: '/TmLevel/thresholds',
+            parseData: function(res){
+                return {
+                    code: (res.code===0 || res.success) ? 0 : 1,
+                    msg: res.msg || '',
+                    count: (res.data||[]).length,
+                    data: res.data || []
+                };
+            },
+            page: false,
+            cellMinWidth: 80,
+            cols: [[
+                {field:'level_name', title:'等级名称', width:120},
+                {field:'min_score', title:'最低分', width:100},
+                {field:'max_score', title:'最高分', width:100, templet: function(d){
+                    return d.max_score===null || d.max_score==='' ? '' : d.max_score;
+                }},
+                {field:'range_text', title:'区间说明', width:160},
+                {field:'feature_desc', title:'阶段特征', minWidth:280, templet: function(d){
+                    return '<div class="feature-cell">'+(d.feature_desc||'')+'</div>';
+                }},
+                {title:'操作', toolbar:'#thBar', width:90, fixed:'right'}
+            ]]
+        });
+    }
+
+    function openThreshold(row){
+        layer.open({
+            type: 1,
+            title: '编辑等级阈值 - ' + (row.level_name || ''),
+            area: ['560px', '480px'],
+            content: $('#thresholdTpl').html(),
+            success: function(){
+                form.render(null, 'thresholdForm');
+                form.val('thresholdForm', {
+                    id: row.id,
+                    level_code: row.level_code,
+                    level_name: row.level_name,
+                    min_score: row.min_score,
+                    max_score: (row.max_score===null || row.max_score===undefined) ? '' : row.max_score,
+                    feature_desc: row.feature_desc || '',
+                    sort_no: row.sort_no,
+                    status: row.status
+                });
+                form.on('submit(thresholdSave)', function(d){
+                    var field = d.field;
+                    var cache = table.cache.thresholdTable || [];
+                    var items = cache.map(function(r){
+                        if (String(r.id) === String(field.id)) {
+                            var max = field.max_score;
+                            if (max === '' || max === undefined) max = null;
+                            return {
+                                id: r.id,
+                                level_code: r.level_code,
+                                level_name: field.level_name,
+                                min_score: field.min_score,
+                                max_score: max,
+                                feature_desc: field.feature_desc || '',
+                                sort_no: r.sort_no,
+                                status: r.status
+                            };
+                        }
+                        var max2 = r.max_score;
+                        if (max2 === '' || max2 === undefined) max2 = null;
+                        return {
+                            id: r.id,
+                            level_code: r.level_code,
+                            level_name: r.level_name,
+                            min_score: r.min_score,
+                            max_score: max2,
+                            feature_desc: r.feature_desc,
+                            sort_no: r.sort_no,
+                            status: r.status
+                        };
+                    });
+                    var loadIdx = layer.load(2);
+                    $.ajax({
+                        url: '/TmLevel/saveThresholds',
+                        type: 'POST',
+                        data: { items: JSON.stringify(items) },
+                        dataType: 'json',
+                        success: function(res){
+                            layer.close(loadIdx);
+                            layer.msg(res.msg || '');
+                            if (res.success || res.code===0) {
+                                layer.closeAll();
+                                loadThreshold();
+                            }
+                        },
+                        error: function(){ layer.close(loadIdx); layer.msg('保存失败'); }
+                    });
+                    return false;
+                });
+            }
+        });
+    }
+
+    table.on('tool(thresholdTable)', function(obj){
+        if (obj.event === 'edit') openThreshold(obj.data);
+    });
+
+    function escapeHtml(s){
+        return String(s == null ? '' : s)
+            .replace(/&/g,'&amp;')
+            .replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;')
+            .replace(/"/g,'&quot;');
+    }
+
+    function measureCellTpl(code){
+        return function(d){
+            var content = d[code + '_content'] || '暂无';
+            var empty = (content === '暂无');
+            return '<div class="measure-cell'+(empty?' is-empty':'')+'">'
+                + escapeHtml(content)
+                + '<br><span class="m-edit" data-level="'+code+'">编辑</span>'
+                + '</div>';
+        };
+    }
+
+    var measureWhere = {};
+    function loadMeasure(){
+        table.render({
+            elem: '#measureTable',
+            id: 'measureTable',
+            url: '/TmLevel/measures',
+            where: measureWhere,
+            page: true,
+            limit: 10,
+            limits: [10, 20, 40],
+            even: true,
+            cols: [[
+                {field:'indicator_name', title:'三级指标', width: 260, templet: function(d){
+                    return '<div class="ind-name">'+escapeHtml(d.indicator_name||'')+'</div>';
+                }},
+                {field:'passive_content', title:'被动型', templet: measureCellTpl('passive')},
+                {field:'dependent_content', title:'依赖型', templet: measureCellTpl('dependent')},
+                {field:'independent_content', title:'自立型', templet: measureCellTpl('independent')},
+                {field:'essential_content', title:'本质安全型', templet: measureCellTpl('essential')}
+            ]],
+            done: function(){
+                // 行高随内容撑开后，同步 layui 内部高度
+                var view = $('#measureTableBox .layui-table-view');
+                view.find('.layui-table-body').css('height', 'auto');
+                view.find('.layui-table-main').css('height', 'auto');
+            }
+        });
+    }
+
+    form.on('submit(mfSearch)', function(data){
+        measureWhere = data.field;
+        table.reload('measureTable', {where: measureWhere, page:{curr:1}});
+        return false;
+    });
+
+    function openMeasure(payload){
+        layer.open({
+            type: 1,
+            title: '编辑措施',
+            area: ['640px', '480px'],
+            content: $('#measureTpl').html(),
+            success: function(){
+                form.render(null, 'measureForm');
+                form.val('measureForm', {
+                    id: payload.id || 0,
+                    level_code: payload.level_code,
+                    indicator_id: payload.indicator_id,
+                    title: payload.title || payload.indicator_name || '',
+                    indicator_name: payload.indicator_name || '',
+                    level_name: payload.level_name || '',
+                    content: payload.content || '暂无'
+                });
+                form.on('submit(measureSave)', function(d){
+                    var field = d.field;
+                    if (!field.title) field.title = field.indicator_name || '措施';
+                    $.post('/TmLevel/saveMeasure', field, function(res){
+                        layer.msg(res.msg || '');
+                        if (res.success || res.code===0) {
+                            layer.closeAll();
+                            table.reload('measureTable');
+                        }
+                    }, 'json');
+                    return false;
+                });
+            }
+        });
+    }
+
+    $(document).on('click', '#measureTable + .layui-table-view .m-edit, .layui-table-view .m-edit', function(e){
+        e.stopPropagation();
+        var code = $(this).data('level');
+        var tr = $(this).closest('tr');
+        var index = tr.data('index');
+        var cache = table.cache.measureTable || [];
+        var row = cache[index];
+        if (!row || !code) return;
+        openMeasure({
+            id: row[code + '_id'] || 0,
+            level_code: code,
+            level_name: levelMeta[code] || code,
+            indicator_id: row.indicator_id,
+            indicator_name: row.indicator_name,
+            title: row[code + '_title'] || row.indicator_name,
+            content: row[code + '_content'] || '暂无'
+        });
+    });
+
+    element.on('tab(levelTab)', function(data){
+        if (data.index === 1) loadMeasure();
+    });
+
+    loadThreshold();
+});
+</script>
+</body>
+</html>

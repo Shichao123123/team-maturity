@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    {include file="common/meta" /}
+    {include file="common/css" /}
+    <style>
+        .err-list { max-height: 360px; overflow: auto; font-size: 13px; line-height: 1.6; }
+        .err-list li { margin-bottom: 4px; }
+    </style>
+</head>
+<body class="pear-container">
+<div class="layui-card">
+    <div class="layui-card-body">
+        <p style="color:#666;margin:0 0 12px;font-size:13px;">展示组织 / 班组 / 成员 Excel 导入记录。具体导入入口在各业务页。</p>
+        <form class="layui-form" onsubmit="return false;">
+            <div class="layui-form-item">
+                <div class="layui-inline">
+                    <select name="type">
+                        <option value="">全部类型</option>
+                        <option value="org">组织</option>
+                        <option value="team">班组</option>
+                        <option value="member">成员</option>
+                    </select>
+                </div>
+                <div class="layui-inline">
+                    <select name="status">
+                        <option value="">全部状态</option>
+                        <option value="0">处理中</option>
+                        <option value="1">成功</option>
+                        <option value="2">部分失败</option>
+                        <option value="3">失败</option>
+                    </select>
+                </div>
+                <div class="layui-inline">
+                    <button class="pear-btn pear-btn-md pear-btn-primary" lay-submit lay-filter="search">查询</button>
+                </div>
+            </div>
+        </form>
+        <table id="dataTable" lay-filter="dataTable"></table>
+    </div>
+</div>
+
+<script type="text/html" id="bar">
+    <a class="layui-btn layui-btn-xs" lay-event="detail">明细</a>
+</script>
+
+<script src="/component/layui/layui.js"></script>
+<script src="/component/pear/pear.js"></script>
+<script>
+layui.use(['table','form','jquery','layer'], function(){
+    var table = layui.table, form = layui.form, $ = layui.jquery, layer = layui.layer;
+
+    table.render({
+        elem: '#dataTable',
+        id: 'dataTable',
+        url: '/TmImport/getList',
+        page: true,
+        cols: [[
+            {field:'id', title:'任务号', width:90},
+            {field:'type_name', title:'类型', width:90},
+            {field:'file_name', title:'文件名', minWidth:160},
+            {field:'total_cnt', title:'总行数', width:90},
+            {field:'success_cnt', title:'成功', width:80},
+            {field:'fail_cnt', title:'失败', width:80},
+            {field:'status_name', title:'状态', width:100},
+            {field:'admin_name', title:'操作人', width:110},
+            {field:'created_at', title:'开始时间', width:170},
+            {field:'finished_at', title:'结束时间', width:170, templet: function(d){ return d.finished_at || ''; }},
+            {title:'操作', toolbar:'#bar', width:90, fixed:'right'}
+        ]]
+    });
+
+    form.on('submit(search)', function(data){
+        table.reload('dataTable', {where: data.field, page:{curr:1}});
+        return false;
+    });
+
+    table.on('tool(dataTable)', function(obj){
+        if (obj.event !== 'detail') return;
+        $.getJSON('/TmImport/detail', {id: obj.data.id}, function(res){
+            if (!(res.success || res.code===0)) {
+                layer.msg(res.msg || '加载失败');
+                return;
+            }
+            var d = res.data || {};
+            var html = '<div style="padding:16px 20px;line-height:1.7;">'
+                + '<div>类型：'+(d.type_name||'')+'</div>'
+                + '<div>文件：'+(d.file_name||'')+'</div>'
+                + '<div>状态：'+(d.status_name||'')+'</div>'
+                + '<div>合计 / 成功 / 失败：'+(d.total_cnt||0)+' / '+(d.success_cnt||0)+' / '+(d.fail_cnt||0)+'</div>';
+            var errors = d.errors || [];
+            if (errors.length) {
+                html += '<div style="margin-top:10px;">失败明细：</div><ul class="err-list">';
+                errors.forEach(function(e){
+                    if (typeof e === 'string') {
+                        html += '<li>'+e+'</li>';
+                    } else if (e && (e.row || e.msg || e.message)) {
+                        html += '<li>第'+(e.row||'?')+'行：'+(e.msg||e.message||JSON.stringify(e))+'</li>';
+                    } else {
+                        html += '<li>'+JSON.stringify(e)+'</li>';
+                    }
+                });
+                html += '</ul>';
+            } else {
+                html += '<div style="margin-top:10px;color:#888;">无失败明细</div>';
+            }
+            html += '</div>';
+            layer.open({type:1, title:'导入任务 #'+d.id, area:['560px','480px'], content: html});
+        });
+    });
+});
+</script>
+</body>
+</html>
