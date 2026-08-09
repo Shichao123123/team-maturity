@@ -132,8 +132,81 @@ class BatchService
             $upd['question_pick_mode'] = $clean['question_pick_mode'];
         }
 
+        $newStart = isset($upd['start_time']) ? $upd['start_time'] : $batch['start_time'];
+        $newEnd = $upd['end_time'];
+        $boundIds = Db::name('tm_batch_team')->where('batch_id', (int)$id)->column('team_id');
+        if (!empty($boundIds)) {
+            $busy = self::findBusyTeams($id, $newStart, $newEnd);
+            foreach ($boundIds as $tid) {
+                if (isset($busy[(int)$tid])) {
+                    $c = $busy[(int)$tid];
+                    return [false, '调整后的时间与批次「' . $c['batch_name'] . '」重叠，请先解绑冲突班组或改时间'];
+                }
+            }
+        }
+
         Db::name('tm_batch')->where('id', (int)$id)->update($upd);
         return [true, '保存成功'];
+    }
+
+    /**
+     * 查找与本批次时间窗重叠、且已绑定某班组的其它批次（一班组同一时间段仅一次测评）。
+     * @return array [team_id => ['batch_id'=>, 'batch_name'=>, 'start_time'=>, 'end_time'=>, 'status'=>, 'status_text'=>]]
+     */
+    public static function findBusyTeams($batchId, $startTime = null, $endTime = null)
+    {
+        $batch = self::find($batchId);
+        if (!$batch) {
+            return [];
+        }
+        $start = $startTime !== null ? $startTime : $batch['start_time'];
+        $end = $endTime !== null ? $endTime : $batch['end_time'];
+        if ($start === '' || $end === '') {
+            return [];
+        }
+
+        // 时间重叠：other.start < this.end AND other.end > this.start
+        $others = Db::name('tm_batch')
+            ->whereNull('deleted_at')
+            ->where('id', '<>', (int)$batchId)
+            ->where('start_time', '<', $end)
+            ->where('end_time', '>', $start)
+            ->field('id, name, start_time, end_time, status')
+            ->select();
+        if (empty($others)) {
+            return [];
+        }
+
+        $otherIds = [];
+        $otherMap = [];
+        foreach ($others as $o) {
+            $oid = (int)$o['id'];
+            $otherIds[] = $oid;
+            $otherMap[$oid] = $o;
+        }
+
+        $binds = Db::name('tm_batch_team')
+            ->where('batch_id', 'in', $otherIds)
+            ->field('batch_id, team_id')
+            ->select();
+
+        $busy = [];
+        foreach ($binds as $b) {
+            $tid = (int)$b['team_id'];
+            if (isset($busy[$tid])) {
+                continue;
+            }
+            $ob = $otherMap[(int)$b['batch_id']];
+            $busy[$tid] = [
+                'batch_id'    => (int)$ob['id'],
+                'batch_name'  => $ob['name'],
+                'start_time'  => $ob['start_time'],
+                'end_time'    => $ob['end_time'],
+                'status'      => (int)$ob['status'],
+                'status_text' => self::statusText($ob['status']),
+            ];
+        }
+        return $busy;
     }
 
     /**
@@ -162,6 +235,20 @@ class BatchService
             ->column('id');
         if (count($valid) !== count($teamIds)) {
             return [false, '存在停用或不存在的班组，请重新选择'];
+        }
+
+        $busy = self::findBusyTeams($batchId);
+        $conflicts = [];
+        $nameMap = Db::name('tm_team')->where('id', 'in', $teamIds)->column('name', 'id');
+        foreach ($teamIds as $tid) {
+            if (isset($busy[$tid])) {
+                $c = $busy[$tid];
+                $tname = isset($nameMap[$tid]) ? $nameMap[$tid] : ('#' . $tid);
+                $conflicts[] = "「{$tname}」已在重叠时段批次「{$c['batch_name']}」中";
+            }
+        }
+        if (!empty($conflicts)) {
+            return [false, '同一班组同一时间段只能参加一次测评：' . implode('；', $conflicts)];
         }
 
         $now = tmNow();
@@ -206,6 +293,23 @@ class BatchService
         $bindCnt = Db::name('tm_batch_team')->where('batch_id', (int)$batchId)->count();
         if ($bindCnt < 1) {
             return [false, '请先绑定参评班组', null];
+        }
+
+        // 开测前再校验时间重叠（防止改时间后仍带着冲突班组开测）
+        $boundIds = Db::name('tm_batch_team')->where('batch_id', (int)$batchId)->column('team_id');
+        $busy = self::findBusyTeams($batchId);
+        $conflicts = [];
+        $nameMap = empty($boundIds) ? [] : Db::name('tm_team')->where('id', 'in', $boundIds)->column('name', 'id');
+        foreach ($boundIds as $tid) {
+            $tid = (int)$tid;
+            if (isset($busy[$tid])) {
+                $c = $busy[$tid];
+                $tname = isset($nameMap[$tid]) ? $nameMap[$tid] : ('#' . $tid);
+                $conflicts[] = "「{$tname}」与批次「{$c['batch_name']}」时间重叠";
+            }
+        }
+        if (!empty($conflicts)) {
+            return [false, '存在时段冲突班组，请调整时间或班组：' . implode('；', $conflicts), null];
         }
 
         $versionId = (int)$batch['version_id'];
@@ -399,6 +503,15 @@ class BatchService
         $batch['question_cnt'] = $questionCnt;
         $batch['team_ids'] = Db::name('tm_batch_team')->where('batch_id', (int)$batchId)->column('team_id');
         $batch['progress'] = self::progress($batchId);
+        $busy = self::findBusyTeams($batchId);
+        $batch['busy_teams'] = $busy;
+        // 便于前端遍历
+        $busyList = [];
+        foreach ($busy as $tid => $info) {
+            $info['team_id'] = (int)$tid;
+            $busyList[] = $info;
+        }
+        $batch['busy_team_list'] = $busyList;
 
         return $batch;
     }

@@ -15,6 +15,8 @@
             padding:8px 12px; background:#fff;
         }
         .team-check-box .layui-form-item { margin-bottom:6px; }
+        .team-busy { color:#b91c1c; font-size:12px; margin-left:6px; }
+        .team-check-toolbar { margin-bottom:8px; }
         .status-tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:12px; }
         .st-0 { background:#f1f5f9; color:#475569; }
         .st-1 { background:#dcfce7; color:#166534; }
@@ -100,12 +102,16 @@
         <div class="entry-box" id="detailEntry"></div>
         <div class="act-row" id="detailActions"></div>
         <div id="bindBlock">
-            <div class="tip">参评班组（开测前可修改；开测后锁定）</div>
+            <div class="tip">参评班组（开测前可修改；开测后锁定）。同一班组在重叠时间段内若已有测评任务则不可选。</div>
             <form class="layui-form" lay-filter="bindForm">
+                <div class="team-check-toolbar" id="selectAllWrap">
+                    <input type="checkbox" name="select_all" id="selectAllTeams" title="全选可选班组" lay-skin="primary" lay-filter="selectAllTeams">
+                </div>
                 <div class="team-check-box">
                     {volist name="teams" id="t"}
-                    <div class="layui-form-item" style="margin-bottom:4px;">
-                        <input type="checkbox" name="team_ids" value="{$t.id}" title="{$t.name}（{$t.org_path}）" lay-skin="primary">
+                    <div class="layui-form-item team-row" style="margin-bottom:4px;" data-team-id="{$t.id}">
+                        <input type="checkbox" name="team_ids" value="{$t.id}" title="{$t.name}（{$t.org_path}）" lay-skin="primary" lay-filter="teamPick">
+                        <span class="team-busy" style="display:none;"></span>
                     </div>
                     {/volist}
                 </div>
@@ -132,6 +138,24 @@ layui.use(['table','form','jquery','layer','laydate'], function(){
         table.reload('dataTable', {where: form.val('filterForm') || {}, page:{curr:1}});
     }
     form.on('select(autoFilter)', function(){ reloadFilter(); });
+    form.on('checkbox(selectAllTeams)', function(data){
+        var checked = data.elem.checked;
+        $('form[lay-filter="bindForm"] input[name="team_ids"]').each(function(){
+            if ($(this).attr('disabled')) return;
+            $(this).prop('checked', checked);
+        });
+        form.render('checkbox', 'bindForm');
+        $('#selectAllTeams').prop('checked', checked);
+        form.render('checkbox', 'bindForm');
+    });
+    form.on('checkbox(teamPick)', function(){
+        var $all = $('form[lay-filter="bindForm"] input[name="team_ids"]').filter(function(){
+            return !$(this).attr('disabled');
+        });
+        var $checked = $all.filter(':checked');
+        $('#selectAllTeams').prop('checked', $all.length > 0 && $all.length === $checked.length);
+        form.render('checkbox', 'bindForm');
+    });
     var keywordTimer = null;
     $('form[lay-filter="filterForm"] input[name="keyword"]').on('input', function(){
         clearTimeout(keywordTimer);
@@ -263,16 +287,37 @@ layui.use(['table','form','jquery','layer','laydate'], function(){
 
         var idSet = {};
         (d.team_ids || []).forEach(function(x){ idSet[String(x)] = true; });
-        $('form[lay-filter="bindForm"] input[name="team_ids"]').each(function(){
-            $(this).prop('checked', !!idSet[String($(this).val())]);
+        var busyMap = d.busy_teams || {};
+        $('form[lay-filter="bindForm"] .team-row').each(function(){
+            var $row = $(this);
+            var tid = String($row.data('team-id'));
+            var $cb = $row.find('input[name="team_ids"]');
+            var $busy = $row.find('.team-busy');
+            var busy = busyMap[tid] || busyMap[parseInt(tid, 10)];
+            $cb.prop('checked', !!idSet[tid]);
+            if (busy) {
+                $cb.prop('checked', false);
+                $cb.attr('disabled', true);
+                $busy.text('不可选：已在「' + (busy.batch_name || '') + '」（' + (busy.status_text || '') + '）').show();
+            } else {
+                $cb.attr('disabled', status !== 0);
+                $busy.hide().text('');
+            }
         });
+        $('#selectAllTeams').prop('checked', false).attr('disabled', status !== 0);
         form.render('checkbox', 'bindForm');
         if (status !== 0) {
-            $('form[lay-filter="bindForm"] input[name="team_ids"]').attr('disabled', true);
-            form.render('checkbox', 'bindForm');
             $('#bindSaveWrap').hide();
+            $('#selectAllWrap').hide();
         } else {
             $('#bindSaveWrap').show();
+            $('#selectAllWrap').show();
+            // 同步全选框状态
+            var $avail = $('form[lay-filter="bindForm"] input[name="team_ids"]').filter(function(){
+                return !$(this).attr('disabled');
+            });
+            $('#selectAllTeams').prop('checked', $avail.length > 0 && $avail.length === $avail.filter(':checked').length);
+            form.render('checkbox', 'bindForm');
         }
 
         table.render({
@@ -297,6 +342,7 @@ layui.use(['table','form','jquery','layer','laydate'], function(){
         $('#btnBindTeams').off('click').on('click', function(){
             var teamIds = [];
             $('form[lay-filter="bindForm"] input[name="team_ids"]:checked').each(function(){
+                if ($(this).attr('disabled')) return;
                 teamIds.push($(this).val());
             });
             $.post('/TmBatch/bindTeams', {batch_id: d.id, team_ids: teamIds}, function(res){
