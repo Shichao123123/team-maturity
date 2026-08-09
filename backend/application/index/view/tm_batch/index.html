@@ -59,6 +59,7 @@
 <script type="text/html" id="editTpl">
     <form class="layui-form" style="padding:20px 24px 10px;" lay-filter="editForm">
         <input type="hidden" name="id">
+        <p class="tip" id="createNextTip" style="display:none;margin:0 0 12px 0;">填写名称、版本与时间后保存，将自动进入「选择参评班组 / 开测」。</p>
         <div class="layui-form-item">
             <label class="layui-form-label">批次名称</label>
             <div class="layui-input-block">
@@ -90,7 +91,7 @@
         </div>
         <div class="layui-form-item">
             <div class="layui-input-block">
-                <button class="pear-btn pear-btn-primary" lay-submit lay-filter="save">保存</button>
+                <button class="pear-btn pear-btn-primary" lay-submit lay-filter="save" id="btnSaveBatch">保存</button>
             </div>
         </div>
     </form>
@@ -202,19 +203,30 @@ layui.use(['table','form','jquery','layer','laydate'], function(){
                 laydate.render({elem: '#startTime', type: 'datetime'});
                 laydate.render({elem: '#endTime', type: 'datetime'});
                 if (row) {
+                    $('#createNextTip').hide();
                     form.val('editForm', row);
                     if (started) {
                         $('#versionItem').hide();
                         $('#startItem').hide();
                     }
+                } else {
+                    $('#createNextTip').show();
+                    $('#btnSaveBatch').text('下一步：选择班组');
                 }
                 form.on('submit(save)', function(d){
-                    var url = d.field.id ? '/TmBatch/edit' : '/TmBatch/add';
+                    var isCreate = !d.field.id;
+                    var url = isCreate ? '/TmBatch/add' : '/TmBatch/edit';
+                    var loadIdx = layer.load(2);
                     $.post(url, d.field, function(res){
+                        layer.close(loadIdx);
                         layer.msg(res.msg||'');
                         if (res.success || res.code===0){
                             layer.closeAll('page');
                             table.reload('dataTable');
+                            // 新建成功后直接进入选班组 / 开测，无需再点详情
+                            if (isCreate && res.data && res.data.id) {
+                                setTimeout(function(){ openDetail(res.data.id); }, 200);
+                            }
                         }
                     }, 'json');
                     return false;
