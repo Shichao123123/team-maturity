@@ -109,7 +109,7 @@ if (!$ok) {
 $tr = Db::name('tm_team_result')->where('batch_id', $batchId)->where('team_id', (int)$team['id'])->find();
 echo "team_result score={$tr['team_score']} level={$tr['level_code']} submit={$tr['submit_cnt']}\n";
 
-list($ok, $msg) = BatchService::finish($batchId);
+list($ok, $msg) = BatchService::finish($batchId, false);
 echo "finish: ok=" . ($ok ? 1 : 0) . " msg={$msg}\n";
 
 $detail = BatchService::detail($batchId);

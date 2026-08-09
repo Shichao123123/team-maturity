@@ -120,5 +120,7 @@ return [
         'wx_secret'  => '',
         // 生产必须为 false；仅本地联调且未配微信时，可临时改为 true（用 code 模拟 open_id）
         'dev_login'  => false,
+        // PC 批次二维码内容前缀（小程序页面路径）；扫码后带 batch_id
+        'qr_path'    => 'pages/exam/index',
     ],
 ];

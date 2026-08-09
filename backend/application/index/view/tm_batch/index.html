@@ -100,7 +100,17 @@
 <script type="text/html" id="detailTpl">
     <div style="padding:14px 18px 18px;" id="detailBody" class="batch-detail-scroll">
         <div class="tip" id="detailMeta"></div>
-        <div class="entry-box" id="detailEntry"></div>
+        <div class="entry-box" id="detailEntry">
+            <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;">
+                <div id="qrCanvas" style="width:160px;height:160px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;"></div>
+                <div style="flex:1;min-width:220px;">
+                    <div style="font-weight:600;margin-bottom:6px;">扫码进入测评</div>
+                    <div id="qrText" style="font-size:13px;color:#334155;word-break:break-all;margin-bottom:8px;"></div>
+                    <div class="tip" style="margin:0;">开测后方可登记作答；二维码内容为小程序路径 + batch_id（未配微信码接口时用路径码演示）。</div>
+                    <button type="button" class="pear-btn pear-btn-xs" id="btnCopyQr" style="margin-top:8px;">复制路径</button>
+                </div>
+            </div>
+        </div>
         <div class="act-row" id="detailActions"></div>
         <div id="bindBlock">
             <div class="tip">参评班组（开测前可修改；开测后锁定）。同一班组在重叠时间段内若已有测评任务则不可选。</div>
@@ -130,6 +140,7 @@
 
 <script src="/component/layui/layui.js"></script>
 <script src="/component/pear/pear.js"></script>
+<script src="/component/qrcode/qrcode.min.js"></script>
 <script>
 layui.use(['table','form','jquery','layer','laydate'], function(){
     var table = layui.table, form = layui.form, $ = layui.jquery, layer = layui.layer, laydate = layui.laydate;
@@ -279,17 +290,38 @@ layui.use(['table','form','jquery','layer','laydate'], function(){
             ' · 算分状态：' + (d.score_status_text||'') +
             (d.has_snap ? (' · 快照题数 ' + (d.question_cnt||0)) : ' · 尚未写快照')
         );
-        $('#detailEntry').html(
-            '小程序扫码入口参数：<code>batch_id=' + d.id + '</code>' +
-            '（本期不生成微信码；开测后用户扫码选班组填姓名即可登记）'
-        );
+        var qrContent = d.qr_content || ('pages/exam/index?batch_id=' + d.id);
+        $('#qrText').html('路径：<code>' + qrContent + '</code><br>参数：<code>' + (d.qr_scene || ('batch_id='+d.id)) + '</code>'
+            + (status === 0 ? '<br><span style="color:#d48806;">尚未开测：二维码可先打印，开测后才可登记作答</span>' : ''));
+        $('#qrCanvas').empty();
+        if (typeof QRCode !== 'undefined') {
+            try {
+                new QRCode(document.getElementById('qrCanvas'), {
+                    text: qrContent,
+                    width: 148,
+                    height: 148,
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+            } catch (e) {
+                $('#qrCanvas').html('<div style="padding:20px;color:#94a3b8;font-size:12px;">二维码生成失败，请复制路径</div>');
+            }
+        } else {
+            $('#qrCanvas').html('<div style="padding:20px;color:#94a3b8;font-size:12px;">二维码组件未加载</div>');
+        }
+        $('#btnCopyQr').off('click').on('click', function(){
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(qrContent).then(function(){ layer.msg('已复制'); });
+            } else {
+                layer.prompt({title:'请手动复制', value: qrContent, formType:2}, function(v, i){ layer.close(i); });
+            }
+        });
 
         var actions = '';
         if (status === 0) {
             actions += '<button type="button" class="pear-btn pear-btn-md pear-btn-success" id="btnStart">开测（抽题写快照）</button>';
         }
         if (status === 1) {
-            actions += '<button type="button" class="pear-btn pear-btn-md pear-btn-warm" id="btnFinish">结束批次</button>';
+            actions += '<button type="button" class="pear-btn pear-btn-md pear-btn-warm" id="btnFinish">结束并算分</button>';
             actions += '<button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnScore">班组算分</button>';
         }
         if (status === 2) {
@@ -377,9 +409,11 @@ layui.use(['table','form','jquery','layer','laydate'], function(){
             });
         });
         $('#btnFinish').off('click').on('click', function(){
-            layer.confirm('确认结束本批次？结束后小程序不可再登记作答。', function(i){
+            layer.confirm('确认结束本批次？结束后不可再登记作答，并将自动执行班组算分。', function(i){
                 layer.close(i);
+                var l = layer.load(2);
                 $.post('/TmBatch/finish', {id: d.id}, function(res){
+                    layer.close(l);
                     layer.msg(res.msg||'');
                     if (res.success || res.code===0) {
                         refreshDetail(d.id);

@@ -6,6 +6,10 @@
     <style>
         body { background: #f2f5fa; margin: 0; }
         .wb { padding: 16px; }
+        .filter-bar {
+            background:#fff; border:1px solid #e8eef6; border-radius:8px;
+            padding:12px 14px; margin-bottom:14px;
+        }
         .kpi-row {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -69,9 +73,27 @@
 </head>
 <body>
 <div class="wb">
+    <form class="layui-form filter-bar" lay-filter="wbFilter" onsubmit="return false;">
+        <div class="layui-inline">
+            <select name="batch_id" lay-filter="wbAuto" lay-search>
+                <option value="">最近有结果批次</option>
+                {volist name="batches" id="b"}
+                <option value="{$b.id}">{$b.name}</option>
+                {/volist}
+            </select>
+        </div>
+        <div class="layui-inline">
+            <select name="org_id" lay-filter="wbAuto" lay-search>
+                <option value="">全部组织</option>
+                {volist name="orgs" id="o"}
+                <option value="{$o.id}">{$o.path}</option>
+                {/volist}
+            </select>
+        </div>
+    </form>
     <div class="kpi-row">
         <div class="kpi-card">
-            <div class="label">班组总数</div>
+            <div class="label">统计班组数</div>
             <div class="value" id="kpiTeamTotal">-</div>
         </div>
         <div class="kpi-card">
@@ -115,8 +137,9 @@
 <script src="/component/layui/layui.js"></script>
 <script src="/component/pear/pear.js"></script>
 <script>
-layui.use(['jquery', 'echarts', 'layer'], function(){
-    var $ = layui.jquery, echarts = layui.echarts, layer = layui.layer;
+layui.use(['jquery', 'echarts', 'layer', 'form'], function(){
+    var $ = layui.jquery, echarts = layui.echarts, layer = layui.layer, form = layui.form;
+    form.render();
     var chart = echarts.init(document.getElementById('levelChart'));
 
     var colors = ['#0b3d91', '#1677ff', '#69b1ff', '#bae0ff'];
@@ -186,24 +209,26 @@ layui.use(['jquery', 'echarts', 'layer'], function(){
     }
 
     function load(){
-        $.getJSON('/Index/workbenchStats', function(res){
+        var f = form.val('wbFilter') || {};
+        $.getJSON('/Index/workbenchStats', f, function(res){
             if (!(res.success || res.code === 0)) {
                 layer.msg(res.msg || '加载失败');
                 return;
             }
             var d = res.data || {};
-            setKpi('kpiTeamTotal', d.team_total, '0');
-            setKpi('kpiAvgScore', d.avg_score_text, '—');
+            setKpi('kpiTeamTotal', d.result_team_cnt != null ? d.result_team_cnt : d.team_total, '0');
+            setKpi('kpiAvgScore', d.avg_score_text != null ? d.avg_score_text : d.avg_score, '—');
             setKpi('kpiEssential', d.essential_cnt, '0');
             setKpi('kpiPassive', d.passive_cnt, '0');
-            if (d.batch_name) {
-                $('#chartTip').text('当前统计批次：' + d.batch_name + (d.scored_at ? (' · ' + d.scored_at) : ''));
-            }
+            $('#chartTip').text(d.batch_name
+                ? ('当前统计批次：' + d.batch_name + (d.scored_at ? (' · ' + d.scored_at) : ''))
+                : '暂无已算分批次');
             renderChart(d.levels || [], d.result_team_cnt || 0);
             renderTable(d.levels || []);
         });
     }
 
+    form.on('select(wbAuto)', load);
     load();
     window.addEventListener('resize', function(){ chart.resize(); });
 });

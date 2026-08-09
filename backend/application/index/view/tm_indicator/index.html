@@ -4,164 +4,47 @@
     {include file="common/meta" /}
     {include file="common/css" /}
     <style>
-        :root {
-            --c-teal: #0d9488;
-            --c-teal-deep: #0f766e;
-            --c-coral: #f97316;
-            --c-amber: #f59e0b;
-            --c-sky: #0284c7;
-            --c-rose: #e11d48;
-            --c-bg: linear-gradient(145deg, #ecfeff 0%, #fff7ed 45%, #f0fdf4 100%);
-        }
-        body.pear-container {
-            background: var(--c-bg) !important;
-            min-height: 100vh;
-            padding: 16px !important;
-        }
+        body.pear-container { background:#f2f5fa !important; min-height:100vh; padding:16px !important; }
         .toolbar {
-            background: #fff;
-            border-radius: 12px;
-            padding: 12px 16px;
-            margin-bottom: 14px;
-            box-shadow: 0 4px 16px rgba(13,148,136,.08);
-            border: 1px solid rgba(13,148,136,.15);
+            background:#fff; border-radius:8px; padding:12px 16px; margin-bottom:14px;
+            border:1px solid #e8eef6; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
         }
-        .wrap {
-            display:flex;
-            gap:14px;
-            align-items:flex-start;
-        }
+        .wrap { display:flex; gap:14px; align-items:flex-start; }
         .left, .right {
-            background:#fff;
-            border-radius: 14px;
-            padding: 14px 16px;
-            box-shadow: 0 8px 24px rgba(15,118,110,.08);
+            background:#fff; border-radius:8px; padding:14px 16px; border:1px solid #e8eef6;
         }
         .left {
-            width:360px;
-            flex: 0 0 360px;
-            border-top: 4px solid var(--c-teal);
-            position: sticky;
-            top: 12px;
-            max-height: calc(100vh - 24px);
-            display: flex;
-            flex-direction: column;
-            z-index: 5;
+            width:380px; flex:0 0 380px; position:sticky; top:12px;
+            max-height:calc(100vh - 24px); display:flex; flex-direction:column;
         }
-        .right {
-            flex:1;
-            min-width: 0;
-            min-height:70vh;
-            border-top: 4px solid var(--c-coral);
-        }
+        .right { flex:1; min-width:0; min-height:70vh; }
         .left-hd, .right-hd {
             display:flex; align-items:center; justify-content:space-between;
-            margin-bottom:12px; padding-bottom:10px;
-            border-bottom: 1px dashed rgba(13,148,136,.25);
+            margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #edf2f7;
         }
-        .left-hd .tit, .right-hd .tit {
-            font-weight:700; font-size:16px; color:#0f766e;
-            display:flex; align-items:center; gap:8px;
-        }
-        .left-hd .tit::before {
-            content:'';
-            width:10px; height:10px; border-radius:50%;
-            background: linear-gradient(135deg, #2dd4bf, #0284c7);
-            box-shadow: 0 0 0 3px rgba(45,212,191,.25);
-        }
-        .right-hd .tit { color:#c2410c; }
-        .right-hd .tit::before {
-            content:'';
-            width:10px; height:10px; border-radius:50%;
-            background: linear-gradient(135deg, #fb923c, #f43f5e);
-            box-shadow: 0 0 0 3px rgba(251,146,60,.25);
-        }
-        #qCount {
-            display:inline-block;
-            margin-left:8px;
-            padding:2px 10px;
-            border-radius:999px;
-            background: linear-gradient(90deg, #fb923c, #f43f5e);
-            color:#fff; font-size:12px; font-weight:600;
-        }
-        .ops .pear-btn {
-            margin-left:6px;
-            border-radius:999px !important;
-            border: none !important;
-            color:#fff !important;
-            background: linear-gradient(90deg, #14b8a6, #0ea5e9) !important;
-        }
-        .ops #btnCollapse {
-            background: linear-gradient(90deg, #f59e0b, #f97316) !important;
-        }
-        #treeBox {
-            flex: 1;
-            min-height: 0;
-            overflow: auto;
-            padding-right: 4px;
-        }
-        .layui-tree-entry { border-radius:8px; transition: all .15s ease; }
-        .layui-tree-entry:hover { background: rgba(45,212,191,.12); }
+        .tit { font-weight:600; font-size:15px; color:#1f2d3d; }
+        .ops .pear-btn { margin-left:4px; }
+        #treeBox { flex:1; min-height:0; overflow:auto; }
         .layui-tree-set.tm-active > .layui-tree-entry {
-            background: linear-gradient(90deg, rgba(20,184,166,.22), rgba(14,165,233,.18));
-            box-shadow: inset 3px 0 0 #0d9488;
+            background:#e6f4ff; box-shadow:inset 3px 0 0 #1677ff;
         }
-        .layui-tree-txt { color:#134e4a; font-weight:500; }
-        .layui-tree-iconClick .layui-tree-icon {
-            border-color: #2dd4bf !important;
-            background: #ecfeff !important;
-        }
-        .layui-tree-iconClick .layui-tree-icon i { color:#0d9488 !important; }
-
         .q-item {
-            border: 1px solid rgba(249,115,22,.12);
-            background: linear-gradient(180deg, #fff 0%, #fffaf5 100%);
-            border-radius: 12px;
-            padding: 14px 16px;
-            margin-bottom: 12px;
-            box-shadow: 0 2px 10px rgba(249,115,22,.06);
+            border:1px solid #e8eef6; background:#fff; border-radius:8px;
+            padding:14px 16px; margin-bottom:12px;
         }
-        .q-title {
-            font-weight:700; color:#9a3412; margin-bottom:8px; line-height:1.55;
-            display:flex; gap:10px; align-items:flex-start;
-        }
+        .q-title { font-weight:600; color:#1f2d3d; margin-bottom:8px; line-height:1.55; display:flex; gap:10px; }
         .q-no {
-            flex:0 0 auto;
-            min-width:28px; height:28px; line-height:28px; text-align:center;
-            border-radius:8px; color:#fff; font-size:13px;
-            background: linear-gradient(135deg, #f97316, #e11d48);
+            flex:0 0 auto; min-width:28px; height:28px; line-height:28px; text-align:center;
+            border-radius:6px; color:#fff; font-size:13px; background:#1677ff;
         }
-        .q-indicator {
-            font-weight:700;
-            font-size:15px;
-            color:#0f766e;
-            margin-bottom:10px;
-            line-height:1.4;
-            padding-bottom:8px;
-            border-bottom:1px dashed rgba(13,148,136,.25);
-        }
-        .opt {
-            margin:6px 0;
-            padding:8px 12px;
-            border-radius:8px;
-            background:#f0fdfa;
-            border:1px solid rgba(13,148,136,.15);
-            color:#115e59;
-            line-height:1.5;
-        }
-        .opt:nth-child(odd) { background:#fff7ed; border-color:rgba(249,115,22,.18); color:#9a3412; }
-        .measure {
-            margin-top:12px;
-            background: linear-gradient(135deg, #ecfeff, #e0f2fe);
-            border: 1px solid rgba(14,165,233,.25);
-            padding:10px 12px;
-            border-radius:10px;
-            color:#075985;
-            font-size:13px;
-            white-space:pre-wrap;
-        }
-        .measure b { color:#0369a1; }
-        .empty-tip { color:#0f766e; padding:24px 8px; }
+        .q-indicator { font-weight:600; color:#0f766e; margin-bottom:8px; }
+        .opt { margin:6px 0; padding:8px 12px; border-radius:6px; background:#f8fafc; color:#334155; }
+        .q-actions { margin-top:10px; }
+        .empty-tip { color:#64748b; padding:24px 8px; }
+        .readonly-tip { color:#d48806; font-size:12px; }
+        .opt-row { display:flex; gap:8px; margin-bottom:8px; align-items:center; }
+        .opt-row .layui-input { flex:1; }
+        .opt-row .ratio { width:90px; flex:0 0 90px; }
     </style>
 </head>
 <body class="pear-container">
@@ -169,47 +52,148 @@
     <div class="layui-inline">
         <select id="versionId" lay-filter="versionId">
             {volist name="versions" id="v"}
-            <option value="{$v.id}" {if condition="$v.id == $defaultVersionId"}selected{/if}>{$v.name}（{$v.version_no}）</option>
+            <option value="{$v.id}" {if condition="$v.id == $defaultVersionId"}selected{/if}>
+                {$v.name}（{$v.version_no}）
+                {if condition="$v.status == 0"}·草稿{elseif condition="$v.status == 1"}·已发布{else /}·停用{/if}
+            </option>
             {/volist}
         </select>
     </div>
+    <span id="editState" class="readonly-tip"></span>
 </div>
 <div class="wrap">
     <div class="left">
         <div class="left-hd">
             <div class="tit">指标树</div>
             <div class="ops">
-                <button type="button" class="pear-btn pear-btn-xs" id="btnExpand">展开</button>
-                <button type="button" class="pear-btn pear-btn-xs" id="btnCollapse">收起</button>
+                <button type="button" class="pear-btn pear-btn-xs pear-btn-primary edit-only" id="btnAddRoot">加一级</button>
+                <button type="button" class="pear-btn pear-btn-xs edit-only" id="btnAddChild">加下级</button>
+                <button type="button" class="pear-btn pear-btn-xs edit-only" id="btnEditInd">编辑</button>
+                <button type="button" class="pear-btn pear-btn-xs pear-btn-danger edit-only" id="btnDelInd">删</button>
             </div>
         </div>
         <div id="treeBox"></div>
     </div>
     <div class="right">
         <div class="right-hd">
-            <div class="tit">题目列表 <span id="qCount">0</span></div>
+            <div class="tit">题目列表 <span id="qCount" style="color:#1677ff;">0</span></div>
+            <div class="ops">
+                <button type="button" class="pear-btn pear-btn-xs pear-btn-primary edit-only" id="btnAddQ">新增题目</button>
+            </div>
         </div>
         <div id="qBox" class="empty-tip">请选择左侧指标或版本</div>
     </div>
 </div>
+
+<script type="text/html" id="indTpl">
+    <form class="layui-form" style="padding:20px;" lay-filter="indForm">
+        <input type="hidden" name="id">
+        <input type="hidden" name="parent_id" value="0">
+        <div class="layui-form-item">
+            <label class="layui-form-label">名称</label>
+            <div class="layui-input-block">
+                <input type="text" name="name" required lay-verify="required" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">编码</label>
+            <div class="layui-input-block">
+                <input type="text" name="code" class="layui-input" placeholder="可选">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">权重</label>
+            <div class="layui-input-block">
+                <input type="number" name="weight" step="0.01" value="0" class="layui-input">
+                <div class="layui-word-aux">一级权重合计建议为 100；三级权重参与计分</div>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">排序</label>
+            <div class="layui-input-block">
+                <input type="number" name="sort_no" value="0" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <div class="layui-input-block">
+                <button class="pear-btn pear-btn-primary" lay-submit lay-filter="saveInd">保存</button>
+            </div>
+        </div>
+    </form>
+</script>
+
+<script type="text/html" id="qTpl">
+    <form class="layui-form" style="padding:16px 20px;" lay-filter="qForm">
+        <input type="hidden" name="id">
+        <input type="hidden" name="indicator_id">
+        <div class="layui-form-item">
+            <label class="layui-form-label">题干</label>
+            <div class="layui-input-block">
+                <textarea name="title" required lay-verify="required" class="layui-textarea" style="min-height:80px;"></textarea>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">选项</label>
+            <div class="layui-input-block" id="optBox"></div>
+            <div class="layui-input-block" style="margin-top:6px;">
+                <button type="button" class="pear-btn pear-btn-xs" id="btnAddOpt">加选项</button>
+                <span class="layui-word-aux">得分比例常用 1 / 0.75 / 0.5 / 0.25</span>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">排序</label>
+            <div class="layui-input-block">
+                <input type="number" name="sort_no" value="0" class="layui-input" style="width:120px;">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <div class="layui-input-block">
+                <button class="pear-btn pear-btn-primary" lay-submit lay-filter="saveQ">保存</button>
+            </div>
+        </div>
+    </form>
+</script>
+
 <script src="/component/layui/layui.js"></script>
 <script src="/component/pear/pear.js"></script>
 <script>
 layui.use(['form','jquery','layer','tree'], function(){
     var form = layui.form, $ = layui.jquery, layer = layui.layer, tree = layui.tree;
     var currentIndicatorId = 0;
+    var currentNode = null;
     var treeData = [];
+    var canEdit = false;
+    var nodeMap = {};
+
+    function setEditMode(flag){
+        canEdit = !!flag;
+        $('.edit-only').toggle(canEdit);
+        $('#editState').text(canEdit
+            ? '当前为草稿，可维护指标与题目'
+            : '已发布/停用只读；请到「指标版本」复制为草稿后再改');
+    }
+
+    function walk(nodes, fn){
+        (nodes||[]).forEach(function(n){
+            fn(n);
+            if (n.children) walk(n.children, fn);
+        });
+    }
 
     function toTreeData(nodes, mode, depth){
         depth = depth || 0;
         return (nodes || []).map(function(n){
-            var spread = false;
-            if (mode === 'all') spread = true;
-            else if (mode === 'l1') spread = (depth === 0);
+            var spread = (mode === 'all') || (mode === 'l1' && depth === 0);
             return {
                 id: n.id,
                 title: n.title || n.name,
                 spread: spread,
+                level_no: n.level_no,
+                weight: n.weight,
+                code: n.code,
+                sort_no: n.sort_no,
+                name: n.name,
+                parent_id: n.parent_id,
                 children: (n.children && n.children.length) ? toTreeData(n.children, mode, depth + 1) : []
             };
         });
@@ -224,23 +208,36 @@ layui.use(['form','jquery','layer','tree'], function(){
             onlyIconControl: true,
             click: function(obj){
                 currentIndicatorId = obj.data.id || 0;
+                currentNode = nodeMap[currentIndicatorId] || obj.data;
                 $('#treeBox .layui-tree-set').removeClass('tm-active');
-                if (obj.elem && obj.elem.length) {
-                    obj.elem.addClass('tm-active');
-                }
+                if (obj.elem && obj.elem.length) obj.elem.addClass('tm-active');
                 loadQuestions();
             }
         });
     }
 
+    function loadMeta(cb){
+        var vid = $('#versionId').val();
+        $.getJSON('/TmIndicator/versionMeta', {versionId: vid}, function(res){
+            if (res.success || res.code===0) setEditMode(!!(res.data && res.data.can_edit));
+            else setEditMode(false);
+            if (cb) cb();
+        });
+    }
+
     function loadTree(){
         var vid = $('#versionId').val();
-        $.getJSON('/TmIndicator/tree', {versionId: vid}, function(res){
-            if (!(res.success || res.code===0)) { layer.msg(res.msg||'加载失败'); return; }
-            treeData = res.data || [];
-            renderTree('l1');
-            currentIndicatorId = 0;
-            loadQuestions();
+        loadMeta(function(){
+            $.getJSON('/TmIndicator/tree', {versionId: vid}, function(res){
+                if (!(res.success || res.code===0)) { layer.msg(res.msg||'加载失败'); return; }
+                treeData = res.data || [];
+                nodeMap = {};
+                walk(treeData, function(n){ nodeMap[n.id] = n; });
+                renderTree('l1');
+                currentIndicatorId = 0;
+                currentNode = null;
+                loadQuestions();
+            });
         });
     }
 
@@ -251,27 +248,176 @@ layui.use(['form','jquery','layer','tree'], function(){
             if (!(res.code===0 || res.success)) { $('#qBox').html('<div class="empty-tip">'+(res.msg||'加载失败')+'</div>'); return; }
             var list = res.data || [];
             $('#qCount').text(res.count||list.length);
-            if (!list.length) { $('#qBox').html('<div class="empty-tip">暂无题目</div>'); return; }
+            if (!list.length) { $('#qBox').html('<div class="empty-tip">暂无题目'+(canEdit && currentNode && currentNode.level_no==3?'，可点击右上角新增':'')+'</div>'); return; }
             var html = '';
             list.forEach(function(q, idx){
-                html += '<div class="q-item">';
-                if (q.indicator_name) {
-                    html += '<div class="q-indicator">'+q.indicator_name+'</div>';
-                }
+                html += '<div class="q-item" data-id="'+q.id+'">';
+                if (q.indicator_name) html += '<div class="q-indicator">'+q.indicator_name+' · 权重 '+(q.weight||0)+'</div>';
                 html += '<div class="q-title"><span class="q-no">'+(idx+1)+'</span><span>'+q.title+'</span></div>';
                 (q.options||[]).forEach(function(o){
-                    html += '<div class="opt">○ '+o.content+'</div>';
+                    html += '<div class="opt">○ '+o.content+' <span style="color:#94a3b8;">（比例 '+o.score_ratio+'）</span></div>';
                 });
-                if (q.measure) html += '<div class="measure"><b>建设措施：</b>'+q.measure+'</div>';
+                if (canEdit) {
+                    html += '<div class="q-actions">'
+                        + '<button type="button" class="pear-btn pear-btn-xs btn-edit-q" data-id="'+q.id+'">编辑</button> '
+                        + '<button type="button" class="pear-btn pear-btn-xs pear-btn-danger btn-del-q" data-id="'+q.id+'">删除</button>'
+                        + '</div>';
+                }
                 html += '</div>';
             });
             $('#qBox').html(html);
         });
     }
 
+    function openIndForm(row, parentId){
+        layer.open({
+            type:1, title: row ? '编辑指标' : (parentId ? '新增下级指标' : '新增一级指标'),
+            area:['480px','420px'], content: $('#indTpl').html(),
+            success: function(){
+                form.render(null, 'indForm');
+                form.val('indForm', {
+                    id: row ? row.id : '',
+                    parent_id: row ? row.parent_id : (parentId||0),
+                    name: row ? row.name : '',
+                    code: row ? (row.code||'') : '',
+                    weight: row ? row.weight : 0,
+                    sort_no: row ? row.sort_no : 0
+                });
+                form.on('submit(saveInd)', function(data){
+                    data.field.version_id = $('#versionId').val();
+                    $.post('/TmIndicator/saveIndicator', data.field, function(res){
+                        layer.msg(res.msg||'');
+                        if (res.success || res.code===0) { layer.closeAll(); loadTree(); }
+                    }, 'json');
+                    return false;
+                });
+            }
+        });
+    }
+
+    function defaultOptions(){
+        return [
+            {content:'完善，满足工作需求', score_ratio:1},
+            {content:'一般，部分满足工作需求', score_ratio:0.75},
+            {content:'不太完善，较少满足工作需求', score_ratio:0.5},
+            {content:'未建立工作标准，无法满足工作需求', score_ratio:0.25}
+        ];
+    }
+
+    function renderOpts(opts){
+        var html = '';
+        (opts||[]).forEach(function(o){
+            html += '<div class="opt-row">'
+                + '<input type="hidden" class="opt-id" value="'+(o.id||'')+'">'
+                + '<input type="text" class="layui-input opt-content" value="'+(o.content||'').replace(/"/g,'&quot;')+'" placeholder="选项内容">'
+                + '<input type="number" step="0.01" class="layui-input ratio opt-ratio" value="'+(o.score_ratio!=null?o.score_ratio:1)+'" placeholder="比例">'
+                + '<button type="button" class="pear-btn pear-btn-xs pear-btn-danger btn-rm-opt">删</button>'
+                + '</div>';
+        });
+        $('#optBox').html(html);
+    }
+
+    function openQForm(q){
+        if (!currentNode || parseInt(currentNode.level_no,10) !== 3) {
+            layer.msg('请先选择三级指标');
+            return;
+        }
+        layer.open({
+            type:1, title: q ? '编辑题目' : '新增题目',
+            area:['720px','620px'], content: $('#qTpl').html(),
+            success: function(){
+                form.render(null, 'qForm');
+                form.val('qForm', {
+                    id: q ? q.id : '',
+                    indicator_id: q ? q.indicator_id : currentIndicatorId,
+                    title: q ? q.title : '',
+                    sort_no: q ? q.sort_no : 0
+                });
+                renderOpts(q && q.options && q.options.length ? q.options : defaultOptions());
+                $('#btnAddOpt').on('click', function(){
+                    $('#optBox').append(
+                        '<div class="opt-row">'
+                        + '<input type="hidden" class="opt-id" value="">'
+                        + '<input type="text" class="layui-input opt-content" placeholder="选项内容">'
+                        + '<input type="number" step="0.01" class="layui-input ratio opt-ratio" value="0.25" placeholder="比例">'
+                        + '<button type="button" class="pear-btn pear-btn-xs pear-btn-danger btn-rm-opt">删</button>'
+                        + '</div>'
+                    );
+                });
+                $(document).off('click.rmopt').on('click.rmopt', '.btn-rm-opt', function(){
+                    $(this).closest('.opt-row').remove();
+                });
+                form.on('submit(saveQ)', function(data){
+                    var options = [];
+                    $('#optBox .opt-row').each(function(i){
+                        options.push({
+                            id: $(this).find('.opt-id').val() || 0,
+                            content: $(this).find('.opt-content').val(),
+                            score_ratio: $(this).find('.opt-ratio').val(),
+                            sort_no: i+1
+                        });
+                    });
+                    $.post('/TmIndicator/saveQuestion', {
+                        version_id: $('#versionId').val(),
+                        id: data.field.id,
+                        indicator_id: data.field.indicator_id,
+                        title: data.field.title,
+                        sort_no: data.field.sort_no,
+                        options: JSON.stringify(options)
+                    }, function(res){
+                        layer.msg(res.msg||'');
+                        if (res.success || res.code===0) { layer.closeAll(); loadQuestions(); loadTree(); }
+                    }, 'json');
+                    return false;
+                });
+            }
+        });
+    }
+
     form.on('select(versionId)', function(){ loadTree(); });
-    $('#btnExpand').on('click', function(){ renderTree('all'); });
-    $('#btnCollapse').on('click', function(){ renderTree('none'); });
+    $('#btnAddRoot').on('click', function(){ openIndForm(null, 0); });
+    $('#btnAddChild').on('click', function(){
+        if (!currentIndicatorId) { layer.msg('请先选择上级指标'); return; }
+        if (currentNode && parseInt(currentNode.level_no,10) >= 3) { layer.msg('三级下不能再加指标，请新增题目'); return; }
+        openIndForm(null, currentIndicatorId);
+    });
+    $('#btnEditInd').on('click', function(){
+        if (!currentNode) { layer.msg('请先选择指标'); return; }
+        openIndForm(currentNode, currentNode.parent_id);
+    });
+    $('#btnDelInd').on('click', function(){
+        if (!currentIndicatorId) { layer.msg('请先选择指标'); return; }
+        layer.confirm('确认删除该指标？', function(i){
+            layer.close(i);
+            $.post('/TmIndicator/deleteIndicator', {
+                version_id: $('#versionId').val(), id: currentIndicatorId
+            }, function(res){
+                layer.msg(res.msg||'');
+                if (res.success || res.code===0) loadTree();
+            }, 'json');
+        });
+    });
+    $('#btnAddQ').on('click', function(){ openQForm(null); });
+    $(document).on('click', '.btn-edit-q', function(){
+        var id = $(this).data('id');
+        $.getJSON('/TmIndicator/questionDetail', {id: id}, function(res){
+            if (!(res.success || res.code===0)) { layer.msg(res.msg||'加载失败'); return; }
+            openQForm(res.data);
+        });
+    });
+    $(document).on('click', '.btn-del-q', function(){
+        var id = $(this).data('id');
+        layer.confirm('确认删除该题目？', function(i){
+            layer.close(i);
+            $.post('/TmIndicator/deleteQuestion', {
+                version_id: $('#versionId').val(), id: id
+            }, function(res){
+                layer.msg(res.msg||'');
+                if (res.success || res.code===0) { loadQuestions(); loadTree(); }
+            }, 'json');
+        });
+    });
+
     loadTree();
 });
 </script>

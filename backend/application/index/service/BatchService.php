@@ -364,22 +364,30 @@ class BatchService
     }
 
     /**
-     * @return array [ok, msg]
+     * 结束批次；默认结束后自动算分。
+     * @return array [ok, msg, data]
      */
-    public static function finish($batchId)
+    public static function finish($batchId, $autoScore = true)
     {
         $batch = self::find($batchId);
         if (!$batch) {
-            return [false, '批次不存在'];
+            return [false, '批次不存在', null];
         }
         if ((int)$batch['status'] !== 1) {
-            return [false, '仅进行中的批次可以结束'];
+            return [false, '仅进行中的批次可以结束', null];
         }
         Db::name('tm_batch')->where('id', (int)$batchId)->update([
             'status'     => 2,
             'updated_at' => tmNow(),
         ]);
-        return [true, '批次已结束'];
+        if (!$autoScore) {
+            return [true, '批次已结束', null];
+        }
+        list($ok, $scoreMsg, $scoreData) = self::score($batchId);
+        if ($ok) {
+            return [true, '批次已结束并完成算分', $scoreData];
+        }
+        return [true, '批次已结束，但算分失败：' . $scoreMsg, $scoreData];
     }
 
     /**
@@ -506,6 +514,10 @@ class BatchService
         $batch['version_no'] = $ver ? $ver['version_no'] : '';
         $batch['has_snap'] = $snap ? 1 : 0;
         $batch['question_cnt'] = $questionCnt;
+        $qrPath = \think\Config::get('mini.qr_path') ?: 'pages/exam/index';
+        $batch['qr_path'] = $qrPath;
+        $batch['qr_scene'] = 'batch_id=' . (int)$batchId;
+        $batch['qr_content'] = $qrPath . '?' . $batch['qr_scene'];
         $batch['team_ids'] = Db::name('tm_batch_team')->where('batch_id', (int)$batchId)->column('team_id');
         $batch['progress'] = self::progress($batchId);
         $busy = self::findBusyTeams($batchId);

@@ -1,6 +1,8 @@
 <?php
 namespace app\index\controller;
 
+use app\index\service\IndicatorService;
+use app\index\service\OpLogService;
 use think\Db;
 use think\Request;
 
@@ -11,13 +13,20 @@ class TmIndicator extends Base
         $versions = Db::name('tm_indicator_version')->order('id desc')->select();
         $this->assign('versions', $versions);
 
-        // 支持从「指标版本」带 versionId 跳转查看题库
         $reqId = (int)Request::instance()->param('versionId', 0);
         $defaultId = 0;
         if ($reqId > 0) {
             foreach ($versions as $v) {
                 if ((int)$v['id'] === $reqId) {
                     $defaultId = $reqId;
+                    break;
+                }
+            }
+        }
+        if (!$defaultId) {
+            foreach ($versions as $v) {
+                if ((int)$v['status'] === 0) {
+                    $defaultId = $v['id'];
                     break;
                 }
             }
@@ -37,6 +46,24 @@ class TmIndicator extends Base
         return $this->fetch('tm_indicator/index');
     }
 
+    public function versionMeta()
+    {
+        $versionId = (int)Request::instance()->param('versionId', 0);
+        $ver = IndicatorService::findVersion($versionId);
+        if (!$ver) {
+            return json(DefaultResponse(404, false, '版本不存在'));
+        }
+        return json(DefaultResponse(0, true, 'ok', [
+            'id'                 => (int)$ver['id'],
+            'name'               => $ver['name'],
+            'version_no'         => $ver['version_no'],
+            'status'             => (int)$ver['status'],
+            'status_text'        => [0 => '草稿', 1 => '已发布', 2 => '停用'][(int)$ver['status']] ?? '',
+            'can_edit'           => (int)$ver['status'] === 0 ? 1 : 0,
+            'question_pick_mode' => $ver['question_pick_mode'],
+        ]));
+    }
+
     public function tree()
     {
         $versionId = (int)Request::instance()->param('versionId', 0);
@@ -49,7 +76,6 @@ class TmIndicator extends Base
             ->order('sort_no asc,id asc')
             ->select();
 
-        // 预留多题：挂上每个三级（及汇总到上级）的题池数量
         $cntMap = Db::name('tm_question')
             ->where('version_id', $versionId)
             ->where('status', 1)
@@ -95,7 +121,97 @@ class TmIndicator extends Base
             $measure = Db::name('tm_empower_measure')->where('indicator_id', $row['indicator_id'])->find();
             $row['measure'] = $measure ? $measure['content'] : '';
         }
+        unset($row);
         return json(DefaultResponseList(0, $count, 'ok', $list));
+    }
+
+    public function questionDetail()
+    {
+        $id = (int)Request::instance()->param('id', 0);
+        $q = IndicatorService::questionDetail($id);
+        if (!$q) {
+            return json(DefaultResponse(404, false, '题目不存在'));
+        }
+        return json(DefaultResponse(0, true, 'ok', $q));
+    }
+
+    public function saveIndicator()
+    {
+        $req = Request::instance();
+        if (!$req->isPost()) {
+            return json(DefaultResponse(405, false, 'method not allowed'));
+        }
+        $versionId = (int)$req->param('version_id', 0);
+        list($ok, $msg, $id) = IndicatorService::saveIndicator($versionId, [
+            'id'        => (int)$req->param('id', 0),
+            'parent_id' => (int)$req->param('parent_id', 0),
+            'name'      => $req->param('name', '', 'trim'),
+            'code'      => $req->param('code', '', 'trim'),
+            'weight'    => $req->param('weight', 0),
+            'sort_no'   => (int)$req->param('sort_no', 0),
+            'status'    => (int)$req->param('status', 1),
+        ]);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+        OpLogService::write('indicator', 'save', $id, ['version_id' => $versionId]);
+        return json(DefaultResponse(0, true, $msg, ['id' => $id]));
+    }
+
+    public function deleteIndicator()
+    {
+        $req = Request::instance();
+        if (!$req->isPost()) {
+            return json(DefaultResponse(405, false, 'method not allowed'));
+        }
+        $versionId = (int)$req->param('version_id', 0);
+        $id = (int)$req->param('id', 0);
+        list($ok, $msg) = IndicatorService::deleteIndicator($versionId, $id);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+        OpLogService::write('indicator', 'delete', $id, ['version_id' => $versionId]);
+        return json(DefaultResponse(0, true, $msg));
+    }
+
+    public function saveQuestion()
+    {
+        $req = Request::instance();
+        if (!$req->isPost()) {
+            return json(DefaultResponse(405, false, 'method not allowed'));
+        }
+        $versionId = (int)$req->param('version_id', 0);
+        $options = $req->param('options');
+        list($ok, $msg, $id) = IndicatorService::saveQuestion($versionId, [
+            'id'           => (int)$req->param('id', 0),
+            'indicator_id' => (int)$req->param('indicator_id', 0),
+            'title'        => $req->param('title', '', 'trim'),
+            'remark'       => $req->param('remark', '', 'trim'),
+            'sort_no'      => (int)$req->param('sort_no', 0),
+            'status'       => (int)$req->param('status', 1),
+            'options'      => $options,
+        ]);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+        OpLogService::write('question', 'save', $id, ['version_id' => $versionId]);
+        return json(DefaultResponse(0, true, $msg, ['id' => $id]));
+    }
+
+    public function deleteQuestion()
+    {
+        $req = Request::instance();
+        if (!$req->isPost()) {
+            return json(DefaultResponse(405, false, 'method not allowed'));
+        }
+        $versionId = (int)$req->param('version_id', 0);
+        $id = (int)$req->param('id', 0);
+        list($ok, $msg) = IndicatorService::deleteQuestion($versionId, $id);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+        OpLogService::write('question', 'delete', $id, ['version_id' => $versionId]);
+        return json(DefaultResponse(0, true, $msg));
     }
 
     private function collectIndicatorIds($id)
@@ -116,14 +232,17 @@ class TmIndicator extends Base
                 continue;
             }
             $node = $row;
-            $node['title'] = $row['name'];
+            $node['title'] = $row['name'] . (isset($row['question_cnt']) && (int)$row['level_no'] === 3
+                ? ('（' . (int)$row['question_cnt'] . '题）') : '');
+            if ((int)$row['level_no'] < 3 && isset($row['weight'])) {
+                $node['title'] = $row['name'] . ' [' . rtrim(rtrim(number_format((float)$row['weight'], 2, '.', ''), '0'), '.') . ']';
+            }
             $node['children'] = $this->buildTree($rows, $row['id']);
             $tree[] = $node;
         }
         return $tree;
     }
 
-    /** 上级节点汇总下级题池数量（便于后期看「一指标多题」） */
     private function sumQuestionCnt(&$nodes)
     {
         $sum = 0;

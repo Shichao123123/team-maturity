@@ -7,54 +7,186 @@
 <body class="pear-container">
 <div class="layui-card">
     <div class="layui-card-body">
+        <div style="margin-bottom:12px;">
+            <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnAdd">新建草稿版本</button>
+        </div>
         <table id="dataTable" lay-filter="dataTable"></table>
     </div>
 </div>
 
 <script type="text/html" id="bar">
-    <a class="layui-btn layui-btn-normal layui-btn-xs" lay-event="viewBank">查看题库</a>
+    <a class="layui-btn layui-btn-normal layui-btn-xs" lay-event="viewBank">维护题库</a>
+    {{# if(d.can_edit){ }}
+    <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+    <a class="layui-btn layui-btn-warm layui-btn-xs" lay-event="publish">发布</a>
+    {{# } }}
+    {{# if(d.status==1){ }}
+    <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="disable">停用</a>
+    {{# } }}
+    <a class="layui-btn layui-btn-primary layui-btn-xs" lay-event="copy">复制</a>
+</script>
+
+<script type="text/html" id="editTpl">
+    <form class="layui-form" style="padding:20px;" lay-filter="editForm">
+        <input type="hidden" name="id">
+        <div class="layui-form-item">
+            <label class="layui-form-label">版本名称</label>
+            <div class="layui-input-block">
+                <input type="text" name="name" required lay-verify="required" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">版本号</label>
+            <div class="layui-input-block">
+                <input type="text" name="version_no" required lay-verify="required" class="layui-input" placeholder="如 V1.0">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">抽题策略</label>
+            <div class="layui-input-block">
+                <select name="question_pick_mode">
+                    <option value="random">随机抽一</option>
+                    <option value="first">取首题</option>
+                    <option value="sequential">轮询抽一</option>
+                </select>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">备注</label>
+            <div class="layui-input-block">
+                <input type="text" name="remark" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <div class="layui-input-block">
+                <button class="pear-btn pear-btn-primary" lay-submit lay-filter="save">保存</button>
+            </div>
+        </div>
+    </form>
 </script>
 
 <script src="/component/layui/layui.js"></script>
 <script src="/component/pear/pear.js"></script>
 <script>
-layui.use(['table','layer'], function(){
-    var table = layui.table;
-    var layer = layui.layer;
+layui.use(['table','layer','form','jquery'], function(){
+    var table = layui.table, layer = layui.layer, form = layui.form, $ = layui.jquery;
 
     table.render({
         elem: '#dataTable',
+        id: 'dataTable',
         url: '/TmIndicatorVersion/getList',
         page: true,
         cols: [[
-            {field:'name', title:'版本名称'},
-            {field:'version_no', title:'版本号', width:100},
+            {field:'name', title:'版本名称', minWidth:160},
+            {field:'version_no', title:'版本号', width:120},
             {field:'status_text', title:'状态', width:90},
             {field:'pick_mode_text', title:'抽题策略', width:110},
             {field:'l1_weight_sum', title:'一级权重合计', width:120},
+            {field:'indicator_cnt', title:'指标数', width:90},
             {field:'question_cnt', title:'题目数', width:90},
             {field:'published_at', title:'发布时间', width:170},
-            {title:'操作', toolbar:'#bar', width:120, fixed:'right'}
+            {title:'操作', toolbar:'#bar', width:280, fixed:'right'}
         ]]
     });
 
+    function openForm(row){
+        layer.open({
+            type: 1, title: row ? '编辑版本' : '新建草稿版本',
+            area: ['520px', '420px'],
+            content: $('#editTpl').html(),
+            success: function(layero){
+                form.render(null, 'editForm');
+                if (row) {
+                    form.val('editForm', {
+                        id: row.id,
+                        name: row.name,
+                        version_no: row.version_no,
+                        question_pick_mode: row.question_pick_mode || 'random',
+                        remark: row.remark || ''
+                    });
+                }
+                form.on('submit(save)', function(data){
+                    var url = data.field.id ? '/TmIndicatorVersion/edit' : '/TmIndicatorVersion/add';
+                    $.post(url, data.field, function(res){
+                        layer.msg(res.msg||'');
+                        if (res.success || res.code===0) {
+                            layer.closeAll();
+                            table.reload('dataTable');
+                        }
+                    }, 'json');
+                    return false;
+                });
+            }
+        });
+    }
+
+    function openBank(id, title){
+        var url = '/TmIndicator/index?versionId=' + id;
+        try {
+            if (parent && parent.layui && parent.layui.admin && typeof parent.layui.admin.addTab === 'function') {
+                parent.layui.admin.addTab('tm-bank-' + id, title, url);
+                return;
+            }
+        } catch (e) {}
+        layer.open({ type:2, title:title, area:['95%','92%'], maxmin:true, content:url });
+    }
+
+    $('#btnAdd').on('click', function(){ openForm(null); });
+
     table.on('tool(dataTable)', function(obj){
+        var d = obj.data;
         if (obj.event === 'viewBank') {
-            var url = '/TmIndicator/index?versionId=' + obj.data.id;
-            var title = '题库 - ' + (obj.data.name || obj.data.version_no || '');
-            // Pear 多标签：优先新开/切到题库页；否则本页跳转
-            try {
-                if (parent && parent.layui && parent.layui.admin && typeof parent.layui.admin.addTab === 'function') {
-                    parent.layui.admin.addTab('tm-bank-' + obj.data.id, title, url);
+            openBank(d.id, '题库 - ' + (d.name || d.version_no || ''));
+        }
+        if (obj.event === 'edit') openForm(d);
+        if (obj.event === 'publish') {
+            $.getJSON('/TmIndicatorVersion/validatePublish', {id: d.id}, function(vres){
+                var errs = (vres.data && vres.data.errors) || [];
+                var tip = errs.length
+                    ? ('发布前校验未通过：<br>' + errs.map(function(e){ return '· '+e; }).join('<br>'))
+                    : '确认发布该版本？发布后不可再改指标/题目，需复制新草稿再改。';
+                if (errs.length) {
+                    layer.alert(tip, {title:'无法发布'});
                     return;
                 }
-            } catch (e) {}
-            layer.open({
-                type: 2,
-                title: title,
-                area: ['95%', '92%'],
-                maxmin: true,
-                content: url
+                layer.confirm(tip, function(i){
+                    layer.close(i);
+                    $.post('/TmIndicatorVersion/publish', {id: d.id}, function(res){
+                        layer.msg(res.msg||'');
+                        if (res.success || res.code===0) table.reload('dataTable');
+                    }, 'json');
+                });
+            });
+        }
+        if (obj.event === 'disable') {
+            layer.confirm('确认停用该版本？停用后不可用于新批次开测。', function(i){
+                layer.close(i);
+                $.post('/TmIndicatorVersion/disable', {id: d.id}, function(res){
+                    layer.msg(res.msg||'');
+                    if (res.success || res.code===0) table.reload('dataTable');
+                }, 'json');
+            });
+        }
+        if (obj.event === 'copy') {
+            layer.prompt({
+                title: '复制为新草稿（可改版本号，留空自动生成）',
+                formType: 0,
+                value: (d.version_no || '') + '-copy'
+            }, function(val, idx){
+                layer.close(idx);
+                $.post('/TmIndicatorVersion/copy', {
+                    id: d.id,
+                    version_no: val,
+                    name: (d.name || '') + '（副本）'
+                }, function(res){
+                    layer.msg(res.msg||'');
+                    if (res.success || res.code===0) {
+                        table.reload('dataTable');
+                        if (res.data && res.data.id) {
+                            openBank(res.data.id, '题库 - 新草稿');
+                        }
+                    }
+                }, 'json');
             });
         }
     });

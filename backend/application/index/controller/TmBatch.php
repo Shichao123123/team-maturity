@@ -144,12 +144,12 @@ class TmBatch extends Base
             return json(DefaultResponse(405, false, 'method not allowed'));
         }
         $id = (int)$req->param('id', 0);
-        list($ok, $msg) = BatchService::finish($id);
+        list($ok, $msg, $data) = BatchService::finish($id, true);
         if (!$ok) {
             return json(DefaultResponse(400, false, $msg));
         }
-        OpLogService::write('batch', 'finish', $id, null);
-        return json(DefaultResponse(0, true, $msg));
+        OpLogService::write('batch', 'finish', $id, $data);
+        return json(DefaultResponse(0, true, $msg, $data));
     }
 
     public function score()
