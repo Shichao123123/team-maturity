@@ -64,22 +64,22 @@ class MemberSelfRegisterService
 
     /**
      * 按微信用户 + 班组 + 姓名落库成员并双向绑定。
+     * 自助登记角色固定为 member；若本批次已有答卷则禁止更换班组。
      * @return array 成员行
      */
-    public static function ensureMember($wxUserId, $teamId, $name, $roleCode = 'member')
+    public static function ensureMember($wxUserId, $teamId, $name, $batchId = 0)
     {
         $wxUserId = (int)$wxUserId;
         $teamId = (int)$teamId;
+        $batchId = (int)$batchId;
         $name = trim((string)$name);
+        // 自助登记禁止客户端指定角色，避免提权为班组长/安全员等
+        $roleCode = 'member';
         if ($wxUserId <= 0 || $teamId <= 0 || $name === '') {
             throw new \InvalidArgumentException('班组与姓名不能为空');
         }
         if (mb_strlen($name) > 64) {
             throw new \InvalidArgumentException('姓名过长');
-        }
-        $roles = tmRoleLabels();
-        if (!isset($roles[$roleCode])) {
-            $roleCode = 'member';
         }
 
         $wx = Db::name('tm_wx_user')->where('id', $wxUserId)->find();
@@ -99,6 +99,17 @@ class MemberSelfRegisterService
 
             $now = tmNow();
             if ($member) {
+                if ($batchId > 0) {
+                    $paperTeamId = Db::name('tm_paper')
+                        ->where('batch_id', $batchId)
+                        ->where('member_id', (int)$member['id'])
+                        ->value('team_id');
+                    if ($paperTeamId !== null && $paperTeamId !== '') {
+                        if ((int)$paperTeamId !== $teamId) {
+                            throw new \RuntimeException('您已在本批次其他班组登记或作答，不能更换班组');
+                        }
+                    }
+                }
                 Db::name('tm_member')->where('id', $member['id'])->update([
                     'team_id'    => $teamId,
                     'name'       => $name,

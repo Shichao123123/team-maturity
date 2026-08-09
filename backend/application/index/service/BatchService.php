@@ -166,9 +166,11 @@ class BatchService
         }
 
         // 时间重叠：other.start < this.end AND other.end > this.start
+        // 仅未开始/进行中占用班组；已结束批次不再阻挡新批次绑定
         $others = Db::name('tm_batch')
             ->whereNull('deleted_at')
             ->where('id', '<>', (int)$batchId)
+            ->where('status', 'in', [0, 1])
             ->where('start_time', '<', $end)
             ->where('end_time', '>', $start)
             ->field('id, name, start_time, end_time, status')
@@ -395,12 +397,13 @@ class BatchService
         }
 
         $batchId = (int)$batchId;
-        Db::name('tm_batch')->where('id', $batchId)->update([
-            'score_status' => 1,
-            'updated_at'   => tmNow(),
-        ]);
-
+        Db::startTrans();
         try {
+            Db::name('tm_batch')->where('id', $batchId)->update([
+                'score_status' => 1,
+                'updated_at'   => tmNow(),
+            ]);
+
             $teams = Db::name('tm_batch_team')->where('batch_id', $batchId)->column('team_id');
             $now = tmNow();
             $results = [];
@@ -466,8 +469,10 @@ class BatchService
                 'score_status' => 2,
                 'updated_at'   => tmNow(),
             ]);
+            Db::commit();
             return [true, '算分完成', ['teams' => $results]];
         } catch (\Exception $e) {
+            Db::rollback();
             Db::name('tm_batch')->where('id', $batchId)->update([
                 'score_status' => 3,
                 'updated_at'   => tmNow(),
@@ -528,39 +533,50 @@ class BatchService
                 tr.team_score, tr.level_code, tr.submit_cnt as result_submit_cnt, tr.scored_at')
             ->order('bt.team_id asc')
             ->select();
+        if (empty($rows)) {
+            return [];
+        }
+
+        $teamIds = [];
+        foreach ($rows as $row) {
+            $teamIds[] = (int)$row['team_id'];
+        }
+
+        $submittedMap = Db::name('tm_paper')
+            ->where('batch_id', $batchId)
+            ->where('team_id', 'in', $teamIds)
+            ->where('status', 1)
+            ->group('team_id')
+            ->column('COUNT(*)', 'team_id');
+        $answeringMap = Db::name('tm_paper')
+            ->where('batch_id', $batchId)
+            ->where('team_id', 'in', $teamIds)
+            ->where('status', 0)
+            ->group('team_id')
+            ->column('COUNT(*)', 'team_id');
+        $lastSubmitMap = Db::name('tm_paper')
+            ->where('batch_id', $batchId)
+            ->where('team_id', 'in', $teamIds)
+            ->where('status', 1)
+            ->group('team_id')
+            ->column('MAX(submitted_at)', 'team_id');
 
         $levelNames = Db::name('tm_level_threshold')->column('level_name', 'level_code');
         $result = [];
         foreach ($rows as $row) {
             $tid = (int)$row['team_id'];
-            $submitted = (int)Db::name('tm_paper')
-                ->where('batch_id', $batchId)
-                ->where('team_id', $tid)
-                ->where('status', 1)
-                ->count();
-            $answering = (int)Db::name('tm_paper')
-                ->where('batch_id', $batchId)
-                ->where('team_id', $tid)
-                ->where('status', 0)
-                ->count();
-            $lastSubmit = Db::name('tm_paper')
-                ->where('batch_id', $batchId)
-                ->where('team_id', $tid)
-                ->where('status', 1)
-                ->order('submitted_at desc')
-                ->value('submitted_at');
             $code = $row['level_code'] ?: '';
             $result[] = [
-                'team_id'        => $tid,
-                'team_name'      => $row['team_name'],
-                'member_total'   => (int)$row['member_total'],
-                'submitted_cnt'  => $submitted,
-                'answering_cnt'  => $answering,
-                'last_submitted_at' => $lastSubmit ?: '',
-                'team_score'     => $row['team_score'],
-                'level_code'     => $code,
-                'level_name'     => ($code && isset($levelNames[$code])) ? $levelNames[$code] : '',
-                'scored_at'      => $row['scored_at'] ?: '',
+                'team_id'           => $tid,
+                'team_name'         => $row['team_name'],
+                'member_total'      => (int)$row['member_total'],
+                'submitted_cnt'     => isset($submittedMap[$tid]) ? (int)$submittedMap[$tid] : 0,
+                'answering_cnt'     => isset($answeringMap[$tid]) ? (int)$answeringMap[$tid] : 0,
+                'last_submitted_at' => isset($lastSubmitMap[$tid]) && $lastSubmitMap[$tid] ? $lastSubmitMap[$tid] : '',
+                'team_score'        => $row['team_score'],
+                'level_code'        => $code,
+                'level_name'        => ($code && isset($levelNames[$code])) ? $levelNames[$code] : '',
+                'scored_at'         => $row['scored_at'] ?: '',
             ];
         }
         return $result;

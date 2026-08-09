@@ -264,8 +264,22 @@ class ResultService
             $q->where('m.name', 'like', '%' . $keyword . '%');
         }
         $rows = $q->order('p.personal_score desc,p.id desc')->select();
+        if (empty($rows)) {
+            return [];
+        }
+
+        $paperIds = [];
+        foreach ($rows as $row) {
+            $paperIds[] = (int)$row['paper_id'];
+        }
+        $answerCntMap = Db::name('tm_paper_answer')
+            ->where('paper_id', 'in', $paperIds)
+            ->group('paper_id')
+            ->column('COUNT(*)', 'paper_id');
+
         $roleLabels = tmRoleLabels();
         foreach ($rows as &$row) {
+            $pid = (int)$row['paper_id'];
             $row['status'] = (int)$row['status'];
             $row['status_text'] = $row['status'] === 1 ? '已提交' : '答题中';
             $lv = null;
@@ -275,7 +289,7 @@ class ResultService
             $row['personal_level_code'] = $lv ? $lv['level_code'] : '';
             $row['personal_level_name'] = $lv ? $lv['level_name'] : '';
             $row['role_name'] = isset($roleLabels[$row['role_code']]) ? $roleLabels[$row['role_code']] : ($row['role_code'] ?: '');
-            $row['answered_cnt'] = (int)Db::name('tm_paper_answer')->where('paper_id', (int)$row['paper_id'])->count();
+            $row['answered_cnt'] = isset($answerCntMap[$pid]) ? (int)$answerCntMap[$pid] : 0;
         }
         unset($row);
         return $rows;

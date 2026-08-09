@@ -118,7 +118,7 @@ return [
         'jwt_ttl'    => 604800,
         'wx_appid'   => '',
         'wx_secret'  => '',
-        // true：未配置微信时，用 code 模拟 open_id（本地联调）
-        'dev_login'  => true,
+        // 生产必须为 false；仅本地联调且未配微信时，可临时改为 true（用 code 模拟 open_id）
+        'dev_login'  => false,
     ],
 ];

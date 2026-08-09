@@ -34,7 +34,7 @@ class TmMini extends MiniBase
 
     /**
      * 确认现场身份并立即写入成员档案（主路径）。
-     * 入参：batch_id, team_id, name；可选 role_code
+     * 入参：batch_id, team_id, name（角色固定为普通成员，不接受客户端 role_code）
      */
     public function enterBatch()
     {
@@ -45,7 +45,6 @@ class TmMini extends MiniBase
         $batchId = (int)$req->param('batch_id', 0);
         $teamId = (int)$req->param('team_id', 0);
         $name = $req->param('name', '', 'trim');
-        $roleCode = $req->param('role_code', 'member', 'trim');
 
         if ($name === '') {
             return $this->fail('请填写姓名');
@@ -64,7 +63,7 @@ class TmMini extends MiniBase
                 (int)$this->wxUser['id'],
                 $teamId,
                 $name,
-                $roleCode
+                $batchId
             );
         } catch (\Exception $e) {
             return $this->fail($e->getMessage());
