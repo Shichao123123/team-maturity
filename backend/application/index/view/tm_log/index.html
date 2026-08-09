@@ -7,10 +7,10 @@
 <body class="pear-container">
 <div class="layui-card">
     <div class="layui-card-body">
-        <form class="layui-form" onsubmit="return false;">
+        <form class="layui-form" lay-filter="filterForm" onsubmit="return false;">
             <div class="layui-form-item">
                 <div class="layui-inline">
-                    <select name="module">
+                    <select name="module" lay-filter="autoFilter">
                         <option value="">全部模块</option>
                         <option value="login">登录</option>
                         <option value="admin">管理员</option>
@@ -30,9 +30,6 @@
                 <div class="layui-inline">
                     <input type="text" name="keyword" placeholder="操作/明细/IP/账号" class="layui-input" style="width:180px;">
                 </div>
-                <div class="layui-inline">
-                    <button class="pear-btn pear-btn-md pear-btn-primary" lay-submit lay-filter="search">查询</button>
-                </div>
             </div>
         </form>
         <table id="dataTable" lay-filter="dataTable"></table>
@@ -46,8 +43,17 @@ layui.use(['table','form','laydate','jquery','layer'], function(){
     var table = layui.table, form = layui.form, laydate = layui.laydate;
     var $ = layui.jquery;
 
-    laydate.render({elem: '#dateFrom', type: 'date'});
-    laydate.render({elem: '#dateTo', type: 'date'});
+    function reloadFilter(){
+        table.reload('dataTable', {where: form.val('filterForm') || {}, page:{curr:1}});
+    }
+    form.on('select(autoFilter)', function(){ reloadFilter(); });
+    laydate.render({elem: '#dateFrom', type: 'date', done: function(){ reloadFilter(); }});
+    laydate.render({elem: '#dateTo', type: 'date', done: function(){ reloadFilter(); }});
+    var keywordTimer = null;
+    $('form[lay-filter="filterForm"] input[name="keyword"]').on('input', function(){
+        clearTimeout(keywordTimer);
+        keywordTimer = setTimeout(reloadFilter, 300);
+    });
 
     table.render({
         elem: '#dataTable',
@@ -63,11 +69,6 @@ layui.use(['table','form','laydate','jquery','layer'], function(){
             {field:'detail', title:'明细', minWidth:220, templet: function(d){ return d.detail || ''; }},
             {field:'ip', title:'IP', width:130, templet: function(d){ return d.ip || ''; }}
         ]]
-    });
-
-    form.on('submit(search)', function(data){
-        table.reload('dataTable', {where: data.field, page:{curr:1}});
-        return false;
     });
 });
 </script>

@@ -12,10 +12,10 @@
 <div class="layui-card">
     <div class="layui-card-body">
         <p style="color:#666;margin:0 0 12px;font-size:13px;">展示组织 / 班组 / 成员 Excel 导入记录。具体导入入口在各业务页。</p>
-        <form class="layui-form" onsubmit="return false;">
+        <form class="layui-form" lay-filter="filterForm" onsubmit="return false;">
             <div class="layui-form-item">
                 <div class="layui-inline">
-                    <select name="type">
+                    <select name="type" lay-filter="autoFilter">
                         <option value="">全部类型</option>
                         <option value="org">组织</option>
                         <option value="team">班组</option>
@@ -23,16 +23,13 @@
                     </select>
                 </div>
                 <div class="layui-inline">
-                    <select name="status">
+                    <select name="status" lay-filter="autoFilter">
                         <option value="">全部状态</option>
                         <option value="0">处理中</option>
                         <option value="1">成功</option>
                         <option value="2">部分失败</option>
                         <option value="3">失败</option>
                     </select>
-                </div>
-                <div class="layui-inline">
-                    <button class="pear-btn pear-btn-md pear-btn-primary" lay-submit lay-filter="search">查询</button>
                 </div>
             </div>
         </form>
@@ -70,10 +67,10 @@ layui.use(['table','form','jquery','layer'], function(){
         ]]
     });
 
-    form.on('submit(search)', function(data){
-        table.reload('dataTable', {where: data.field, page:{curr:1}});
-        return false;
-    });
+    function reloadFilter(){
+        table.reload('dataTable', {where: form.val('filterForm') || {}, page:{curr:1}});
+    }
+    form.on('select(autoFilter)', function(){ reloadFilter(); });
 
     table.on('tool(dataTable)', function(obj){
         if (obj.event !== 'detail') return;

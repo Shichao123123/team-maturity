@@ -7,13 +7,12 @@
 <body class="pear-container">
 <div class="layui-card">
     <div class="layui-card-body">
-        <form class="layui-form" lay-filter="searchForm" onsubmit="return false;">
+        <form class="layui-form" lay-filter="filterForm" onsubmit="return false;">
             <div class="layui-form-item">
                 <div class="layui-inline">
                     <input type="text" name="keyword" placeholder="组织名称" class="layui-input">
                 </div>
                 <div class="layui-inline">
-                    <button class="pear-btn pear-btn-md pear-btn-primary" lay-submit lay-filter="search">查询</button>
                     <button type="button" class="pear-btn pear-btn-md" id="btnAdd">新增</button>
                     <a class="pear-btn pear-btn-md" href="/TmOrg/importTemplate">下载模板</a>
                     <button type="button" class="pear-btn pear-btn-md pear-btn-success" id="btnImport">导入Excel</button>
@@ -92,8 +91,18 @@ layui.use(['table','form','jquery','layer'], function(){
     var table = layui.table, form = layui.form, $ = layui.jquery, layer = layui.layer;
     var typeMap = {0:'其他',1:'公司/集团',2:'厂/分厂',3:'工段/部门'};
 
+    function reloadFilter(){
+        table.reload('dataTable', {where: form.val('filterForm') || {}, page:{curr:1}});
+    }
+    var keywordTimer = null;
+    $('form[lay-filter="filterForm"] input[name="keyword"]').on('input', function(){
+        clearTimeout(keywordTimer);
+        keywordTimer = setTimeout(reloadFilter, 300);
+    });
+
     table.render({
         elem: '#dataTable',
+        id: 'dataTable',
         url: '/TmOrg/getList',
         page: true,
         cols: [[
@@ -104,11 +113,6 @@ layui.use(['table','form','jquery','layer'], function(){
             {field:'status', title:'状态', width:80, templet: function(d){ return d.status==1?'启用':'停用'; }},
             {title:'操作', toolbar:'#bar', width:140}
         ]]
-    });
-
-    form.on('submit(search)', function(data){
-        table.reload('dataTable', {where: data.field, page:{curr:1}});
-        return false;
     });
 
     function openForm(row){

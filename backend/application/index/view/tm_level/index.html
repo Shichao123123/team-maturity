@@ -63,12 +63,9 @@
                 </div>
                 <div class="layui-tab-item">
                     <p class="tip">每个三级指标对应四个等级的建设措施，一行展示；点击单元格下方「编辑」可修改。</p>
-                    <form class="layui-form" onsubmit="return false;" style="margin-bottom:8px;">
+                    <form class="layui-form" lay-filter="measureFilterForm" onsubmit="return false;" style="margin-bottom:8px;">
                         <div class="layui-inline">
-                            <input type="text" name="keyword" placeholder="指标/措施内容" class="layui-input" style="width:240px;">
-                        </div>
-                        <div class="layui-inline">
-                            <button class="pear-btn pear-btn-md pear-btn-primary" lay-submit lay-filter="mfSearch">查询</button>
+                            <input type="text" name="keyword" placeholder="指标/措施内容（输入即筛选）" class="layui-input" style="width:260px;">
                         </div>
                     </form>
                     <div id="measureTableBox">
@@ -321,10 +318,13 @@ layui.use(['table','form','element','jquery','layer'], function(){
         });
     }
 
-    form.on('submit(mfSearch)', function(data){
-        measureWhere = data.field;
-        table.reload('measureTable', {where: measureWhere, page:{curr:1}});
-        return false;
+    var measureKeywordTimer = null;
+    $('form[lay-filter="measureFilterForm"] input[name="keyword"]').on('input', function(){
+        clearTimeout(measureKeywordTimer);
+        measureKeywordTimer = setTimeout(function(){
+            measureWhere = form.val('measureFilterForm') || {};
+            table.reload('measureTable', {where: measureWhere, page:{curr:1}});
+        }, 300);
     });
 
     function openMeasure(payload){

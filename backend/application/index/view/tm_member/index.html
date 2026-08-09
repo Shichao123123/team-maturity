@@ -25,10 +25,10 @@
 <body class="pear-container">
 <div class="layui-card">
     <div class="layui-card-body">
-        <form class="layui-form" onsubmit="return false;">
+        <form class="layui-form" lay-filter="filterForm" onsubmit="return false;">
             <div class="layui-form-item">
                 <div class="layui-inline">
-                    <select name="teamId">
+                    <select name="teamId" lay-filter="autoFilter">
                         <option value="">全部班组</option>
                         {volist name="teams" id="t"}
                         <option value="{$t.id}">{$t.name}</option>
@@ -36,7 +36,7 @@
                     </select>
                 </div>
                 <div class="layui-inline">
-                    <select name="roleCode">
+                    <select name="roleCode" lay-filter="autoFilter">
                         <option value="">全部角色</option>
                         {volist name="roles" id="rn" key="rc"}
                         <option value="{$rc}">{$rn}</option>
@@ -47,7 +47,6 @@
                     <input type="text" name="keyword" placeholder="姓名/手机号" class="layui-input">
                 </div>
                 <div class="layui-inline">
-                    <button class="pear-btn pear-btn-md pear-btn-primary" lay-submit lay-filter="search">查询</button>
                     <button type="button" class="pear-btn pear-btn-md" id="btnAdd">新增</button>
                     <a class="pear-btn pear-btn-md" href="/TmMember/importTemplate" title="可选：批量补录">下载模板</a>
                     <button type="button" class="pear-btn pear-btn-md pear-btn-success" id="btnImport" title="正式测评以小程序自助登记为主，导入非前置">导入Excel</button>
@@ -154,8 +153,19 @@ layui.use(['table','form','jquery','layer'], function(){
         return Number(v).toFixed(1);
     }
 
+    function reloadFilter(){
+        table.reload('dataTable', {where: form.val('filterForm') || {}, page:{curr:1}});
+    }
+    form.on('select(autoFilter)', function(){ reloadFilter(); });
+    var keywordTimer = null;
+    $('form[lay-filter="filterForm"] input[name="keyword"]').on('input', function(){
+        clearTimeout(keywordTimer);
+        keywordTimer = setTimeout(reloadFilter, 300);
+    });
+
     table.render({
         elem: '#dataTable',
+        id: 'dataTable',
         url: '/TmMember/getList',
         page: true,
         cols: [[
@@ -184,11 +194,6 @@ layui.use(['table','form','jquery','layer'], function(){
             {field:'status', title:'状态', width:70, templet: function(d){ return d.status==1?'启用':'停用'; }},
             {title:'操作', toolbar:'#bar', width:210, fixed:'right'}
         ]]
-    });
-
-    form.on('submit(search)', function(data){
-        table.reload('dataTable', {where: data.field, page:{curr:1}});
-        return false;
     });
 
     function openForm(row){
