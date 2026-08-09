@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    {include file="common/meta" /}
+    {include file="common/css" /}
+    <style>
+        body { background:#f2f5fa; margin:0; }
+        .wb { padding:16px; }
+        .filter-bar {
+            background:#fff; border:1px solid #e8eef6; border-radius:8px;
+            padding:12px 14px; margin-bottom:14px;
+        }
+        .panel {
+            background:#fff; border-radius:8px; border:1px solid #e8eef6;
+            box-shadow:0 1px 2px rgba(15,45,90,.04); padding:16px 18px;
+        }
+        .panel-title { font-size:16px; font-weight:600; color:#1f2d3d; margin:0 0 6px; }
+        .panel-tip { color:#98a2b3; font-size:12px; margin:0 0 10px; }
+        .rank-medal { font-weight:700; }
+        .rank-1 { color:#d48806; }
+        .rank-2 { color:#8c8c8c; }
+        .rank-3 { color:#ad6800; }
+        #rankChart { width:100%; height:320px; margin-bottom:12px; }
+    </style>
+</head>
+<body>
+<div class="wb">
+    <form class="layui-form filter-bar" lay-filter="filterForm" onsubmit="return false;">
+        <div class="layui-inline">
+            <select name="batch_id" lay-filter="autoFilter" lay-search>
+                <option value="">最近有结果批次</option>
+                {volist name="batches" id="b"}
+                <option value="{$b.id}">{$b.name}</option>
+                {/volist}
+            </select>
+        </div>
+        <div class="layui-inline">
+            <select name="org_id" lay-filter="autoFilter" lay-search>
+                <option value="">全部组织</option>
+                {volist name="orgs" id="o"}
+                <option value="{$o.id}">{$o.path}</option>
+                {/volist}
+            </select>
+        </div>
+        <div class="layui-inline">
+            <button type="button" class="pear-btn pear-btn-md" id="btnExport">导出排行</button>
+        </div>
+    </form>
+
+    <div class="panel">
+        <div class="panel-title">班组排行榜</div>
+        <p class="panel-tip" id="rankTip">按班组得分降序展示</p>
+        <div id="rankChart"></div>
+        <table id="rankTable" lay-filter="rankTable"></table>
+    </div>
+</div>
+
+<script src="/component/layui/layui.js"></script>
+<script src="/component/pear/pear.js"></script>
+<script>
+layui.use(['jquery','form','table','echarts','layer'], function(){
+    var $ = layui.jquery, form = layui.form, table = layui.table, echarts = layui.echarts, layer = layui.layer;
+    form.render();
+    var chart = echarts.init(document.getElementById('rankChart'));
+
+    table.render({
+        elem: '#rankTable', id: 'rankTable', data: [], page: false,
+        cols: [[
+            {field:'rank_no', title:'排名', width:80, align:'center', templet: function(d){
+                var cls = d.rank_no<=3 ? ('rank-medal rank-'+d.rank_no) : '';
+                return '<span class="'+cls+'">'+d.rank_no+'</span>';
+            }},
+            {field:'team_name', title:'班组', minWidth:140},
+            {field:'org_name', title:'所属组织', minWidth:160},
+            {field:'team_score', title:'班组得分', width:110, align:'center'},
+            {field:'level_name', title:'成熟度等级', width:120, align:'center'},
+            {field:'submit_cnt', title:'提交人数', width:100, align:'center'},
+            {field:'advice', title:'管理建议', width:120},
+            {field:'scored_at', title:'算分时间', width:170}
+        ]]
+    });
+
+    function load(){
+        var f = form.val('filterForm') || {};
+        $.getJSON('/TmDashboard/rankData', f, function(res){
+            if (!(res.success || res.code===0)) { layer.msg(res.msg||'加载失败'); return; }
+            var d = res.data || {};
+            var list = d.list || [];
+            $('#rankTip').text(
+                (d.batch && d.batch.name ? ('批次：' + d.batch.name + ' · ') : '') + (d.tip || '')
+            );
+            table.reload('rankTable', { data: list });
+
+            if (!list.length) {
+                chart.clear();
+                chart.setOption({
+                    title: { text: d.tip || '暂无排行数据', left:'center', top:'center',
+                        textStyle:{ color:'#94a3b8', fontSize:16, fontWeight:400 } }
+                });
+                return;
+            }
+            var top = list.slice(0, 15).reverse();
+            chart.setOption({
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                grid: { left: 120, right: 30, top: 20, bottom: 30 },
+                xAxis: { type: 'value', name: '得分', min: 0, max: 100 },
+                yAxis: { type: 'category', data: top.map(function(r){ return r.team_name; }) },
+                series: [{
+                    type: 'bar',
+                    data: top.map(function(r){ return r.team_score; }),
+                    itemStyle: { color: '#1677ff' },
+                    label: { show: true, position: 'right' }
+                }]
+            }, true);
+        });
+    }
+
+    form.on('select(autoFilter)', load);
+    $('#btnExport').on('click', function(){
+        var f = form.val('filterForm') || {};
+        var q = $.param({ batch_id: f.batch_id||'', org_id: f.org_id||'' });
+        window.location.href = '/TmDashboard/exportRank?' + q;
+    });
+    load();
+    window.addEventListener('resize', function(){ chart.resize(); });
+});
+</script>
+</body>
+</html>

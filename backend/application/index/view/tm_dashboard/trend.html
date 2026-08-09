@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    {include file="common/meta" /}
+    {include file="common/css" /}
+    <style>
+        body { background:#f2f5fa; margin:0; }
+        .wb { padding:16px; }
+        .filter-bar {
+            background:#fff; border:1px solid #e8eef6; border-radius:8px;
+            padding:12px 14px; margin-bottom:14px;
+        }
+        .panel {
+            background:#fff; border-radius:8px; border:1px solid #e8eef6;
+            box-shadow:0 1px 2px rgba(15,45,90,.04); padding:16px 18px;
+        }
+        .panel-title { font-size:16px; font-weight:600; color:#1f2d3d; margin:0 0 6px; }
+        .panel-tip { color:#98a2b3; font-size:12px; margin:0 0 10px; }
+        #trendChart { width:100%; height:460px; }
+        .team-pick {
+            max-height:120px; overflow:auto; border:1px solid #e2e8f0; border-radius:6px;
+            padding:8px 10px; background:#fafafa; margin-top:8px;
+        }
+        .team-pick .layui-form-checkbox { margin:2px 8px 2px 0; }
+    </style>
+</head>
+<body>
+<div class="wb">
+    <form class="layui-form filter-bar" lay-filter="filterForm" onsubmit="return false;">
+        <div class="layui-inline">
+            <select name="org_id" lay-filter="orgFilter" lay-search>
+                <option value="">全部组织（默认取最近批次高分班组）</option>
+                {volist name="orgs" id="o"}
+                <option value="{$o.id}">{$o.path}</option>
+                {/volist}
+            </select>
+        </div>
+        <div class="layui-inline">
+            <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnReload">刷新趋势</button>
+        </div>
+        <div class="team-pick">
+            <div style="color:#64748b;font-size:12px;margin-bottom:6px;">可选班组（勾选即时刷新；不选则按组织或最近批次高分班组自动取最多 8 个）</div>
+            {volist name="teams" id="t"}
+            <input type="checkbox" name="team_ids" value="{$t.id}" title="{$t.name}" lay-skin="primary" lay-filter="teamPick">
+            {/volist}
+        </div>
+    </form>
+
+    <div class="panel">
+        <div class="panel-title">班组成长趋势</div>
+        <p class="panel-tip" id="trendTip">对比同一班组在不同测评批次中的得分变化</p>
+        <div id="trendChart"></div>
+    </div>
+</div>
+
+<script src="/component/layui/layui.js"></script>
+<script src="/component/pear/pear.js"></script>
+<script>
+layui.use(['jquery','form','echarts','layer'], function(){
+    var $ = layui.jquery, form = layui.form, echarts = layui.echarts, layer = layui.layer;
+    form.render();
+    var chart = echarts.init(document.getElementById('trendChart'));
+    var palette = ['#1677ff','#13c2c2','#52c41a','#faad14','#eb2f96','#722ed1','#fa541c','#2f54eb'];
+
+    function load(){
+        var orgId = (form.val('filterForm') || {}).org_id || '';
+        var teamIds = [];
+        $('input[name="team_ids"]:checked').each(function(){ teamIds.push($(this).val()); });
+        $.getJSON('/TmDashboard/trendData', { org_id: orgId, team_ids: teamIds }, function(res){
+            if (!(res.success || res.code===0)) { layer.msg(res.msg||'加载失败'); return; }
+            var d = res.data || {};
+            $('#trendTip').text(d.tip || '');
+            var batches = d.batches || [];
+            var seriesData = d.series || [];
+            if (!batches.length || !seriesData.length) {
+                chart.clear();
+                chart.setOption({
+                    title: { text: d.tip || '暂无趋势数据', left:'center', top:'center',
+                        textStyle:{ color:'#94a3b8', fontSize:16, fontWeight:400 } }
+                });
+                return;
+            }
+            var cats = batches.map(function(b){ return b.batch_name; });
+            var series = seriesData.map(function(s, i){
+                return {
+                    name: s.team_name,
+                    type: 'line',
+                    smooth: true,
+                    connectNulls: false,
+                    data: s.scores,
+                    itemStyle: { color: palette[i % palette.length] }
+                };
+            });
+            chart.setOption({
+                tooltip: { trigger: 'axis' },
+                legend: { type: 'scroll', top: 0 },
+                grid: { left: 50, right: 30, top: 50, bottom: 40 },
+                xAxis: { type: 'category', data: cats, axisLabel: { interval: 0, rotate: batches.length > 5 ? 20 : 0 } },
+                yAxis: { type: 'value', name: '得分', min: 0, max: 100 },
+                series: series
+            }, true);
+        });
+    }
+
+    form.on('select(orgFilter)', load);
+    form.on('checkbox(teamPick)', load);
+    $('#btnReload').on('click', load);
+    load();
+    window.addEventListener('resize', function(){ chart.resize(); });
+});
+</script>
+</body>
+</html>
