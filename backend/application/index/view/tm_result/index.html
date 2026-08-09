@@ -351,15 +351,17 @@ layui.use(['table','form','jquery','layer'], function(){
             var answers = res.data.answers || [];
             layer.open({
                 type: 1,
-                title: '答卷明细 — ' + (p.member_name || ''),
+                title: '测评结果 — ' + (p.member_name || ''),
                 closeBtn: 1,
                 maxmin: true,
-                offset: '10px',
-                area: ['96%', '90%'],
+                shadeClose: true,
+                offset: '0',
+                area: ['100%', '100%'],
                 btn: ['关闭'],
                 yes: function(index){ layer.close(index); },
                 content: $('#paperDetailTpl').html(),
-                success: function(layero){
+                success: function(layero, index){
+                    try { layer.full(index); } catch (e) {}
                     layero.find('#paperDetailMeta').html(
                         '<div><b>' + (p.batch_name||'') + '</b> · ' + (p.team_name||'') +
                         ' · ' + (p.status_text||'') +
@@ -400,9 +402,9 @@ layui.use(['table','form','jquery','layer'], function(){
                                 {field:'weight', title:'满分', width:80, align:'center', templet: function(d){ return fmtScore(d.weight); }},
                                 {field:'answered_at', title:'作答时间', width:170, align:'center', templet: function(d){ return d.answered_at || '—'; }}
                             ]],
-                            done: function(){ setTimeout(function(){ table.resize('answerTable'); }, 50); }
+                            done: function(){ setTimeout(function(){ table.resize('answerTable'); }, 80); }
                         });
-                    }, 80);
+                    }, 120);
                 }
             });
         }).fail(function(){ layer.close(load); layer.msg('加载失败'); });
