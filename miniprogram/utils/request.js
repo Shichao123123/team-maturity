@@ -22,18 +22,18 @@ function clearToken() {
 function request(options) {
   const method = (options.method || 'GET').toUpperCase();
   const url = config.baseUrl + options.url;
+  // 不用自定义 header 传 token，避免真机调试触发 OPTIONS 预检被后端 405
   const header = Object.assign(
     {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     options.header || {}
   );
+  const data = Object.assign({}, options.data || {});
   const token = getToken();
-  if (token) {
-    header.token = token;
+  if (token && data.token == null) {
+    data.token = token;
   }
-
-  const data = options.data || {};
 
   return new Promise((resolve, reject) => {
     wx.request({

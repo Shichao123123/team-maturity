@@ -19,8 +19,12 @@ Page({
   },
 
   onLoad(query) {
-    const batchId = parseInt(query.batch_id || query.batchId || '0', 10) || 0;
+    let batchId = parseInt(query.batch_id || query.batchId || '0', 10) || 0;
     const teamId = parseInt(query.team_id || '0', 10) || 0;
+    // 正式小程序码：参数在 scene（如 b=12 或 batch_id=12）
+    if (!batchId && query.scene) {
+      batchId = this.parseBatchIdFromScene(query.scene);
+    }
     this.setData({ batchId });
     if (batchId <= 0) {
       this.setData({
@@ -30,6 +34,18 @@ Page({
       return;
     }
     this.bootstrap(batchId, teamId);
+  },
+
+  parseBatchIdFromScene(scene) {
+    try {
+      const raw = decodeURIComponent(String(scene || ''));
+      let m = raw.match(/(?:^|[?&])(?:batch_id|b)=(\d+)/i);
+      if (m) return parseInt(m[1], 10) || 0;
+      m = raw.match(/^(\d+)$/);
+      return m ? parseInt(m[1], 10) || 0 : 0;
+    } catch (e) {
+      return 0;
+    }
   },
 
   bootstrap(batchId, preferTeamId) {

@@ -27,6 +27,15 @@ class MiniBase extends Controller
      */
     public function _initialize()
     {
+        // 真机调试跨域会先发 OPTIONS；必须直接放行，否则会被业务里的 isPost 打成 405
+        if ($this->isOptionsRequest()) {
+            $this->corsHeaders();
+            header('Content-Length: 0');
+            http_response_code(204);
+            exit;
+        }
+        $this->corsHeaders();
+
         if (!$this->needLogin) {
             return;
         }
@@ -41,6 +50,49 @@ class MiniBase extends Controller
         }
         $this->jwt = $payload;
         $this->wxUser = $wx;
+    }
+
+    /**
+     * @return bool
+     */
+    protected function isOptionsRequest()
+    {
+        $m = isset($_SERVER['REQUEST_METHOD']) ? strtoupper($_SERVER['REQUEST_METHOD']) : '';
+        return $m === 'OPTIONS';
+    }
+
+    /**
+     * 小程序真机调试 / 局域网跨域所需响应头。
+     *
+     * @return void
+     */
+    protected function corsHeaders()
+    {
+        $origin = isset($_SERVER['HTTP_ORIGIN']) ? trim((string)$_SERVER['HTTP_ORIGIN']) : '';
+        if ($origin !== '') {
+            header('Access-Control-Allow-Origin: ' . $origin);
+            header('Vary: Origin');
+        } else {
+            header('Access-Control-Allow-Origin: *');
+        }
+        header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type, token, Token, Authorization');
+        header('Access-Control-Max-Age: 86400');
+    }
+
+    /**
+     * 是否为 POST（兼容部分代理对 method 的改写）。
+     *
+     * @return bool
+     */
+    protected function requirePost()
+    {
+        $req = Request::instance();
+        if ($req->isPost()) {
+            return true;
+        }
+        $m = isset($_SERVER['REQUEST_METHOD']) ? strtoupper($_SERVER['REQUEST_METHOD']) : '';
+        return $m === 'POST';
     }
 
     /**

@@ -4,6 +4,7 @@ namespace app\index\controller;
 use app\index\model\OrgModel;
 use app\index\service\BatchService;
 use app\index\service\OpLogService;
+use app\index\service\WxMiniService;
 use think\Db;
 use think\Request;
 
@@ -21,6 +22,17 @@ class TmBatch extends Base
             ->order('id desc')
             ->field('id, name, version_no')
             ->select();
+        $orgModel = new OrgModel();
+        $orgs = $orgModel->getAllActive();
+        $orgList = [];
+        foreach ($orgs as $o) {
+            $orgList[] = [
+                'id'        => (int)$o['id'],
+                'parent_id' => (int)$o['parent_id'],
+                'name'      => (string)$o['name'],
+                'sort_no'   => (int)$o['sort_no'],
+            ];
+        }
         $teams = Db::name('tm_team')->alias('t')
             ->join('tm_org o', 'o.id = t.org_id', 'LEFT')
             ->whereNull('t.deleted_at')
@@ -28,19 +40,25 @@ class TmBatch extends Base
             ->field('t.id, t.name, t.org_id, o.name as org_name')
             ->order('t.id asc')
             ->select();
-        $orgOptions = (new OrgModel())->getSelectOptions();
         $orgPathMap = [];
-        foreach ($orgOptions as $o) {
+        foreach ($orgModel->getSelectOptions() as $o) {
             $orgPathMap[(int)$o['id']] = $o['path'];
         }
-        foreach ($teams as &$t) {
+        $teamList = [];
+        foreach ($teams as $t) {
             $oid = (int)$t['org_id'];
-            $t['org_path'] = isset($orgPathMap[$oid]) ? $orgPathMap[$oid] : ($t['org_name'] ?: '');
+            $teamList[] = [
+                'id'       => (int)$t['id'],
+                'name'     => (string)$t['name'],
+                'org_id'   => $oid,
+                'org_name' => (string)($t['org_name'] ?: ''),
+                'org_path' => isset($orgPathMap[$oid]) ? $orgPathMap[$oid] : (string)($t['org_name'] ?: ''),
+            ];
         }
-        unset($t);
 
         $this->assign('versions', $versions);
-        $this->assign('teams', $teams);
+        $this->assign('orgList', $orgList);
+        $this->assign('teamList', $teamList);
         return $this->fetch('tm_batch/index');
     }
 
@@ -73,6 +91,42 @@ class TmBatch extends Base
             return json(DefaultResponse(404, false, '批次不存在'));
         }
         return json(DefaultResponse(0, true, 'ok', $row));
+    }
+
+    /**
+     * 输出 / 下载批次正式微信小程序码（PNG）。
+     * getwxacodeunlimit 生成的码长期有效，可打印下发给员工；download=1 时附件下载。
+     *
+     * @return mixed
+     */
+    public function wxacode()
+    {
+        $req = Request::instance();
+        $id = (int)$req->param('id', 0);
+        $refresh = (int)$req->param('refresh', 0) === 1;
+        $download = (int)$req->param('download', 0) === 1;
+        $width = (int)$req->param('width', $download ? 860 : 280);
+        $row = BatchService::detail($id);
+        if ($id <= 0 || !$row) {
+            return json(DefaultResponse(404, false, '批次不存在'));
+        }
+        list($ok, $binOrMsg, $meta) = WxMiniService::getBatchWxacode($id, $refresh, $width);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $binOrMsg, $meta ?: null));
+        }
+        $safeName = preg_replace('/[\\\\\/:*?"<>|]+/', '_', (string)(isset($row['name']) ? $row['name'] : '测评小程序码'));
+        $safeName = trim($safeName, ' ._') ?: '测评小程序码';
+        $filename = $safeName . '.png';
+        $headers = [
+            // 码本身不过期；浏览器可缓存展示用图
+            'Cache-Control' => $refresh ? 'no-store' : 'private, max-age=86400',
+        ];
+        if ($download) {
+            $headers['Content-Disposition'] = 'attachment; filename="' . $filename . '"; filename*=UTF-8\'\'' . rawurlencode($filename);
+        }
+        return \think\Response::create($binOrMsg, 'html', 200)
+            ->contentType('image/png')
+            ->header($headers);
     }
 
     /**

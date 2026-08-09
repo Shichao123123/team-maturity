@@ -11,12 +11,28 @@
         }
         .entry-box code { background:#e2e8f0; padding:1px 6px; border-radius:4px; }
         .team-check-box {
-            max-height:280px; overflow:auto; border:1px solid #e2e8f0; border-radius:6px;
-            padding:8px 12px; background:#fff;
+            max-height:320px; overflow:auto; border:1px solid #e2e8f0; border-radius:6px;
+            padding:8px 10px; background:#fff;
         }
-        .team-check-box .layui-form-item { margin-bottom:6px; }
         .team-busy { color:#b91c1c; font-size:12px; margin-left:6px; }
         .team-check-toolbar { margin-bottom:8px; }
+        .tree-node { margin:2px 0; }
+        .tree-row {
+            display:flex; align-items:center; gap:4px; min-height:28px;
+            padding:2px 4px; border-radius:4px;
+        }
+        .tree-row:hover { background:#f8fafc; }
+        .tree-row.org-row { font-weight:600; color:#1e293b; }
+        .tree-row.team-row { font-weight:400; color:#334155; }
+        .tree-toggle {
+            width:18px; height:18px; line-height:18px; text-align:center;
+            border:none; background:transparent; color:#64748b; cursor:pointer;
+            padding:0; flex-shrink:0; font-size:12px;
+        }
+        .tree-toggle.placeholder { visibility:hidden; cursor:default; }
+        .tree-children { margin-left:18px; border-left:1px dashed #e2e8f0; padding-left:8px; }
+        .tree-children.collapsed { display:none; }
+        .tree-row .layui-form-checkbox { margin:0 !important; }
         .status-tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:12px; }
         .st-0 { background:#f1f5f9; color:#475569; }
         .st-1 { background:#dcfce7; color:#166534; }
@@ -102,30 +118,27 @@
         <div class="tip" id="detailMeta"></div>
         <div class="entry-box" id="detailEntry">
             <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;">
-                <div id="qrCanvas" style="width:160px;height:160px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;"></div>
+                <div id="qrCanvas" style="width:168px;height:168px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;"></div>
                 <div style="flex:1;min-width:220px;">
                     <div style="font-weight:600;margin-bottom:6px;">扫码进入测评</div>
                     <div id="qrText" style="font-size:13px;color:#334155;word-break:break-all;margin-bottom:8px;"></div>
-                    <div class="tip" style="margin:0;">开测后方可登记作答；二维码内容为小程序路径 + batch_id（未配微信码接口时用路径码演示）。</div>
-                    <button type="button" class="pear-btn pear-btn-xs" id="btnCopyQr" style="margin-top:8px;">复制路径</button>
+                    <div class="tip" id="qrTip" style="margin:0;">开测后方可登记作答。</div>
+                    <div style="margin-top:8px;">
+                        <button type="button" class="pear-btn pear-btn-xs pear-btn-primary" id="btnExportQr">导出二维码</button>
+                        <button type="button" class="pear-btn pear-btn-xs" id="btnCopyQr" style="margin-left:6px;">复制路径</button>
+                        <button type="button" class="pear-btn pear-btn-xs" id="btnRefreshWxacode" style="display:none;margin-left:6px;">刷新小程序码</button>
+                    </div>
                 </div>
             </div>
         </div>
         <div class="act-row" id="detailActions"></div>
         <div id="bindBlock">
-            <div class="tip">参评班组（开测前可修改；开测后锁定）。同一班组在重叠时间段内若已有测评任务则不可选。</div>
+            <div class="tip">参评班组（开测前可修改；开测后锁定）。按组织树勾选：选中父级将自动勾选其下全部可选班组。</div>
             <form class="layui-form" lay-filter="bindForm">
                 <div class="team-check-toolbar" id="selectAllWrap">
                     <input type="checkbox" name="select_all" id="selectAllTeams" title="全选可选班组" lay-skin="primary" lay-filter="selectAllTeams">
                 </div>
-                <div class="team-check-box">
-                    {volist name="teams" id="t"}
-                    <div class="layui-form-item team-row" style="margin-bottom:4px;" data-team-id="{$t.id}">
-                        <input type="checkbox" name="team_ids" value="{$t.id}" title="{$t.name}（{$t.org_path}）" lay-skin="primary" lay-filter="teamPick">
-                        <span class="team-busy" style="display:none;"></span>
-                    </div>
-                    {/volist}
-                </div>
+                <div class="team-check-box" id="teamTreeBox"></div>
                 <div style="margin-top:10px;" id="bindSaveWrap">
                     <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnBindTeams">保存班组绑定</button>
                 </div>
@@ -146,27 +159,271 @@ layui.use(['table','form','jquery','layer','laydate'], function(){
     var table = layui.table, form = layui.form, $ = layui.jquery, layer = layui.layer, laydate = layui.laydate;
     form.render();
 
+    var ORG_LIST = {:json_encode($orgList, JSON_UNESCAPED_UNICODE)} || [];
+    var TEAM_LIST = {:json_encode($teamList, JSON_UNESCAPED_UNICODE)} || [];
+    var orgChildrenMap = {};
+    var orgMetaMap = {};
+    var teamsByOrg = {};
+    var orgDescTeamIds = {}; // orgId -> [teamId,...] 含下级组织班组
+
+    (function initTreeData(){
+        ORG_LIST.forEach(function(o){
+            var id = String(o.id);
+            var pid = String(o.parent_id || 0);
+            orgMetaMap[id] = o;
+            if (!orgChildrenMap[pid]) orgChildrenMap[pid] = [];
+            orgChildrenMap[pid].push(o);
+        });
+        Object.keys(orgChildrenMap).forEach(function(pid){
+            orgChildrenMap[pid].sort(function(a, b){
+                return (a.sort_no - b.sort_no) || (a.id - b.id);
+            });
+        });
+        TEAM_LIST.forEach(function(t){
+            var oid = String(t.org_id || 0);
+            if (!teamsByOrg[oid]) teamsByOrg[oid] = [];
+            teamsByOrg[oid].push(t);
+        });
+        function collectTeams(orgId){
+            var key = String(orgId);
+            if (orgDescTeamIds[key]) return orgDescTeamIds[key];
+            var ids = [];
+            (teamsByOrg[key] || []).forEach(function(t){ ids.push(String(t.id)); });
+            (orgChildrenMap[key] || []).forEach(function(child){
+                ids = ids.concat(collectTeams(child.id));
+            });
+            orgDescTeamIds[key] = ids;
+            return ids;
+        }
+        ORG_LIST.forEach(function(o){ collectTeams(o.id); });
+    })();
+
+    function renderTeamTree(){
+        var $box = $('#teamTreeBox').empty();
+        if (!ORG_LIST.length && !TEAM_LIST.length) {
+            $box.html('<div style="color:#94a3b8;padding:8px 0;">暂无组织/班组</div>');
+            return;
+        }
+        function renderOrg(org, depth){
+            var oid = String(org.id);
+            var children = orgChildrenMap[oid] || [];
+            var teams = teamsByOrg[oid] || [];
+            var hasChild = children.length > 0 || teams.length > 0;
+            var $node = $('<div class="tree-node" data-org-node="'+oid+'"></div>');
+            var $row = $('<div class="tree-row org-row"></div>');
+            var $toggle = $('<button type="button" class="tree-toggle'+(hasChild?'':' placeholder')+'" data-toggle="1">▼</button>');
+            $row.append($toggle);
+            $row.append(
+                $('<input type="checkbox" lay-skin="primary" lay-filter="orgPick">')
+                    .attr('name', 'org_pick')
+                    .attr('title', org.name)
+                    .attr('data-org-id', oid)
+                    .val(oid)
+            );
+            $node.append($row);
+            if (hasChild) {
+                var $kids = $('<div class="tree-children"></div>');
+                children.forEach(function(c){ $kids.append(renderOrg(c, depth + 1)); });
+                teams.forEach(function(t){
+                    var $tNode = $('<div class="tree-node team-node" data-team-id="'+t.id+'"></div>');
+                    var $tRow = $('<div class="tree-row team-row"></div>');
+                    $tRow.append('<button type="button" class="tree-toggle placeholder">·</button>');
+                    $tRow.append(
+                        $('<input type="checkbox" name="team_ids" lay-skin="primary" lay-filter="teamPick">')
+                            .attr('title', t.name)
+                            .attr('value', t.id)
+                            .attr('data-org-id', oid)
+                    );
+                    $tRow.append($('<span class="team-busy" style="display:none;"></span>'));
+                    $tNode.append($tRow);
+                    $kids.append($tNode);
+                });
+                $node.append($kids);
+            }
+            return $node;
+        }
+        var orgIdSet = {};
+        ORG_LIST.forEach(function(o){ orgIdSet[String(o.id)] = true; });
+        var roots = ORG_LIST.filter(function(o){
+            return !o.parent_id || !orgIdSet[String(o.parent_id)];
+        });
+        roots.sort(function(a, b){ return (a.sort_no - b.sort_no) || (a.id - b.id); });
+        roots.forEach(function(o){ $box.append(renderOrg(o, 0)); });
+        // 挂在未知组织下的班组
+        var knownOrg = {};
+        ORG_LIST.forEach(function(o){ knownOrg[String(o.id)] = true; });
+        var orphan = TEAM_LIST.filter(function(t){ return !knownOrg[String(t.org_id)]; });
+        if (orphan.length) {
+            var $other = $('<div class="tree-node"></div>');
+            $other.append('<div class="tree-row org-row"><button type="button" class="tree-toggle placeholder">·</button><span style="padding-left:4px;">未归属组织</span></div>');
+            var $kids = $('<div class="tree-children"></div>');
+            orphan.forEach(function(t){
+                var $tNode = $('<div class="tree-node team-node" data-team-id="'+t.id+'"></div>');
+                var $tRow = $('<div class="tree-row team-row"></div>');
+                $tRow.append('<button type="button" class="tree-toggle placeholder">·</button>');
+                $tRow.append(
+                    $('<input type="checkbox" name="team_ids" lay-skin="primary" lay-filter="teamPick">')
+                        .attr('title', t.name + (t.org_path ? '（'+t.org_path+'）' : ''))
+                        .attr('value', t.id)
+                );
+                $tRow.append($('<span class="team-busy" style="display:none;"></span>'));
+                $tNode.append($tRow);
+                $kids.append($tNode);
+            });
+            $other.append($kids);
+            $box.append($other);
+        }
+        form.render('checkbox', 'bindForm');
+    }
+
+    var treeSyncLock = false; // 防止 sync 时 form.render / 状态回写再次触发 orgPick 导致整树取消
+
+    function availableTeamInputs($scope){
+        var $root = $scope && $scope.length ? $scope : $('form[lay-filter="bindForm"]');
+        return $root.find('input[name="team_ids"]').filter(function(){
+            return !$(this).attr('disabled');
+        });
+    }
+
+    function readOrgId(el){
+        if (!el) return '';
+        // 优先读 attribute，避免 jQuery data 缓存/类型问题
+        var oid = el.getAttribute ? el.getAttribute('data-org-id') : '';
+        if (!oid) oid = el.value || '';
+        return String(oid || '');
+    }
+
+    function paintCheckbox(el){
+        var $el = $(el);
+        var $lay = $el.next('.layui-form-checkbox');
+        if (!$lay.length) return;
+        if (el.disabled) {
+            $lay.addClass('layui-checkbox-disbaled layui-disabled');
+        } else {
+            $lay.removeClass('layui-checkbox-disbaled layui-disabled');
+        }
+        if (el.indeterminate) {
+            $el.prop('checked', false);
+            $lay.removeClass('layui-form-checked');
+            $lay.css({ opacity: 0.85, position: 'relative' });
+            if (!$lay.find('.tm-indeterminate').length) {
+                $lay.prepend('<i class="tm-indeterminate" style="position:absolute;left:3px;top:8px;width:10px;height:2px;background:#1677ff;border-radius:1px;"></i>');
+            }
+            return;
+        }
+        $lay.find('.tm-indeterminate').remove();
+        $lay.css('opacity', '');
+        $lay.toggleClass('layui-form-checked', !!el.checked);
+    }
+
+    function setTeamsChecked(teamIds, checked){
+        var set = {};
+        (teamIds || []).forEach(function(id){ set[String(id)] = true; });
+        availableTeamInputs().each(function(){
+            if (!set[String(this.value)]) return;
+            this.checked = !!checked;
+            paintCheckbox(this);
+        });
+    }
+
+    function setOrgChecked(orgId, checked, indeterminate){
+        var el = document.querySelector('form[lay-filter="bindForm"] input[name="org_pick"][data-org-id="'+orgId+'"]');
+        if (!el || el.disabled) return;
+        el.indeterminate = !!indeterminate;
+        el.checked = !!checked && !indeterminate;
+        paintCheckbox(el);
+    }
+
+    function syncOrgCheckState(){
+        treeSyncLock = true;
+        try {
+            $('form[lay-filter="bindForm"] input[name="org_pick"]').each(function(){
+                var oid = readOrgId(this);
+                var ids = orgDescTeamIds[oid] || [];
+                if (!ids.length) {
+                    this.checked = false;
+                    this.indeterminate = false;
+                    paintCheckbox(this);
+                    return;
+                }
+                var total = 0, checked = 0;
+                ids.forEach(function(tid){
+                    var el = document.querySelector('form[lay-filter="bindForm"] input[name="team_ids"][value="'+tid+'"]');
+                    if (!el || el.disabled) return;
+                    total++;
+                    if (el.checked) checked++;
+                });
+                if (total === 0) {
+                    this.disabled = true;
+                    this.checked = false;
+                    this.indeterminate = false;
+                } else {
+                    this.disabled = false;
+                    this.checked = checked === total;
+                    this.indeterminate = checked > 0 && checked < total;
+                }
+                paintCheckbox(this);
+            });
+            var $all = availableTeamInputs();
+            var allEl = document.getElementById('selectAllTeams');
+            if (allEl) {
+                allEl.checked = $all.length > 0 && $all.length === $all.filter(':checked').length;
+                paintCheckbox(allEl);
+            }
+        } finally {
+            treeSyncLock = false;
+        }
+    }
+
     function reloadFilter(){
         table.reload('dataTable', {where: form.val('filterForm') || {}, page:{curr:1}});
     }
     form.on('select(autoFilter)', function(){ reloadFilter(); });
     form.on('checkbox(selectAllTeams)', function(data){
+        if (treeSyncLock) return;
         var checked = data.elem.checked;
-        $('form[lay-filter="bindForm"] input[name="team_ids"]').each(function(){
-            if ($(this).attr('disabled')) return;
-            $(this).prop('checked', checked);
+        availableTeamInputs().each(function(){
+            this.checked = checked;
+            paintCheckbox(this);
         });
-        form.render('checkbox', 'bindForm');
-        $('#selectAllTeams').prop('checked', checked);
-        form.render('checkbox', 'bindForm');
+        // 仅同步组织框显示，不再向下级联
+        $('form[lay-filter="bindForm"] input[name="org_pick"]').each(function(){
+            if (this.disabled) return;
+            this.checked = checked;
+            this.indeterminate = false;
+            paintCheckbox(this);
+        });
+        paintCheckbox(data.elem);
     });
-    form.on('checkbox(teamPick)', function(){
-        var $all = $('form[lay-filter="bindForm"] input[name="team_ids"]').filter(function(){
-            return !$(this).attr('disabled');
-        });
-        var $checked = $all.filter(':checked');
-        $('#selectAllTeams').prop('checked', $all.length > 0 && $all.length === $checked.length);
-        form.render('checkbox', 'bindForm');
+    form.on('checkbox(orgPick)', function(data){
+        if (treeSyncLock) return;
+        var oid = readOrgId(data.elem);
+        if (!oid) return;
+        var checked = !!data.elem.checked;
+        // 只影响该节点子孙班组，不影响兄弟分支
+        setTeamsChecked(orgDescTeamIds[oid] || [], checked);
+        function markChildOrgs(orgId, on){
+            (orgChildrenMap[String(orgId)] || []).forEach(function(c){
+                setOrgChecked(c.id, on, false);
+                markChildOrgs(c.id, on);
+            });
+        }
+        markChildOrgs(oid, checked);
+        data.elem.indeterminate = false;
+        paintCheckbox(data.elem);
+        syncOrgCheckState();
+    });
+    form.on('checkbox(teamPick)', function(data){
+        if (treeSyncLock) return;
+        paintCheckbox(data.elem);
+        syncOrgCheckState();
+    });
+    $(document).on('click', '#teamTreeBox .tree-toggle[data-toggle]', function(){
+        var $kids = $(this).closest('.tree-node').children('.tree-children');
+        if (!$kids.length) return;
+        var open = !$kids.hasClass('collapsed');
+        $kids.toggleClass('collapsed', open);
+        $(this).text(open ? '▶' : '▼');
     });
     var keywordTimer = null;
     $('form[lay-filter="filterForm"] input[name="keyword"]').on('input', function(){
@@ -291,10 +548,27 @@ layui.use(['table','form','jquery','layer','laydate'], function(){
             (d.has_snap ? (' · 快照题数 ' + (d.question_cnt||0)) : ' · 尚未写快照')
         );
         var qrContent = d.qr_content || ('pages/exam/index?batch_id=' + d.id);
-        $('#qrText').html('路径：<code>' + qrContent + '</code><br>参数：<code>' + (d.qr_scene || ('batch_id='+d.id)) + '</code>'
-            + (status === 0 ? '<br><span style="color:#d48806;">尚未开测：二维码可先打印，开测后才可登记作答</span>' : ''));
+        var wxReady = !!d.wxacode_configured && !!d.wxacode_url;
+        var envText = d.wxacode_env || 'release';
+        $('#qrText').html(
+            (wxReady
+                ? ('类型：<b>微信正式小程序码</b>（环境 ' + envText + '）<br>scene：<code>' + (d.wxacode_scene || ('b='+d.id)) + '</code><br>')
+                : ('类型：路径二维码（演示用）<br>'))
+            + '路径：<code>' + qrContent + '</code>'
+            + (status === 0 ? '<br><span style="color:#d48806;">尚未开测：二维码可先打印，开测后才可登记作答</span>' : '')
+        );
+        $('#qrTip').html(wxReady
+            ? '正式小程序码<strong>长期有效</strong>，可导出打印/发给员工反复扫码；开测后方可登记作答。未发版请设 wxacode_env=develop。'
+            : '未配置 appid/secret 时显示路径码（可导出 PNG）；配置后自动切换为长期有效的微信正式小程序码。');
+        $('#btnRefreshWxacode').toggle(wxReady);
         $('#qrCanvas').empty();
-        if (typeof QRCode !== 'undefined') {
+
+        function renderPathQr(){
+            $('#qrCanvas').empty();
+            if (typeof QRCode === 'undefined') {
+                $('#qrCanvas').html('<div style="padding:20px;color:#94a3b8;font-size:12px;">二维码组件未加载</div>');
+                return;
+            }
             try {
                 new QRCode(document.getElementById('qrCanvas'), {
                     text: qrContent,
@@ -305,14 +579,63 @@ layui.use(['table','form','jquery','layer','laydate'], function(){
             } catch (e) {
                 $('#qrCanvas').html('<div style="padding:20px;color:#94a3b8;font-size:12px;">二维码生成失败，请复制路径</div>');
             }
-        } else {
-            $('#qrCanvas').html('<div style="padding:20px;color:#94a3b8;font-size:12px;">二维码组件未加载</div>');
         }
+
+        function renderWxacode(refresh){
+            if (!wxReady) { renderPathQr(); return; }
+            var url = d.wxacode_url + (refresh ? '&refresh=1' : '') + '&_t=' + Date.now();
+            var $img = $('<img alt="小程序码" style="width:160px;height:160px;display:block;">');
+            $img.on('load', function(){ $('#qrCanvas').empty().append($img); });
+            $img.on('error', function(){
+                // 失败时拉取错误信息并回退路径码
+                $.getJSON(d.wxacode_url + (refresh ? '&refresh=1' : ''), function(res){
+                    var msg = (res && res.msg) ? res.msg : '正式小程序码生成失败，已回退路径码';
+                    layer.msg(msg, {time: 3500});
+                    $('#qrTip').text(msg + '；已显示路径二维码备用。');
+                    renderPathQr();
+                }).fail(function(){
+                    layer.msg('正式小程序码加载失败，已回退路径码');
+                    renderPathQr();
+                });
+            });
+            // 先占位再赋 src，避免空闪
+            $('#qrCanvas').html('<div style="color:#94a3b8;font-size:12px;padding:8px;text-align:center;">生成小程序码…</div>');
+            $img.attr('src', url);
+        }
+
+        renderWxacode(false);
         $('#btnCopyQr').off('click').on('click', function(){
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(qrContent).then(function(){ layer.msg('已复制'); });
             } else {
                 layer.prompt({title:'请手动复制', value: qrContent, formType:2}, function(v, i){ layer.close(i); });
+            }
+        });
+        $('#btnRefreshWxacode').off('click').on('click', function(){
+            renderWxacode(true);
+        });
+        $('#btnExportQr').off('click').on('click', function(){
+            if (wxReady) {
+                // 高清 PNG，附件下载，便于打印/下发员工
+                window.location.href = d.wxacode_url + '&download=1&width=860';
+                return;
+            }
+            // 路径码：从画布导出 PNG
+            var canvas = document.querySelector('#qrCanvas canvas');
+            if (!canvas) {
+                layer.msg('当前无可导出的二维码');
+                return;
+            }
+            try {
+                var a = document.createElement('a');
+                a.href = canvas.toDataURL('image/png');
+                var pathName = (d.name || '测评路径码').replace(/[\\\/:*?"<>|]+/g, '_').replace(/^\.+/, '');
+                a.download = (pathName || '测评路径码') + '.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            } catch (e) {
+                layer.msg('导出失败，请右键图片另存');
             }
         });
 
@@ -329,10 +652,12 @@ layui.use(['table','form','jquery','layer','laydate'], function(){
         }
         $('#detailActions').html(actions);
 
+        // 每次打开详情重建组织树（模板会重新插入 DOM）
+        renderTeamTree();
         var idSet = {};
         (d.team_ids || []).forEach(function(x){ idSet[String(x)] = true; });
         var busyMap = d.busy_teams || {};
-        $('form[lay-filter="bindForm"] .team-row').each(function(){
+        $('form[lay-filter="bindForm"] .team-node').each(function(){
             var $row = $(this);
             var tid = String($row.data('team-id'));
             var $cb = $row.find('input[name="team_ids"]');
@@ -348,21 +673,16 @@ layui.use(['table','form','jquery','layer','laydate'], function(){
                 $busy.hide().text('');
             }
         });
+        $('form[lay-filter="bindForm"] input[name="org_pick"]').attr('disabled', status !== 0);
         $('#selectAllTeams').prop('checked', false).attr('disabled', status !== 0);
-        form.render('checkbox', 'bindForm');
         if (status !== 0) {
             $('#bindSaveWrap').hide();
             $('#selectAllWrap').hide();
         } else {
             $('#bindSaveWrap').show();
             $('#selectAllWrap').show();
-            // 同步全选框状态
-            var $avail = $('form[lay-filter="bindForm"] input[name="team_ids"]').filter(function(){
-                return !$(this).attr('disabled');
-            });
-            $('#selectAllTeams').prop('checked', $avail.length > 0 && $avail.length === $avail.filter(':checked').length);
-            form.render('checkbox', 'bindForm');
         }
+        syncOrgCheckState();
 
         table.render({
             elem: '#progressTable',

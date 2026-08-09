@@ -171,5 +171,7 @@ return [
         'dev_login'  => $tmWxDevLogin,
         // PC 批次二维码内容前缀（小程序页面路径）；扫码后带 batch_id
         'qr_path'    => 'pages/exam/index',
+        // 正式小程序码环境：develop / trial / release；空则按 dev_login 推断
+        'wxacode_env' => isset($tmLocal['wxacode_env']) ? (string)$tmLocal['wxacode_env'] : '',
     ],
 ];

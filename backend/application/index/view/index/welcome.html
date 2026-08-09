@@ -4,75 +4,87 @@
     {include file="common/meta" /}
     {include file="common/css" /}
     <style>
-        body { background: #f2f5fa; margin: 0; }
-        .wb { padding: 16px; }
+        body {
+            margin:0;
+            background:
+                radial-gradient(900px 420px at 8% -10%, rgba(22,119,255,.10), transparent 55%),
+                radial-gradient(700px 360px at 100% 0%, rgba(19,194,194,.08), transparent 50%),
+                #f2f5fa;
+        }
+        .wb { padding:16px; }
+        .page-head { margin-bottom:14px; }
+        .page-head h1 {
+            margin:0 0 4px; font-size:20px; font-weight:700; color:#0f172a; letter-spacing:.2px;
+        }
+        .page-head p { margin:0; color:#64748b; font-size:13px; }
         .filter-bar {
-            background:#fff; border:1px solid #e8eef6; border-radius:8px;
+            background:#fff; border:1px solid #e8eef6; border-radius:10px;
             padding:12px 14px; margin-bottom:14px;
+            box-shadow:0 1px 2px rgba(15,45,90,.03);
         }
         .kpi-row {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 14px;
-            margin-bottom: 14px;
+            display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:14px;
         }
         .kpi-card {
-            background: #fff;
-            border-radius: 8px;
-            border: 1px solid #e8eef6;
-            padding: 22px 20px 18px;
-            box-shadow: 0 1px 2px rgba(15, 45, 90, .04);
+            position:relative; overflow:hidden;
+            background:#fff; border-radius:12px; border:1px solid #e8eef6;
+            padding:20px 18px 16px; box-shadow:0 1px 2px rgba(15,45,90,.04);
         }
-        .kpi-card .label { color: #5b6b7c; font-size: 14px; margin-bottom: 10px; }
-        .kpi-card .value { color: #1677ff; font-size: 34px; font-weight: 700; line-height: 1.1; letter-spacing: .5px; }
-        .kpi-card .value.muted { color: #94a3b8; font-size: 28px; font-weight: 600; }
+        .kpi-card::before {
+            content:''; position:absolute; left:0; top:0; bottom:0; width:4px;
+            background:var(--accent, #1677ff);
+        }
+        .kpi-card.k1 { --accent:#1677ff; }
+        .kpi-card.k2 { --accent:#13c2c2; }
+        .kpi-card.k3 { --accent:#52c41a; }
+        .kpi-card.k4 { --accent:#fa8c16; }
+        .kpi-card .label { color:#64748b; font-size:13px; margin-bottom:10px; }
+        .kpi-card .value {
+            color:#0f172a; font-size:32px; font-weight:700; line-height:1.1;
+        }
+        .kpi-card .value.muted { color:#94a3b8; font-size:26px; font-weight:600; }
         .main-row {
-            display: grid;
-            grid-template-columns: 1fr 1.15fr;
-            gap: 14px;
+            display:grid; grid-template-columns:1fr 1.15fr; gap:14px;
         }
         .panel {
-            background: #fff;
-            border-radius: 8px;
-            border: 1px solid #e8eef6;
-            box-shadow: 0 1px 2px rgba(15, 45, 90, .04);
-            padding: 16px 18px 12px;
-            min-height: 380px;
+            background:#fff; border-radius:12px; border:1px solid #e8eef6;
+            box-shadow:0 1px 2px rgba(15,45,90,.04);
+            padding:16px 18px 12px; min-height:380px;
         }
         .panel-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: #1f2d3d;
-            margin: 0 0 8px;
+            font-size:16px; font-weight:600; color:#0f172a; margin:0 0 4px;
         }
-        .panel-tip { color: #98a2b3; font-size: 12px; margin: 0 0 8px; }
-        #levelChart { width: 100%; height: 320px; }
-        .level-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        .panel-tip { color:#94a3b8; font-size:12px; margin:0 0 10px; }
+        #levelChart { width:100%; height:320px; }
+        .level-table { width:100%; border-collapse:collapse; margin-top:8px; }
         .level-table th {
-            background: #1677ff;
-            color: #fff;
-            font-weight: 600;
-            padding: 12px 10px;
-            text-align: left;
-            font-size: 13px;
+            background:linear-gradient(180deg,#1d7cfa,#1677ff);
+            color:#fff; font-weight:600; padding:12px 10px;
+            text-align:left; font-size:13px;
         }
-        .level-table th:first-child { border-radius: 4px 0 0 0; }
-        .level-table th:last-child { border-radius: 0 4px 0 0; }
+        .level-table th:first-child { border-radius:6px 0 0 0; }
+        .level-table th:last-child { border-radius:0 6px 0 0; }
         .level-table td {
-            padding: 14px 10px;
-            border-bottom: 1px solid #edf2f7;
-            color: #334155;
-            font-size: 13px;
+            padding:13px 10px; border-bottom:1px solid #edf2f7;
+            color:#334155; font-size:13px;
         }
-        .level-table tr:hover td { background: #f8fbff; }
-        @media (max-width: 1100px) {
-            .kpi-row { grid-template-columns: repeat(2, 1fr); }
-            .main-row { grid-template-columns: 1fr; }
+        .level-table tr:hover td { background:#f8fbff; }
+        .level-dot {
+            display:inline-block; width:8px; height:8px; border-radius:50%;
+            margin-right:6px; vertical-align:middle;
+        }
+        @media (max-width:1100px) {
+            .kpi-row { grid-template-columns:repeat(2,1fr); }
+            .main-row { grid-template-columns:1fr; }
         }
     </style>
 </head>
 <body>
 <div class="wb">
+    <div class="page-head">
+        <h1>工作台</h1>
+        <p>一眼掌握班组成熟度现状 · 可按批次与组织筛选</p>
+    </div>
     <form class="layui-form filter-bar" lay-filter="wbFilter" onsubmit="return false;">
         <div class="layui-inline">
             <select name="batch_id" lay-filter="wbAuto" lay-search>
@@ -92,19 +104,19 @@
         </div>
     </form>
     <div class="kpi-row">
-        <div class="kpi-card">
+        <div class="kpi-card k1">
             <div class="label">统计班组数</div>
             <div class="value" id="kpiTeamTotal">-</div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card k2">
             <div class="label">平均成熟得分</div>
             <div class="value" id="kpiAvgScore">-</div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card k3">
             <div class="label">本质安全型班组</div>
             <div class="value" id="kpiEssential">-</div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card k4">
             <div class="label">被动型班组</div>
             <div class="value" id="kpiPassive">-</div>
         </div>
@@ -141,7 +153,6 @@ layui.use(['jquery', 'echarts', 'layer', 'form'], function(){
     var $ = layui.jquery, echarts = layui.echarts, layer = layui.layer, form = layui.form;
     form.render();
     var chart = echarts.init(document.getElementById('levelChart'));
-
     var colors = ['#0b3d91', '#1677ff', '#69b1ff', '#bae0ff'];
 
     function setKpi(id, val, emptyText){
@@ -176,30 +187,61 @@ layui.use(['jquery', 'echarts', 'layer', 'form'], function(){
             };
         });
         chart.setOption({
-            tooltip: { trigger: 'item', formatter: '{b}<br/>{c}（{d}%）' },
+            tooltip: {
+                trigger: 'item',
+                formatter: '{b}<br/>{c}（{d}%）',
+                backgroundColor: 'rgba(255,255,255,.96)',
+                borderColor: '#e2e8f0',
+                borderWidth: 1,
+                textStyle: { color: '#334155' }
+            },
             legend: { show: false },
             series: [{
                 type: 'pie',
-                radius: ['48%', '72%'],
+                radius: ['50%', '74%'],
                 center: ['50%', '52%'],
                 avoidLabelOverlap: true,
+                itemStyle: { borderColor: '#fff', borderWidth: 2 },
                 label: {
                     formatter: '{b}\n{d}%',
                     color: '#475569',
                     fontSize: 12,
                     lineHeight: 18
                 },
-                labelLine: { length: 14, length2: 12 },
+                labelLine: { length: 12, length2: 10 },
                 data: data
+            }],
+            graphic: [{
+                type: 'text',
+                left: 'center',
+                top: '46%',
+                style: {
+                    text: String(total),
+                    fill: '#0f172a',
+                    fontSize: 28,
+                    fontWeight: 700,
+                    textAlign: 'center'
+                }
+            }, {
+                type: 'text',
+                left: 'center',
+                top: '56%',
+                style: {
+                    text: '班组',
+                    fill: '#94a3b8',
+                    fontSize: 12,
+                    textAlign: 'center'
+                }
             }]
-        });
+        }, true);
     }
 
     function renderTable(items){
         var html = '';
-        (items || []).forEach(function(it){
+        (items || []).forEach(function(it, i){
+            var c = colors[i % colors.length];
             html += '<tr>'
-                + '<td>'+ it.level_name +'</td>'
+                + '<td><span class="level-dot" style="background:'+c+'"></span>'+ it.level_name +'</td>'
                 + '<td>'+ it.count +'</td>'
                 + '<td>'+ it.count +' | '+ it.percent_text +'</td>'
                 + '<td>'+ (it.advice || '') +'</td>'

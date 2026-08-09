@@ -583,6 +583,13 @@ class BatchService
         $batch['qr_path'] = $qrPath;
         $batch['qr_scene'] = 'batch_id=' . (int)$batchId;
         $batch['qr_content'] = $qrPath . '?' . $batch['qr_scene'];
+        // 正式小程序码（getwxacodeunlimit）：scene=b={id}，由 /TmBatch/wxacode 出图
+        $batch['wxacode_configured'] = \app\index\service\WxMiniService::isConfigured();
+        $batch['wxacode_env'] = \app\index\service\WxMiniService::envVersion();
+        $batch['wxacode_scene'] = 'b=' . (int)$batchId;
+        $batch['wxacode_url'] = $batch['wxacode_configured']
+            ? ('/TmBatch/wxacode?id=' . (int)$batchId)
+            : '';
         $batch['team_ids'] = Db::name('tm_batch_team')->where('batch_id', (int)$batchId)->column('team_id');
         $batch['progress'] = self::progress($batchId);
         $busy = self::findBusyTeams($batchId);

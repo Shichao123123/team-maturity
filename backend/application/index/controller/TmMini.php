@@ -58,7 +58,7 @@ class TmMini extends MiniBase
     public function resetPaper()
     {
         $req = Request::instance();
-        if (!$req->isPost()) {
+        if (!$this->requirePost()) {
             return $this->fail('method not allowed', 405);
         }
         $batchId = (int)$req->param('batch_id', isset($this->jwt['batch_id']) ? $this->jwt['batch_id'] : 0);
@@ -78,7 +78,7 @@ class TmMini extends MiniBase
     public function enterBatch()
     {
         $req = Request::instance();
-        if (!$req->isPost()) {
+        if (!$this->requirePost()) {
             return $this->fail('method not allowed', 405);
         }
         $batchId = (int)$req->param('batch_id', 0);
@@ -228,7 +228,7 @@ class TmMini extends MiniBase
     public function startPaper()
     {
         $req = Request::instance();
-        if (!$req->isPost()) {
+        if (!$this->requirePost()) {
             return $this->fail('method not allowed', 405);
         }
         $batchId = (int)$req->param('batch_id', isset($this->jwt['batch_id']) ? $this->jwt['batch_id'] : 0);
@@ -260,7 +260,7 @@ class TmMini extends MiniBase
     public function answer()
     {
         $req = Request::instance();
-        if (!$req->isPost()) {
+        if (!$this->requirePost()) {
             return $this->fail('method not allowed', 405);
         }
         list($ok, $msg, $data, $code) = MiniPaperService::answer(
@@ -283,7 +283,7 @@ class TmMini extends MiniBase
     public function submit()
     {
         $req = Request::instance();
-        if (!$req->isPost()) {
+        if (!$this->requirePost()) {
             return $this->fail('method not allowed', 405);
         }
         list($ok, $msg, $data, $code) = MiniPaperService::submit(

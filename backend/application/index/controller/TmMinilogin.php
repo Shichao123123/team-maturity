@@ -20,7 +20,7 @@ class TmMinilogin extends MiniBase
     public function login()
     {
         $req = Request::instance();
-        if (!$req->isPost()) {
+        if (!$this->requirePost()) {
             return $this->fail('method not allowed', 405);
         }
         $code = $req->param('code', '', 'trim');

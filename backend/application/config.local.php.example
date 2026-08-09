@@ -7,4 +7,6 @@ return [
     'wx_secret' => '在此填写 AppSecret',
     // 本地联调 true；上线务必 false
     'dev_login' => true,
+    // 小程序码环境：未发版 develop；体验版 trial；正式版 release
+    'wxacode_env' => 'develop',
 ];
