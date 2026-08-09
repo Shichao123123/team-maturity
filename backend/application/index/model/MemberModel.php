@@ -44,6 +44,9 @@ class MemberModel extends Model
 
     public function existsMobile($mobile, $excludeId = 0)
     {
+        if ($mobile === null || $mobile === '') {
+            return false;
+        }
         $q = Db::name('tm_member')->where('mobile', $mobile)->whereNull('deleted_at');
         if ($excludeId) {
             $q->where('id', '<>', $excludeId);

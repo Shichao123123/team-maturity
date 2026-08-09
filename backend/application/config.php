@@ -111,4 +111,14 @@ return [
     'productname' => '班组安全成熟度测评系统',
     'redirecturl' => '/Login',
     'version'     => 'v0.1.0_dev',
+
+    // 小程序：扫码自助登记（选班组+姓名入库），不依赖预导人员
+    'mini' => [
+        'jwt_secret' => 'tm_mini_dev_secret_change_me',
+        'jwt_ttl'    => 604800,
+        'wx_appid'   => '',
+        'wx_secret'  => '',
+        // true：未配置微信时，用 code 模拟 open_id（本地联调）
+        'dev_login'  => true,
+    ],
 ];

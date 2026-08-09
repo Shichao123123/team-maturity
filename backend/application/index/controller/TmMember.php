@@ -60,14 +60,17 @@ class TmMember extends Base
             'role_code' => $req->param('role_code', 'member', 'trim'),
             'status'    => (int)$req->param('status', 1),
         ];
-        if ($data['team_id'] <= 0 || $data['name'] === '' || $data['mobile'] === '') {
-            return json(DefaultResponse(400, false, '请填写班组、姓名、手机号'));
+        if ($data['team_id'] <= 0 || $data['name'] === '') {
+            return json(DefaultResponse(400, false, '请填写班组、姓名'));
         }
-        if (!preg_match('/^1\d{10}$/', $data['mobile'])) {
+        // 人员主路径为小程序自助登记；PC 手机号仅作补录，可空
+        if ($data['mobile'] === '') {
+            $data['mobile'] = null;
+        } elseif (!preg_match('/^1\d{10}$/', $data['mobile'])) {
             return json(DefaultResponse(400, false, '手机号格式不正确'));
         }
         $model = new MemberModel();
-        if ($model->existsMobile($data['mobile'])) {
+        if ($data['mobile'] !== null && $model->existsMobile($data['mobile'])) {
             return json(DefaultResponse(400, false, '手机号已存在'));
         }
         if (!(new TeamModel())->find($data['team_id'])) {
@@ -93,13 +96,15 @@ class TmMember extends Base
             'role_code' => $req->param('role_code', 'member', 'trim'),
             'status'    => (int)$req->param('status', 1),
         ];
-        if ($data['team_id'] <= 0 || $data['name'] === '' || $data['mobile'] === '') {
-            return json(DefaultResponse(400, false, '请填写班组、姓名、手机号'));
+        if ($data['team_id'] <= 0 || $data['name'] === '') {
+            return json(DefaultResponse(400, false, '请填写班组、姓名'));
         }
-        if (!preg_match('/^1\d{10}$/', $data['mobile'])) {
+        if ($data['mobile'] === '') {
+            $data['mobile'] = null;
+        } elseif (!preg_match('/^1\d{10}$/', $data['mobile'])) {
             return json(DefaultResponse(400, false, '手机号格式不正确'));
         }
-        if ($model->existsMobile($data['mobile'], $id)) {
+        if ($data['mobile'] !== null && $model->existsMobile($data['mobile'], $id)) {
             return json(DefaultResponse(400, false, '手机号已存在'));
         }
         $model->editRow($id, $data);

@@ -53,7 +53,7 @@ CREATE TABLE `tm_member` (
   `id`          BIGINT       NOT NULL AUTO_INCREMENT,
   `team_id`     BIGINT       NOT NULL COMMENT '所属班组',
   `name`        VARCHAR(64)  NOT NULL COMMENT '姓名',
-  `mobile`      CHAR(11)     NOT NULL COMMENT '手机号，绑定小程序唯一凭证',
+  `mobile`      CHAR(11)     NULL DEFAULT NULL COMMENT '手机号（可选；PC补录/导入时使用）',
   `post_name`   VARCHAR(64)  NULL DEFAULT NULL COMMENT '岗位',
   `role_code`   VARCHAR(32)  NOT NULL DEFAULT 'member' COMMENT 'leader班组长 deputy组长 safety安全员 part_safety兼职安全员 member普通成员',
   `status`      TINYINT      NOT NULL DEFAULT 1 COMMENT '1启用 0停用',
