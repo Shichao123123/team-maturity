@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html>
+<head>
+    {include file="common/meta" /}
+    {include file="common/css" /}
+    <style>
+        .tip { color:#64748b; font-size:12px; line-height:1.6; margin:0 0 10px; }
+        .entry-box {
+            background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;
+            padding:10px 12px; margin:10px 0 14px; font-size:13px; color:#334155;
+        }
+        .entry-box code { background:#e2e8f0; padding:1px 6px; border-radius:4px; }
+        .team-check-box {
+            max-height:320px; overflow:auto; border:1px solid #e2e8f0; border-radius:6px;
+            padding:8px 10px; background:#fff;
+        }
+        .team-busy { color:#b91c1c; font-size:12px; margin-left:6px; }
+        .team-check-toolbar { margin-bottom:8px; }
+        .tree-node { margin:2px 0; }
+        .tree-row {
+            display:flex; align-items:center; gap:4px; min-height:28px;
+            padding:2px 4px; border-radius:4px;
+        }
+        .tree-row:hover { background:#f8fafc; }
+        .tree-row.org-row { font-weight:600; color:#1e293b; }
+        .tree-row.team-row { font-weight:400; color:#334155; }
+        .tree-toggle {
+            width:18px; height:18px; line-height:18px; text-align:center;
+            border:none; background:transparent; color:#64748b; cursor:pointer;
+            padding:0; flex-shrink:0; font-size:12px;
+        }
+        .tree-toggle.placeholder { visibility:hidden; cursor:default; }
+        .tree-children { margin-left:18px; border-left:1px dashed #e2e8f0; padding-left:8px; }
+        .tree-children.collapsed { display:none; }
+        .tree-row .layui-form-checkbox { margin:0 !important; }
+        .status-tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:12px; }
+        .st-0 { background:#f1f5f9; color:#475569; }
+        .st-1 { background:#dcfce7; color:#166534; }
+        .st-2 { background:#fee2e2; color:#991b1b; }
+        .act-row { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 12px; }
+        .batch-detail-scroll { max-height: calc(100vh - 160px); overflow:auto; padding-right:4px; }
+    </style>
+</head>
+<body class="pear-container">
+<div class="layui-card">
+    <div class="layui-card-body">
+        <form class="layui-form" lay-filter="filterForm" onsubmit="return false;">
+            <div class="layui-form-item">
+                <div class="layui-inline">
+                    <select name="status" lay-filter="autoFilter">
+                        <option value="">全部状态</option>
+                        <option value="0">未开始</option>
+                        <option value="1">进行中</option>
+                        <option value="2">已结束</option>
+                    </select>
+                </div>
+                <div class="layui-inline">
+                    <input type="text" name="keyword" placeholder="批次名称（输入即筛选）" class="layui-input" style="width:220px;">
+                </div>
+                <div class="layui-inline">
+                    <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnAdd">创建批次</button>
+                </div>
+            </div>
+        </form>
+        <table id="dataTable" lay-filter="dataTable"></table>
+    </div>
+</div>
+
+<script type="text/html" id="bar">
+    <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="detail">详情</a>
+    <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+    <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
+</script>
+
+<script type="text/html" id="editTpl">
+    <form class="layui-form" style="padding:20px 24px 10px;" lay-filter="editForm">
+        <input type="hidden" name="id">
+        <p class="tip" id="createNextTip" style="display:none;margin:0 0 12px 0;">填写名称、版本与时间后保存，将自动进入「选择参评班组 / 开测」。</p>
+        <div class="layui-form-item">
+            <label class="layui-form-label">批次名称</label>
+            <div class="layui-input-block">
+                <input type="text" name="name" required lay-verify="required" class="layui-input" placeholder="如：2026年一季度班组测评">
+            </div>
+        </div>
+        <div class="layui-form-item" id="versionItem">
+            <label class="layui-form-label">指标版本</label>
+            <div class="layui-input-block">
+                <select name="version_id" lay-verify="required" lay-search>
+                    <option value="">请选择已发布版本</option>
+                    {volist name="versions" id="v"}
+                    <option value="{$v.id}">{$v.name}（{$v.version_no}）</option>
+                    {/volist}
+                </select>
+            </div>
+        </div>
+        <div class="layui-form-item" id="startItem">
+            <label class="layui-form-label">开始时间</label>
+            <div class="layui-input-block">
+                <input type="text" name="start_time" id="startTime" required lay-verify="required" class="layui-input" autocomplete="off">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">结束时间</label>
+            <div class="layui-input-block">
+                <input type="text" name="end_time" id="endTime" required lay-verify="required" class="layui-input" autocomplete="off">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <div class="layui-input-block">
+                <button class="pear-btn pear-btn-primary" lay-submit lay-filter="save" id="btnSaveBatch">保存</button>
+            </div>
+        </div>
+    </form>
+</script>
+
+<script type="text/html" id="detailTpl">
+    <div style="padding:14px 18px 18px;" id="detailBody" class="batch-detail-scroll">
+        <div class="tip" id="detailMeta"></div>
+        <div class="entry-box" id="detailEntry">
+            <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;">
+                <div id="qrCanvas" style="width:168px;height:168px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;"></div>
+                <div style="flex:1;min-width:220px;">
+                    <div style="font-weight:600;margin-bottom:6px;">扫码进入测评</div>
+                    <div id="qrText" style="font-size:13px;color:#334155;word-break:break-all;margin-bottom:8px;"></div>
+                    <div class="tip" id="qrTip" style="margin:0;">开测后方可登记作答。</div>
+                    <div style="margin-top:8px;">
+                        <button type="button" class="pear-btn pear-btn-xs pear-btn-primary" id="btnExportQr">导出二维码</button>
+                        <button type="button" class="pear-btn pear-btn-xs" id="btnCopyQr" style="margin-left:6px;">复制路径</button>
+                        <button type="button" class="pear-btn pear-btn-xs" id="btnRefreshWxacode" style="display:none;margin-left:6px;">刷新小程序码</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="act-row" id="detailActions"></div>
+        <div id="bindBlock">
+            <div class="tip">参评班组（开测前可修改；开测后锁定）。按组织树勾选：选中父级将自动勾选其下全部可选班组。</div>
+            <form class="layui-form" lay-filter="bindForm">
+                <div class="team-check-toolbar" id="selectAllWrap">
+                    <input type="checkbox" name="select_all" id="selectAllTeams" title="全选可选班组" lay-skin="primary" lay-filter="selectAllTeams">
+                </div>
+                <div class="team-check-box" id="teamTreeBox"></div>
+                <div style="margin-top:10px;" id="bindSaveWrap">
+                    <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnBindTeams">保存班组绑定</button>
+                </div>
+            </form>
+        </div>
+        <div style="margin-top:16px;">
+            <div class="tip">班组进度</div>
+            <table id="progressTable" lay-filter="progressTable"></table>
+        </div>
+    </div>
+</script>
+
+<script src="/component/layui/layui.js"></script>
+<script src="/component/pear/pear.js"></script>
+<script src="/component/qrcode/qrcode.min.js"></script>
+<script>
+layui.use(['table','form','jquery','layer','laydate'], function(){
+    var table = layui.table, form = layui.form, $ = layui.jquery, layer = layui.layer, laydate = layui.laydate;
+    form.render();
+
+    var ORG_LIST = {:json_encode($orgList, JSON_UNESCAPED_UNICODE)} || [];
+    var TEAM_LIST = {:json_encode($teamList, JSON_UNESCAPED_UNICODE)} || [];
+    var orgChildrenMap = {};
+    var orgMetaMap = {};
+    var teamsByOrg = {};
+    var orgDescTeamIds = {}; // orgId -> [teamId,...] 含下级组织班组
+
+    (function initTreeData(){
+        ORG_LIST.forEach(function(o){
+            var id = String(o.id);
+            var pid = String(o.parent_id || 0);
+            orgMetaMap[id] = o;
+            if (!orgChildrenMap[pid]) orgChildrenMap[pid] = [];
+            orgChildrenMap[pid].push(o);
+        });
+        Object.keys(orgChildrenMap).forEach(function(pid){
+            orgChildrenMap[pid].sort(function(a, b){
+                return (a.sort_no - b.sort_no) || (a.id - b.id);
+            });
+        });
+        TEAM_LIST.forEach(function(t){
+            var oid = String(t.org_id || 0);
+            if (!teamsByOrg[oid]) teamsByOrg[oid] = [];
+            teamsByOrg[oid].push(t);
+        });
+        function collectTeams(orgId){
+            var key = String(orgId);
+            if (orgDescTeamIds[key]) return orgDescTeamIds[key];
+            var ids = [];
+            (teamsByOrg[key] || []).forEach(function(t){ ids.push(String(t.id)); });
+            (orgChildrenMap[key] || []).forEach(function(child){
+                ids = ids.concat(collectTeams(child.id));
+            });
+            orgDescTeamIds[key] = ids;
+            return ids;
+        }
+        ORG_LIST.forEach(function(o){ collectTeams(o.id); });
+    })();
+
+    function renderTeamTree(){
+        var $box = $('#teamTreeBox').empty();
+        if (!ORG_LIST.length && !TEAM_LIST.length) {
+            $box.html('<div style="color:#94a3b8;padding:8px 0;">暂无组织/班组</div>');
+            return;
+        }
+        function renderOrg(org, depth){
+            var oid = String(org.id);
+            var children = orgChildrenMap[oid] || [];
+            var teams = teamsByOrg[oid] || [];
+            var hasChild = children.length > 0 || teams.length > 0;
+            var $node = $('<div class="tree-node" data-org-node="'+oid+'"></div>');
+            var $row = $('<div class="tree-row org-row"></div>');
+            var $toggle = $('<button type="button" class="tree-toggle'+(hasChild?'':' placeholder')+'" data-toggle="1">▼</button>');
+            $row.append($toggle);
+            $row.append(
+                $('<input type="checkbox" lay-skin="primary" lay-filter="orgPick">')
+                    .attr('name', 'org_pick')
+                    .attr('title', org.name)
+                    .attr('data-org-id', oid)
+                    .val(oid)
+            );
+            $node.append($row);
+            if (hasChild) {
+                var $kids = $('<div class="tree-children"></div>');
+                children.forEach(function(c){ $kids.append(renderOrg(c, depth + 1)); });
+                teams.forEach(function(t){
+                    var $tNode = $('<div class="tree-node team-node" data-team-id="'+t.id+'"></div>');
+                    var $tRow = $('<div class="tree-row team-row"></div>');
+                    $tRow.append('<button type="button" class="tree-toggle placeholder">·</button>');
+                    $tRow.append(
+                        $('<input type="checkbox" name="team_ids" lay-skin="primary" lay-filter="teamPick">')
+                            .attr('title', t.name)
+                            .attr('value', t.id)
+                            .attr('data-org-id', oid)
+                    );
+                    $tRow.append($('<span class="team-busy" style="display:none;"></span>'));
+                    $tNode.append($tRow);
+                    $kids.append($tNode);
+                });
+                $node.append($kids);
+            }
+            return $node;
+        }
+        var orgIdSet = {};
+        ORG_LIST.forEach(function(o){ orgIdSet[String(o.id)] = true; });
+        var roots = ORG_LIST.filter(function(o){
+            return !o.parent_id || !orgIdSet[String(o.parent_id)];
+        });
+        roots.sort(function(a, b){ return (a.sort_no - b.sort_no) || (a.id - b.id); });
+        roots.forEach(function(o){ $box.append(renderOrg(o, 0)); });
+        // 挂在未知组织下的班组
+        var knownOrg = {};
+        ORG_LIST.forEach(function(o){ knownOrg[String(o.id)] = true; });
+        var orphan = TEAM_LIST.filter(function(t){ return !knownOrg[String(t.org_id)]; });
+        if (orphan.length) {
+            var $other = $('<div class="tree-node"></div>');
+            $other.append('<div class="tree-row org-row"><button type="button" class="tree-toggle placeholder">·</button><span style="padding-left:4px;">未归属组织</span></div>');
+            var $kids = $('<div class="tree-children"></div>');
+            orphan.forEach(function(t){
+                var $tNode = $('<div class="tree-node team-node" data-team-id="'+t.id+'"></div>');
+                var $tRow = $('<div class="tree-row team-row"></div>');
+                $tRow.append('<button type="button" class="tree-toggle placeholder">·</button>');
+                $tRow.append(
+                    $('<input type="checkbox" name="team_ids" lay-skin="primary" lay-filter="teamPick">')
+                        .attr('title', t.name + (t.org_path ? '（'+t.org_path+'）' : ''))
+                        .attr('value', t.id)
+                );
+                $tRow.append($('<span class="team-busy" style="display:none;"></span>'));
+                $tNode.append($tRow);
+                $kids.append($tNode);
+            });
+            $other.append($kids);
+            $box.append($other);
+        }
+        form.render('checkbox', 'bindForm');
+    }
+
+    var treeSyncLock = false; // 防止 sync 时 form.render / 状态回写再次触发 orgPick 导致整树取消
+
+    function availableTeamInputs($scope){
+        var $root = $scope && $scope.length ? $scope : $('form[lay-filter="bindForm"]');
+        return $root.find('input[name="team_ids"]').filter(function(){
+            return !$(this).attr('disabled');
+        });
+    }
+
+    function readOrgId(el){
+        if (!el) return '';
+        // 优先读 attribute，避免 jQuery data 缓存/类型问题
+        var oid = el.getAttribute ? el.getAttribute('data-org-id') : '';
+        if (!oid) oid = el.value || '';
+        return String(oid || '');
+    }
+
+    function paintCheckbox(el){
+        var $el = $(el);
+        var $lay = $el.next('.layui-form-checkbox');
+        if (!$lay.length) return;
+        if (el.disabled) {
+            $lay.addClass('layui-checkbox-disbaled layui-disabled');
+        } else {
+            $lay.removeClass('layui-checkbox-disbaled layui-disabled');
+        }
+        if (el.indeterminate) {
+            $el.prop('checked', false);
+            $lay.removeClass('layui-form-checked');
+            $lay.css({ opacity: 0.85, position: 'relative' });
+            if (!$lay.find('.tm-indeterminate').length) {
+                $lay.prepend('<i class="tm-indeterminate" style="position:absolute;left:3px;top:8px;width:10px;height:2px;background:#1677ff;border-radius:1px;"></i>');
+            }
+            return;
+        }
+        $lay.find('.tm-indeterminate').remove();
+        $lay.css('opacity', '');
+        $lay.toggleClass('layui-form-checked', !!el.checked);
+    }
+
+    function setTeamsChecked(teamIds, checked){
+        var set = {};
+        (teamIds || []).forEach(function(id){ set[String(id)] = true; });
+        availableTeamInputs().each(function(){
+            if (!set[String(this.value)]) return;
+            this.checked = !!checked;
+            paintCheckbox(this);
+        });
+    }
+
+    function setOrgChecked(orgId, checked, indeterminate){
+        var el = document.querySelector('form[lay-filter="bindForm"] input[name="org_pick"][data-org-id="'+orgId+'"]');
+        if (!el || el.disabled) return;
+        el.indeterminate = !!indeterminate;
+        el.checked = !!checked && !indeterminate;
+        paintCheckbox(el);
+    }
+
+    function syncOrgCheckState(){
+        treeSyncLock = true;
+        try {
+            $('form[lay-filter="bindForm"] input[name="org_pick"]').each(function(){
+                var oid = readOrgId(this);
+                var ids = orgDescTeamIds[oid] || [];
+                if (!ids.length) {
+                    this.checked = false;
+                    this.indeterminate = false;
+                    paintCheckbox(this);
+                    return;
+                }
+                var total = 0, checked = 0;
+                ids.forEach(function(tid){
+                    var el = document.querySelector('form[lay-filter="bindForm"] input[name="team_ids"][value="'+tid+'"]');
+                    if (!el || el.disabled) return;
+                    total++;
+                    if (el.checked) checked++;
+                });
+                if (total === 0) {
+                    this.disabled = true;
+                    this.checked = false;
+                    this.indeterminate = false;
+                } else {
+                    this.disabled = false;
+                    this.checked = checked === total;
+                    this.indeterminate = checked > 0 && checked < total;
+                }
+                paintCheckbox(this);
+            });
+            var $all = availableTeamInputs();
+            var allEl = document.getElementById('selectAllTeams');
+            if (allEl) {
+                allEl.checked = $all.length > 0 && $all.length === $all.filter(':checked').length;
+                paintCheckbox(allEl);
+            }
+        } finally {
+            treeSyncLock = false;
+        }
+    }
+
+    function reloadFilter(){
+        table.reload('dataTable', {where: form.val('filterForm') || {}, page:{curr:1}});
+    }
+    form.on('select(autoFilter)', function(){ reloadFilter(); });
+    form.on('checkbox(selectAllTeams)', function(data){
+        if (treeSyncLock) return;
+        var checked = data.elem.checked;
+        availableTeamInputs().each(function(){
+            this.checked = checked;
+            paintCheckbox(this);
+        });
+        // 仅同步组织框显示，不再向下级联
+        $('form[lay-filter="bindForm"] input[name="org_pick"]').each(function(){
+            if (this.disabled) return;
+            this.checked = checked;
+            this.indeterminate = false;
+            paintCheckbox(this);
+        });
+        paintCheckbox(data.elem);
+    });
+    form.on('checkbox(orgPick)', function(data){
+        if (treeSyncLock) return;
+        var oid = readOrgId(data.elem);
+        if (!oid) return;
+        var checked = !!data.elem.checked;
+        // 只影响该节点子孙班组，不影响兄弟分支
+        setTeamsChecked(orgDescTeamIds[oid] || [], checked);
+        function markChildOrgs(orgId, on){
+            (orgChildrenMap[String(orgId)] || []).forEach(function(c){
+                setOrgChecked(c.id, on, false);
+                markChildOrgs(c.id, on);
+            });
+        }
+        markChildOrgs(oid, checked);
+        data.elem.indeterminate = false;
+        paintCheckbox(data.elem);
+        syncOrgCheckState();
+    });
+    form.on('checkbox(teamPick)', function(data){
+        if (treeSyncLock) return;
+        paintCheckbox(data.elem);
+        syncOrgCheckState();
+    });
+    $(document).on('click', '#teamTreeBox .tree-toggle[data-toggle]', function(){
+        var $kids = $(this).closest('.tree-node').children('.tree-children');
+        if (!$kids.length) return;
+        var open = !$kids.hasClass('collapsed');
+        $kids.toggleClass('collapsed', open);
+        $(this).text(open ? '▶' : '▼');
+    });
+    var keywordTimer = null;
+    $('form[lay-filter="filterForm"] input[name="keyword"]').on('input', function(){
+        clearTimeout(keywordTimer);
+        keywordTimer = setTimeout(reloadFilter, 300);
+    });
+
+    function statusHtml(d){
+        var s = parseInt(d.status, 10);
+        var cls = 'st-' + (s === 1 || s === 2 ? s : 0);
+        return '<span class="status-tag '+cls+'">'+(d.status_text||'')+'</span>';
+    }
+
+    table.render({
+        elem: '#dataTable',
+        id: 'dataTable',
+        url: '/TmBatch/getList',
+        page: true,
+        cols: [[
+            {field:'name', title:'批次名称', minWidth:180},
+            {field:'version_name', title:'指标版本', width:140, templet: function(d){
+                return (d.version_name||'') + (d.version_no ? '（'+d.version_no+'）' : '');
+            }},
+            {field:'start_time', title:'开始', width:160},
+            {field:'end_time', title:'结束', width:160},
+            {field:'status', title:'状态', width:90, templet: statusHtml},
+            {field:'score_status_text', title:'算分', width:90},
+            {field:'team_cnt', title:'班组', width:70, align:'center'},
+            {field:'submitted_cnt', title:'已提交', width:80, align:'center'},
+            {title:'操作', toolbar:'#bar', width:180, fixed:'right'}
+        ]]
+    });
+
+    function openForm(row){
+        var started = row && parseInt(row.status, 10) !== 0;
+        layer.open({
+            type:1,
+            title: row && row.id ? '编辑批次' : '创建批次',
+            closeBtn: 1,
+            offset: '30px',
+            area:['640px','520px'],
+            content: $('#editTpl').html(),
+            success: function(){
+                form.render(null, 'editForm');
+                laydate.render({elem: '#startTime', type: 'datetime'});
+                laydate.render({elem: '#endTime', type: 'datetime'});
+                if (row) {
+                    $('#createNextTip').hide();
+                    form.val('editForm', row);
+                    if (started) {
+                        $('#versionItem').hide();
+                        $('#startItem').hide();
+                    }
+                } else {
+                    $('#createNextTip').show();
+                    $('#btnSaveBatch').text('下一步：选择班组');
+                }
+                form.on('submit(save)', function(d){
+                    var isCreate = !d.field.id;
+                    var url = isCreate ? '/TmBatch/add' : '/TmBatch/edit';
+                    var loadIdx = layer.load(2);
+                    $.post(url, d.field, function(res){
+                        layer.close(loadIdx);
+                        layer.msg(res.msg||'');
+                        if (res.success || res.code===0){
+                            layer.closeAll('page');
+                            table.reload('dataTable');
+                            // 新建成功后直接进入选班组 / 开测，无需再点详情
+                            if (isCreate && res.data && res.data.id) {
+                                setTimeout(function(){ openDetail(res.data.id); }, 200);
+                            }
+                        }
+                    }, 'json');
+                    return false;
+                });
+            }
+        });
+    }
+
+    function openDetail(batchId){
+        var load = layer.load(2);
+        $.getJSON('/TmBatch/detail', {id: batchId}, function(res){
+            layer.close(load);
+            if (!(res.success || res.code===0) || !res.data) {
+                layer.msg(res.msg || '加载失败');
+                return;
+            }
+            var d = res.data;
+            layer.open({
+                type: 1,
+                title: '批次详情 — ' + (d.name || ''),
+                closeBtn: 1,
+                maxmin: true,
+                shadeClose: true,
+                // 贴顶大窗，避免垂直居中裁切关闭按钮，同时占满可用区域
+                offset: '10px',
+                area: ['96%', '90%'],
+                content: $('#detailTpl').html(),
+                btn: ['关闭'],
+                yes: function(index){ layer.close(index); },
+                success: function(layero){
+                    form.render(null, 'bindForm');
+                    renderDetail(d);
+                    // 内容区随弹层高度撑满，进度表更易浏览
+                    var h = layero.height() - 120;
+                    layero.find('.batch-detail-scroll').css('max-height', Math.max(360, h) + 'px');
+                }
+            });
+        }).fail(function(){
+            layer.close(load);
+            layer.msg('加载失败');
+        });
+    }
+
+    function renderDetail(d){
+        var status = parseInt(d.status, 10);
+        $('#detailMeta').html(
+            statusHtml(d) + ' · 版本 ' + (d.version_name||'') +
+            (d.version_no ? '（'+d.version_no+'）' : '') +
+            ' · ' + (d.start_time||'') + ' ~ ' + (d.end_time||'') +
+            ' · 算分状态：' + (d.score_status_text||'') +
+            (d.has_snap ? (' · 快照题数 ' + (d.question_cnt||0)) : ' · 尚未写快照')
+        );
+        var qrContent = d.qr_content || ('pages/exam/index?batch_id=' + d.id);
+        var wxReady = !!d.wxacode_configured && !!d.wxacode_url;
+        var envText = d.wxacode_env || 'release';
+        $('#qrText').html(
+            (wxReady
+                ? ('类型：<b>微信正式小程序码</b>（环境 ' + envText + '）<br>scene：<code>' + (d.wxacode_scene || ('b='+d.id)) + '</code><br>')
+                : ('类型：路径二维码（演示用）<br>'))
+            + '路径：<code>' + qrContent + '</code>'
+            + (status === 0 ? '<br><span style="color:#d48806;">尚未开测：二维码可先打印，开测后才可登记作答</span>' : '')
+        );
+        $('#qrTip').html(wxReady
+            ? '正式小程序码<strong>长期有效</strong>，可导出打印/发给员工反复扫码；开测后方可登记作答。未发版请设 wxacode_env=develop。'
+            : '未配置 appid/secret 时显示路径码（可导出 PNG）；配置后自动切换为长期有效的微信正式小程序码。');
+        $('#btnRefreshWxacode').toggle(wxReady);
+        $('#qrCanvas').empty();
+
+        function renderPathQr(){
+            $('#qrCanvas').empty();
+            if (typeof QRCode === 'undefined') {
+                $('#qrCanvas').html('<div style="padding:20px;color:#94a3b8;font-size:12px;">二维码组件未加载</div>');
+                return;
+            }
+            try {
+                new QRCode(document.getElementById('qrCanvas'), {
+                    text: qrContent,
+                    width: 148,
+                    height: 148,
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+            } catch (e) {
+                $('#qrCanvas').html('<div style="padding:20px;color:#94a3b8;font-size:12px;">二维码生成失败，请复制路径</div>');
+            }
+        }
+
+        function renderWxacode(refresh){
+            if (!wxReady) { renderPathQr(); return; }
+            var url = d.wxacode_url + (refresh ? '&refresh=1' : '') + '&_t=' + Date.now();
+            var $img = $('<img alt="小程序码" style="width:160px;height:160px;display:block;">');
+            $img.on('load', function(){ $('#qrCanvas').empty().append($img); });
+            $img.on('error', function(){
+                // 失败时拉取错误信息并回退路径码
+                $.getJSON(d.wxacode_url + (refresh ? '&refresh=1' : ''), function(res){
+                    var msg = (res && res.msg) ? res.msg : '正式小程序码生成失败，已回退路径码';
+                    layer.msg(msg, {time: 3500});
+                    $('#qrTip').text(msg + '；已显示路径二维码备用。');
+                    renderPathQr();
+                }).fail(function(){
+                    layer.msg('正式小程序码加载失败，已回退路径码');
+                    renderPathQr();
+                });
+            });
+            // 先占位再赋 src，避免空闪
+            $('#qrCanvas').html('<div style="color:#94a3b8;font-size:12px;padding:8px;text-align:center;">生成小程序码…</div>');
+            $img.attr('src', url);
+        }
+
+        renderWxacode(false);
+        $('#btnCopyQr').off('click').on('click', function(){
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(qrContent).then(function(){ layer.msg('已复制'); });
+            } else {
+                layer.prompt({title:'请手动复制', value: qrContent, formType:2}, function(v, i){ layer.close(i); });
+            }
+        });
+        $('#btnRefreshWxacode').off('click').on('click', function(){
+            renderWxacode(true);
+        });
+        $('#btnExportQr').off('click').on('click', function(){
+            if (wxReady) {
+                // 高清 PNG，附件下载，便于打印/下发员工
+                window.location.href = d.wxacode_url + '&download=1&width=860';
+                return;
+            }
+            // 路径码：从画布导出 PNG
+            var canvas = document.querySelector('#qrCanvas canvas');
+            if (!canvas) {
+                layer.msg('当前无可导出的二维码');
+                return;
+            }
+            try {
+                var a = document.createElement('a');
+                a.href = canvas.toDataURL('image/png');
+                var pathName = (d.name || '测评路径码').replace(/[\\\/:*?"<>|]+/g, '_').replace(/^\.+/, '');
+                a.download = (pathName || '测评路径码') + '.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            } catch (e) {
+                layer.msg('导出失败，请右键图片另存');
+            }
+        });
+
+        var actions = '';
+        if (status === 0) {
+            actions += '<button type="button" class="pear-btn pear-btn-md pear-btn-success" id="btnStart">开测（抽题写快照）</button>';
+        }
+        if (status === 1) {
+            actions += '<button type="button" class="pear-btn pear-btn-md pear-btn-warm" id="btnFinish">结束并自动算分</button>';
+            actions += '<button type="button" class="pear-btn pear-btn-md" id="btnScorePreview">当前答题概况</button>';
+        }
+        if (status === 2) {
+            actions += '<button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnScore">重新算分</button>';
+        }
+        $('#detailActions').html(actions);
+
+        // 每次打开详情重建组织树（模板会重新插入 DOM）
+        renderTeamTree();
+        var idSet = {};
+        (d.team_ids || []).forEach(function(x){ idSet[String(x)] = true; });
+        var busyMap = d.busy_teams || {};
+        $('form[lay-filter="bindForm"] .team-node').each(function(){
+            var $row = $(this);
+            var tid = String($row.data('team-id'));
+            var $cb = $row.find('input[name="team_ids"]');
+            var $busy = $row.find('.team-busy');
+            var busy = busyMap[tid] || busyMap[parseInt(tid, 10)];
+            $cb.prop('checked', !!idSet[tid]);
+            if (busy) {
+                $cb.prop('checked', false);
+                $cb.attr('disabled', true);
+                $busy.text('不可选：已在「' + (busy.batch_name || '') + '」（' + (busy.status_text || '') + '）').show();
+            } else {
+                $cb.attr('disabled', status !== 0);
+                $busy.hide().text('');
+            }
+        });
+        $('form[lay-filter="bindForm"] input[name="org_pick"]').attr('disabled', status !== 0);
+        $('#selectAllTeams').prop('checked', false).attr('disabled', status !== 0);
+        if (status !== 0) {
+            $('#bindSaveWrap').hide();
+            $('#selectAllWrap').hide();
+        } else {
+            $('#bindSaveWrap').show();
+            $('#selectAllWrap').show();
+        }
+        syncOrgCheckState();
+
+        table.render({
+            elem: '#progressTable',
+            id: 'progressTable',
+            data: d.progress || [],
+            page: false,
+            limit: 200,
+            cols: [[
+                {field:'team_name', title:'班组', minWidth:120},
+                {field:'member_total', title:'绑定时人数', width:100, align:'center'},
+                {field:'submitted_cnt', title:'已提交', width:80, align:'center'},
+                {field:'answering_cnt', title:'答题中', width:80, align:'center'},
+                {field:'team_score', title:'班组分', width:90, templet: function(r){
+                    return (r.team_score===null||r.team_score===undefined||r.team_score==='') ? '—' : Number(r.team_score).toFixed(1);
+                }},
+                {field:'level_name', title:'等级', width:100, templet: function(r){ return r.level_name || '—'; }},
+                {field:'last_submitted_at', title:'最近提交', width:160, templet: function(r){ return r.last_submitted_at || '—'; }}
+            ]]
+        });
+
+        $('#btnBindTeams').off('click').on('click', function(){
+            var teamIds = [];
+            $('form[lay-filter="bindForm"] input[name="team_ids"]:checked').each(function(){
+                if ($(this).attr('disabled')) return;
+                teamIds.push($(this).val());
+            });
+            $.post('/TmBatch/bindTeams', {batch_id: d.id, team_ids: teamIds}, function(res){
+                layer.msg(res.msg||'');
+                if (res.success || res.code===0) refreshDetail(d.id);
+            }, 'json');
+        });
+        $('#btnStart').off('click').on('click', function(){
+            layer.confirm('确认开测？将按指标版本抽题写入快照，开测后不可改版本与班组。', function(i){
+                layer.close(i);
+                var l = layer.load(2);
+                $.post('/TmBatch/start', {id: d.id}, function(res){
+                    layer.close(l);
+                    layer.msg(res.msg||'');
+                    if (res.success || res.code===0) {
+                        refreshDetail(d.id);
+                        table.reload('dataTable');
+                    }
+                }, 'json');
+            });
+        });
+        $('#btnFinish').off('click').on('click', function(){
+            layer.confirm('确认结束本批次？结束后不可再登记作答，并将自动执行正式班组算分落库。', function(i){
+                layer.close(i);
+                var l = layer.load(2);
+                $.post('/TmBatch/finish', {id: d.id}, function(res){
+                    layer.close(l);
+                    layer.msg(res.msg||'');
+                    if (res.success || res.code===0) {
+                        refreshDetail(d.id);
+                        table.reload('dataTable');
+                    }
+                }, 'json');
+            });
+        });
+        $('#btnScorePreview').off('click').on('click', function(){
+            var l = layer.load(2);
+            $.getJSON('/TmBatch/scorePreview', {id: d.id}, function(res){
+                layer.close(l);
+                if (!(res.success || res.code===0) || !res.data) {
+                    layer.msg(res.msg || '获取概况失败');
+                    return;
+                }
+                openScorePreview(res.data, res.msg || '');
+            });
+        });
+        $('#btnScore').off('click').on('click', function(){
+            layer.confirm('确认对本已结束批次重新正式算分并落库？', function(i){
+                layer.close(i);
+                var l = layer.load(2);
+                $.post('/TmBatch/score', {id: d.id}, function(res){
+                    layer.close(l);
+                    layer.msg(res.msg||'');
+                    if (res.success || res.code===0) {
+                        refreshDetail(d.id);
+                        table.reload('dataTable');
+                    }
+                }, 'json');
+            });
+        });
+    }
+
+    function openScorePreview(data, titleMsg){
+        var rows = data.teams || [];
+        var summary = '参评班组 ' + (data.team_total||0)
+            + ' · 已有提交班组 ' + (data.scored_team_cnt||0)
+            + ' · 已提交答卷 ' + (data.submitted_total||0)
+            + ' · 答题中 ' + (data.answering_total||0);
+        var html = '<div style="padding:14px 16px 8px;">'
+            + '<div style="color:#666;margin-bottom:8px;">' + (data.note || titleMsg || '') + '</div>'
+            + '<div style="margin-bottom:10px;font-weight:600;">' + summary + '</div>'
+            + '<table class="layui-table" lay-size="sm" style="margin:0;">'
+            + '<thead><tr><th>班组</th><th>已提交</th><th>答题中</th><th>预估班组分</th><th>预估等级</th></tr></thead><tbody>';
+        if (!rows.length) {
+            html += '<tr><td colspan="5" style="text-align:center;color:#999;">暂无参评班组</td></tr>';
+        } else {
+            rows.forEach(function(r){
+                var score = (r.provisional_score===null||r.provisional_score===undefined||r.provisional_score==='')
+                    ? '—' : Number(r.provisional_score).toFixed(1);
+                html += '<tr>'
+                    + '<td>' + (r.team_name||'') + '</td>'
+                    + '<td>' + (r.submitted_cnt||0) + '</td>'
+                    + '<td>' + (r.answering_cnt||0) + '</td>'
+                    + '<td>' + score + '</td>'
+                    + '<td>' + (r.provisional_level || '—') + '</td>'
+                    + '</tr>';
+            });
+        }
+        html += '</tbody></table></div>';
+        layer.open({
+            type: 1,
+            title: '当前答题概况（预估）',
+            area: ['720px', '520px'],
+            shadeClose: true,
+            content: html
+        });
+    }
+
+    function refreshDetail(batchId){
+        $.getJSON('/TmBatch/detail', {id: batchId}, function(res){
+            if ((res.success || res.code===0) && res.data) {
+                renderDetail(res.data);
+            }
+        });
+    }
+
+    $('#btnAdd').on('click', function(){ openForm(null); });
+
+    table.on('tool(dataTable)', function(obj){
+        if (obj.event === 'detail') openDetail(obj.data.id);
+        if (obj.event === 'edit') openForm(obj.data);
+        if (obj.event === 'del') {
+            layer.confirm('确认删除该批次？', function(i){
+                $.post('/TmBatch/delete', {id: obj.data.id}, function(res){
+                    layer.msg(res.msg||'');
+                    if (res.success || res.code===0) table.reload('dataTable');
+                }, 'json');
+                layer.close(i);
+            });
+        }
+    });
+});
+</script>
+</body>
+</html>

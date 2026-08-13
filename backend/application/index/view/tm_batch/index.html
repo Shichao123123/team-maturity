@@ -125,7 +125,6 @@
                     <div class="tip" id="qrTip" style="margin:0;">开测后方可登记作答。</div>
                     <div style="margin-top:8px;">
                         <button type="button" class="pear-btn pear-btn-xs pear-btn-primary" id="btnExportQr">导出二维码</button>
-                        <button type="button" class="pear-btn pear-btn-xs" id="btnCopyQr" style="margin-left:6px;">复制路径</button>
                         <button type="button" class="pear-btn pear-btn-xs" id="btnRefreshWxacode" style="display:none;margin-left:6px;">刷新小程序码</button>
                     </div>
                 </div>
@@ -550,16 +549,8 @@ layui.use(['table','form','jquery','layer','laydate'], function(){
         var qrContent = d.qr_content || ('pages/exam/index?batch_id=' + d.id);
         var wxReady = !!d.wxacode_configured && !!d.wxacode_url;
         var envText = d.wxacode_env || 'release';
-        $('#qrText').html(
-            (wxReady
-                ? ('类型：<b>微信正式小程序码</b>（环境 ' + envText + '）<br>scene：<code>' + (d.wxacode_scene || ('b='+d.id)) + '</code><br>')
-                : ('类型：路径二维码（演示用）<br>'))
-            + '路径：<code>' + qrContent + '</code>'
-            + (status === 0 ? '<br><span style="color:#d48806;">尚未开测：二维码可先打印，开测后才可登记作答</span>' : '')
-        );
-        $('#qrTip').html(wxReady
-            ? '正式小程序码<strong>长期有效</strong>，可导出打印/发给员工反复扫码；开测后方可登记作答。未发版请设 wxacode_env=develop。'
-            : '未配置 appid/secret 时显示路径码（可导出 PNG）；配置后自动切换为长期有效的微信正式小程序码。');
+
+
         $('#btnRefreshWxacode').toggle(wxReady);
         $('#qrCanvas').empty();
 

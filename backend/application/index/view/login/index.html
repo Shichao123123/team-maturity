@@ -24,15 +24,15 @@
         </div>
     </div>
 
-    <form class="layui-form login-card" action="/Login/login" method="post">
+    <form class="layui-form login-card" action="/Login/login" method="post" autocomplete="off">
         {if condition="!empty($loginError)"}
         <div class="login-error">{$loginError}</div>
         {/if}
         <div class="layui-form-item">
-            <input placeholder="账 户" class="layui-input" type="text" name="username" value="admin" lay-verify="required" autocomplete="username" />
+            <input placeholder="账 户" class="layui-input" type="text" name="username" value="admin" lay-verify="required" autocomplete="off" />
         </div>
         <div class="layui-form-item">
-            <input placeholder="密 码" class="layui-input" type="password" name="password" value="123456" lay-verify="required" autocomplete="current-password" />
+            <input placeholder="密 码" class="layui-input" type="password" name="password" value="" lay-verify="required" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" />
         </div>
         <div class="layui-form-item">
             <button type="submit" class="login-btn" lay-submit>登 录</button>
@@ -40,7 +40,7 @@
     </form>
 
     <div class="login-footer">
-        <div class="copy">Copyright © 2026 中钢武汉安全环保研究院股份有限公司（中钢安环院） 版权所有</div>
+        <div class="copy">Copyright © 2026 中钢武汉安全环保研究院股份有限公司版权所有</div>
         <div class="site">www.zgsepri.com · All Rights Reserved</div>
     </div>
 </div>
