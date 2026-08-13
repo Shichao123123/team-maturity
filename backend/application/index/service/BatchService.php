@@ -298,22 +298,28 @@ class BatchService
 
         // 事务内先删后插，保证绑定关系与 member_total 快照一致
         $now = tmNow();
+        $countMap = Db::name('tm_member')
+            ->where('team_id', 'in', $teamIds)
+            ->whereNull('deleted_at')
+            ->where('status', 1)
+            ->group('team_id')
+            ->column('COUNT(*)', 'team_id');
+        $rows = [];
+        foreach ($teamIds as $tid) {
+            $tid = (int)$tid;
+            $rows[] = [
+                'batch_id'      => (int)$batchId,
+                'team_id'       => $tid,
+                'member_total'  => isset($countMap[$tid]) ? (int)$countMap[$tid] : 0,
+                'submitted_cnt' => 0,
+                'created_at'    => $now,
+            ];
+        }
         Db::startTrans();
         try {
             Db::name('tm_batch_team')->where('batch_id', (int)$batchId)->delete();
-            foreach ($teamIds as $tid) {
-                $memberTotal = (int)Db::name('tm_member')
-                    ->where('team_id', $tid)
-                    ->whereNull('deleted_at')
-                    ->where('status', 1)
-                    ->count();
-                Db::name('tm_batch_team')->insert([
-                    'batch_id'      => (int)$batchId,
-                    'team_id'       => $tid,
-                    'member_total'  => $memberTotal,
-                    'submitted_cnt' => 0,
-                    'created_at'    => $now,
-                ]);
+            if (!empty($rows)) {
+                Db::name('tm_batch_team')->insertAll($rows);
             }
             Db::commit();
         } catch (\Exception $e) {
@@ -419,10 +425,10 @@ class BatchService
     }
 
     /**
-     * 结束批次（status=2）；默认结束后自动触发班组算分。
+     * 结束批次（status=2）；结束后自动触发正式班组算分并落库。
      *
      * @param int|string $batchId   批次 ID
-     * @param bool       $autoScore 是否在结束后立即算分
+     * @param bool       $autoScore 是否在结束后立即算分（默认 true）
      * @return array [ok, msg, data] data 为算分结果摘要，未算分时可为 null
      */
     public static function finish($batchId, $autoScore = true)
@@ -449,7 +455,92 @@ class BatchService
     }
 
     /**
-     * 对批次下各绑定班组聚合已提交答卷，计算团队均分、等级与薄弱指标并落库。
+     * 进行中批次：按当前已提交答卷实时估算班组分与等级，不落库、不改 score_status。
+     * 用于查看「当前答题大致情况」。
+     *
+     * @param int|string $batchId 批次 ID
+     * @return array [ok, msg, data]
+     */
+    public static function scorePreview($batchId)
+    {
+        $batch = self::find($batchId);
+        if (!$batch) {
+            return [false, '批次不存在', null];
+        }
+        $status = (int)$batch['status'];
+        if ($status === 0) {
+            return [false, '未开测批次暂无答题概况', null];
+        }
+        if ($status === 2) {
+            return [false, '批次已结束，请使用正式算分/重新算分', null];
+        }
+
+        $batchId = (int)$batchId;
+        $computed = self::computeLiveTeamScores($batchId);
+        $levelNames = LevelJudgeService::nameMap();
+
+        $teamIds = Db::name('tm_batch_team')->where('batch_id', $batchId)->column('team_id');
+        $teamNameMap = [];
+        if (!empty($teamIds)) {
+            $teamNameMap = Db::name('tm_team')->where('id', 'in', $teamIds)->column('name', 'id');
+        }
+        $answeringMap = [];
+        if (!empty($teamIds)) {
+            $answeringMap = Db::name('tm_paper')
+                ->where('batch_id', $batchId)
+                ->where('team_id', 'in', $teamIds)
+                ->where('status', 0)
+                ->group('team_id')
+                ->column('COUNT(*)', 'team_id');
+        }
+
+        $byTeam = [];
+        foreach ($computed['teams'] as $row) {
+            $byTeam[(int)$row['team_id']] = $row;
+        }
+
+        $list = [];
+        $submittedTotal = 0;
+        $answeringTotal = 0;
+        $scoredTeamCnt = 0;
+        foreach ($teamIds as $tid) {
+            $tid = (int)$tid;
+            $row = isset($byTeam[$tid]) ? $byTeam[$tid] : null;
+            $submitted = $row ? (int)$row['submit_cnt'] : 0;
+            $answering = isset($answeringMap[$tid]) ? (int)$answeringMap[$tid] : 0;
+            $submittedTotal += $submitted;
+            $answeringTotal += $answering;
+            $code = $row ? $row['level_code'] : '';
+            if ($submitted > 0) {
+                $scoredTeamCnt++;
+            }
+            $list[] = [
+                'team_id'            => $tid,
+                'team_name'          => isset($teamNameMap[$tid]) ? $teamNameMap[$tid] : ('班组#' . $tid),
+                'submitted_cnt'      => $submitted,
+                'answering_cnt'      => $answering,
+                'provisional_score'  => $row ? $row['team_score'] : null,
+                'provisional_level'  => ($code && isset($levelNames[$code])) ? $levelNames[$code] : '',
+                'provisional_code'   => $code,
+            ];
+        }
+
+        return [true, '当前答题概况（预估，未落库）', [
+            'preview'         => 1,
+            'batch_id'        => $batchId,
+            'batch_name'      => $batch['name'],
+            'team_total'      => count($teamIds),
+            'scored_team_cnt' => $scoredTeamCnt,
+            'submitted_total' => $submittedTotal,
+            'answering_total' => $answeringTotal,
+            'teams'           => $list,
+            'note'            => '以下分数按「当前已提交答卷均分」估算，批次结束后才会正式算分落库。',
+        ]];
+    }
+
+    /**
+     * 对已结束批次下各绑定班组聚合已提交答卷，计算团队均分、等级与薄弱指标并落库。
+     * 进行中批次请使用 scorePreview，不在此写入正式结果。
      *
      * @param int|string $batchId 批次 ID
      * @return array [ok, msg, data] 成功时 data['teams'] 为各班组算分摘要；失败时 data 为 null
@@ -463,6 +554,9 @@ class BatchService
         if ((int)$batch['status'] === 0) {
             return [false, '未开测批次不能算分', null];
         }
+        if ((int)$batch['status'] !== 2) {
+            return [false, '仅已结束批次可正式算分；进行中请查看「当前答题概况」', null];
+        }
 
         $batchId = (int)$batchId;
         Db::startTrans();
@@ -475,63 +569,63 @@ class BatchService
             $teams = Db::name('tm_batch_team')->where('batch_id', $batchId)->column('team_id');
             $now = tmNow();
             $results = [];
-            // 逐班组：均分已提交答卷 personal_score，判定等级并生成薄弱指标 JSON
+
+            $live = self::computeLiveTeamScores($batchId);
+            $papersByTeam = $live['papers_by_team'];
+            $pending = $live['teams'];
+
+            $existMap = [];
+            $existRows = Db::name('tm_team_result')->where('batch_id', $batchId)->select();
+            foreach ($existRows as $er) {
+                $existMap[(int)$er['team_id']] = $er;
+            }
+
+            // 无提交班组：清结果、submitted_cnt 置 0
+            $emptyTeamIds = [];
             foreach ($teams as $teamId) {
                 $teamId = (int)$teamId;
-                $papers = Db::name('tm_paper')
-                    ->where('batch_id', $batchId)
-                    ->where('team_id', $teamId)
-                    ->where('status', 1)
-                    ->field('id, personal_score')
-                    ->select();
-                $submitCnt = count($papers);
-                if ($submitCnt < 1) {
-                    // 无提交则清除旧结果
-                    Db::name('tm_team_result')->where('batch_id', $batchId)->where('team_id', $teamId)->delete();
-                    Db::name('tm_batch_team')->where('batch_id', $batchId)->where('team_id', $teamId)->update([
-                        'submitted_cnt' => 0,
-                    ]);
-                    continue;
+                if (empty($papersByTeam[$teamId])) {
+                    $emptyTeamIds[] = $teamId;
                 }
-
-                // 团队得分 = 已提交成员 personal_score 的算术平均
-                $sum = 0.0;
-                $paperIds = [];
-                foreach ($papers as $p) {
-                    $sum += (float)$p['personal_score'];
-                    $paperIds[] = (int)$p['id'];
-                }
-                $teamScore = round($sum / $submitCnt, 2);
-                $level = LevelJudgeService::judge($teamScore);
-                $levelCode = $level ? $level['level_code'] : 'passive';
-                $weak = self::buildTeamWeakIndicators($paperIds, $levelCode);
-
-                $exist = Db::name('tm_team_result')
+            }
+            if (!empty($emptyTeamIds)) {
+                Db::name('tm_team_result')
                     ->where('batch_id', $batchId)
-                    ->where('team_id', $teamId)
-                    ->find();
+                    ->where('team_id', 'in', $emptyTeamIds)
+                    ->delete();
+                Db::name('tm_batch_team')
+                    ->where('batch_id', $batchId)
+                    ->where('team_id', 'in', $emptyTeamIds)
+                    ->update(['submitted_cnt' => 0]);
+            }
+
+            $weakByTeam = self::buildTeamWeakIndicatorsBatch($pending);
+
+            foreach ($pending as $item) {
+                $teamId = $item['team_id'];
+                $weak = isset($weakByTeam[$teamId]) ? $weakByTeam[$teamId] : [];
                 $row = [
-                    'team_score'          => $teamScore,
-                    'level_code'          => $levelCode,
-                    'submit_cnt'          => $submitCnt,
+                    'team_score'          => $item['team_score'],
+                    'level_code'          => $item['level_code'],
+                    'submit_cnt'          => $item['submit_cnt'],
                     'weak_indicator_json' => json_encode($weak, JSON_UNESCAPED_UNICODE),
                     'scored_at'           => $now,
                 ];
-                if ($exist) {
-                    Db::name('tm_team_result')->where('id', $exist['id'])->update($row);
+                if (isset($existMap[$teamId])) {
+                    Db::name('tm_team_result')->where('id', $existMap[$teamId]['id'])->update($row);
                 } else {
                     $row['batch_id'] = $batchId;
                     $row['team_id'] = $teamId;
                     Db::name('tm_team_result')->insert($row);
                 }
                 Db::name('tm_batch_team')->where('batch_id', $batchId)->where('team_id', $teamId)->update([
-                    'submitted_cnt' => $submitCnt,
+                    'submitted_cnt' => $item['submit_cnt'],
                 ]);
                 $results[] = [
                     'team_id'    => $teamId,
-                    'team_score' => $teamScore,
-                    'level_code' => $levelCode,
-                    'submit_cnt' => $submitCnt,
+                    'team_score' => $item['team_score'],
+                    'level_code' => $item['level_code'],
+                    'submit_cnt' => $item['submit_cnt'],
                 ];
             }
 
@@ -549,6 +643,66 @@ class BatchService
             ]);
             return [false, '算分失败：' . $e->getMessage(), null];
         }
+    }
+
+    /**
+     * 按当前已提交答卷实时计算各班组均分与等级（不写库）。
+     *
+     * @param int $batchId 批次 ID
+     * @return array{teams:array,papers_by_team:array}
+     */
+    private static function computeLiveTeamScores($batchId)
+    {
+        $batchId = (int)$batchId;
+        $teams = Db::name('tm_batch_team')->where('batch_id', $batchId)->column('team_id');
+        $allPapers = [];
+        if (!empty($teams)) {
+            $allPapers = Db::name('tm_paper')
+                ->where('batch_id', $batchId)
+                ->where('team_id', 'in', $teams)
+                ->where('status', 1)
+                ->field('id, team_id, personal_score')
+                ->select();
+        }
+        $papersByTeam = [];
+        foreach ($allPapers as $p) {
+            $tid = (int)$p['team_id'];
+            if (!isset($papersByTeam[$tid])) {
+                $papersByTeam[$tid] = [];
+            }
+            $papersByTeam[$tid][] = $p;
+        }
+
+        $pending = [];
+        foreach ($teams as $teamId) {
+            $teamId = (int)$teamId;
+            if (empty($papersByTeam[$teamId])) {
+                continue;
+            }
+            $papers = $papersByTeam[$teamId];
+            $submitCnt = count($papers);
+            $sum = 0.0;
+            $paperIds = [];
+            foreach ($papers as $p) {
+                $sum += (float)$p['personal_score'];
+                $paperIds[] = (int)$p['id'];
+            }
+            $teamScore = round($sum / $submitCnt, 2);
+            $level = LevelJudgeService::judge($teamScore);
+            $levelCode = $level ? $level['level_code'] : 'passive';
+            $pending[] = [
+                'team_id'    => $teamId,
+                'team_score' => $teamScore,
+                'level_code' => $levelCode,
+                'submit_cnt' => $submitCnt,
+                'paper_ids'  => $paperIds,
+            ];
+        }
+
+        return [
+            'teams'          => $pending,
+            'papers_by_team' => $papersByTeam,
+        ];
     }
 
     /**
@@ -652,7 +806,7 @@ class BatchService
             ->group('team_id')
             ->column('MAX(submitted_at)', 'team_id');
 
-        $levelNames = Db::name('tm_level_threshold')->column('level_name', 'level_code');
+        $levelNames = LevelJudgeService::nameMap();
         $result = [];
         foreach ($rows as $row) {
             $tid = (int)$row['team_id'];
@@ -775,52 +929,101 @@ class BatchService
         if (empty($paperIds)) {
             return [];
         }
+        $teamId = (int)Db::name('tm_paper')->where('id', (int)$paperIds[0])->value('team_id');
+        $batch = self::buildTeamWeakIndicatorsBatch([[
+            'team_id'    => $teamId,
+            'level_code' => $levelCode,
+            'paper_ids'  => $paperIds,
+        ]]);
+        return isset($batch[$teamId]) ? $batch[$teamId] : [];
+    }
+
+    /**
+     * 多班组薄弱指标一次聚合：答卷 AVG 按 team+indicator 分组，措施批量预取。
+     *
+     * @param array $pending 每项含 team_id、level_code、paper_ids
+     * @return array [team_id => weakList]
+     */
+    private static function buildTeamWeakIndicatorsBatch(array $pending)
+    {
+        $out = [];
+        $allPaperIds = [];
+        $teamLevel = [];
+        foreach ($pending as $item) {
+            $tid = (int)$item['team_id'];
+            $out[$tid] = [];
+            $teamLevel[$tid] = isset($item['level_code']) ? (string)$item['level_code'] : 'passive';
+            if (empty($item['paper_ids'])) {
+                continue;
+            }
+            foreach ($item['paper_ids'] as $pid) {
+                $allPaperIds[(int)$pid] = true;
+            }
+        }
+        $allPaperIds = array_keys($allPaperIds);
+        if (empty($allPaperIds)) {
+            return $out;
+        }
+
         $rows = Db::name('tm_paper_answer')->alias('a')
+            ->join('tm_paper p', 'p.id = a.paper_id', 'INNER')
             ->join('tm_indicator i', 'i.id = a.indicator_id', 'LEFT')
-            ->where('a.paper_id', 'in', $paperIds)
-            ->field('a.indicator_id, i.name as indicator_name, AVG(a.item_score) as avg_score, AVG(a.weight) as avg_weight')
-            ->group('a.indicator_id')
+            ->where('a.paper_id', 'in', $allPaperIds)
+            ->field('p.team_id, a.indicator_id, i.name as indicator_name, AVG(a.item_score) as avg_score, AVG(a.weight) as avg_weight')
+            ->group('p.team_id, a.indicator_id')
             ->select();
 
-        $weak = [];
+        $indicatorIds = [];
+        $byTeam = [];
         foreach ($rows as $r) {
+            $tid = (int)$r['team_id'];
             $avg = round((float)$r['avg_score'], 2);
             $full = round((float)$r['avg_weight'], 2);
             if ($full <= 0) {
                 continue;
             }
-            // 均分达到满分（浮点容差）则不算薄弱项
             if ($avg >= $full - 0.0001) {
                 continue;
             }
-            // 优先按等级匹配赋能措施，无则回退该指标任意一条
-            $measure = Db::name('tm_empower_measure')
-                ->where('indicator_id', (int)$r['indicator_id'])
-                ->where('level_code', $levelCode ?: 'essential')
-                ->find();
-            if (!$measure) {
-                $measure = Db::name('tm_empower_measure')
-                    ->where('indicator_id', (int)$r['indicator_id'])
-                    ->order('id asc')
-                    ->find();
+            $iid = (int)$r['indicator_id'];
+            $indicatorIds[$iid] = true;
+            if (!isset($byTeam[$tid])) {
+                $byTeam[$tid] = [];
             }
-            $weak[] = [
-                'indicator_id'   => (int)$r['indicator_id'],
+            $byTeam[$tid][] = [
+                'indicator_id'   => $iid,
                 'indicator_name' => $r['indicator_name'] ?: '',
                 'avg_score'      => $avg,
                 'full_score'     => $full,
-                'measure'        => $measure ? $measure['content'] : '暂无',
             ];
         }
-        // 按「满分 - 均分」差距从大到小排序，只保留前 10 条
-        usort($weak, function ($a, $b) {
-            $da = $a['full_score'] - $a['avg_score'];
-            $db = $b['full_score'] - $b['avg_score'];
-            if ($da == $db) {
-                return 0;
+
+        $measureMap = MeasureLookup::loadByIndicatorIds(array_keys($indicatorIds));
+
+        foreach ($byTeam as $tid => $list) {
+            $levelCode = isset($teamLevel[$tid]) ? $teamLevel[$tid] : 'passive';
+            $weak = [];
+            foreach ($list as $row) {
+                $measure = MeasureLookup::pickForTeam($measureMap, $row['indicator_id'], $levelCode);
+                $weak[] = [
+                    'indicator_id'   => $row['indicator_id'],
+                    'indicator_name' => $row['indicator_name'],
+                    'avg_score'      => $row['avg_score'],
+                    'full_score'     => $row['full_score'],
+                    'measure'        => $measure ? $measure['content'] : '暂无',
+                ];
             }
-            return ($da > $db) ? -1 : 1;
-        });
-        return array_slice($weak, 0, 10);
+            usort($weak, function ($a, $b) {
+                $da = $a['full_score'] - $a['avg_score'];
+                $db = $b['full_score'] - $b['avg_score'];
+                if ($da == $db) {
+                    return 0;
+                }
+                return ($da > $db) ? -1 : 1;
+            });
+            $out[$tid] = array_slice($weak, 0, 10);
+        }
+
+        return $out;
     }
 }

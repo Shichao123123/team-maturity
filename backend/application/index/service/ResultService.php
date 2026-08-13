@@ -29,9 +29,11 @@ class ResultService
      * @param int    $batchId   批次 ID
      * @param string $keyword   班组名称关键字（空则不过滤）
      * @param string $levelCode 成熟度等级编码（空则不过滤）
+     * @param int    $page      页码（≥1 且 limit>0 时分页；0 表示返回全部，供导出用）
+     * @param int    $limit     每页条数
      * @return array [bool ok, string msg, array|null data] data 含 batch、list、count
      */
-    public static function teamList($batchId, $keyword = '', $levelCode = '')
+    public static function teamList($batchId, $keyword = '', $levelCode = '', $page = 0, $limit = 0)
     {
         $batch = BatchService::find($batchId);
         if (!$batch) {
@@ -90,6 +92,13 @@ class ResultService
             return $ra - $rb;
         });
 
+        $count = count($list);
+        $page = (int)$page;
+        $limit = (int)$limit;
+        if ($page > 0 && $limit > 0) {
+            $list = array_slice($list, ($page - 1) * $limit, $limit);
+        }
+
         return [true, 'ok', [
             'batch' => [
                 'id'                => (int)$batch['id'],
@@ -102,7 +111,7 @@ class ResultService
                 'score_status_text' => BatchService::scoreStatusText($batch['score_status']),
             ],
             'list'  => $list,
-            'count' => count($list),
+            'count' => $count,
         ]];
     }
 
@@ -260,17 +269,31 @@ class ResultService
      * @param int|null    $status  答卷状态；null 表示不限（0 答题中，1 已提交）
      * @return array [bool ok, string msg, array data] data 含 batch_id、list、count
      */
-    public static function paperList($batchId, $teamId = 0, $keyword = '', $status = null)
+    /**
+     * @param int         $batchId
+     * @param int         $teamId
+     * @param string      $keyword
+     * @param mixed       $status
+     * @param int         $page  页码；0 表示全部
+     * @param int         $limit 每页条数
+     */
+    public static function paperList($batchId, $teamId = 0, $keyword = '', $status = null, $page = 0, $limit = 0)
     {
         $batch = BatchService::find($batchId);
         if (!$batch) {
             return [false, '批次不存在', null];
         }
         $rows = self::paperRows($batchId, $teamId, $keyword, $status);
+        $count = count($rows);
+        $page = (int)$page;
+        $limit = (int)$limit;
+        if ($page > 0 && $limit > 0) {
+            $rows = array_slice($rows, ($page - 1) * $limit, $limit);
+        }
         return [true, 'ok', [
             'batch_id' => (int)$batchId,
             'list'     => $rows,
-            'count'    => count($rows),
+            'count'    => $count,
         ]];
     }
 

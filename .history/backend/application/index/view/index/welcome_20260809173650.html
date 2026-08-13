@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+    {include file="common/meta" /}
+    {include file="common/css" /}
+    <style>
+        body {
+            margin:0;
+            background:
+                radial-gradient(900px 420px at 8% -10%, rgba(22,119,255,.10), transparent 55%),
+                radial-gradient(700px 360px at 100% 0%, rgba(19,194,194,.08), transparent 50%),
+                #f2f5fa;
+        }
+        .wb { padding:16px; }
+        .page-head { margin-bottom:14px; }
+        .page-head h1 {
+            margin:0 0 4px; font-size:20px; font-weight:700; color:#0f172a; letter-spacing:.2px;
+        }
+        .page-head p { margin:0; color:#64748b; font-size:13px; }
+        .filter-bar {
+            background:#fff; border:1px solid #e8eef6; border-radius:10px;
+            padding:12px 14px; margin-bottom:14px;
+            box-shadow:0 1px 2px rgba(15,45,90,.03);
+        }
+        .kpi-row {
+            display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:14px;
+        }
+        .kpi-card {
+            position:relative; overflow:hidden;
+            background:#fff; border-radius:12px; border:1px solid #e8eef6;
+            padding:20px 18px 16px; box-shadow:0 1px 2px rgba(15,45,90,.04);
+        }
+        .kpi-card::before {
+            content:''; position:absolute; left:0; top:0; bottom:0; width:4px;
+            background:var(--accent, #1677ff);
+        }
+        .kpi-card.k1 { --accent:#1677ff; }
+        .kpi-card.k2 { --accent:#13c2c2; }
+        .kpi-card.k3 { --accent:#52c41a; }
+        .kpi-card.k4 { --accent:#fa8c16; }
+        .kpi-card .label { color:#64748b; font-size:13px; margin-bottom:10px; }
+        .kpi-card .value {
+            color:#0f172a; font-size:32px; font-weight:700; line-height:1.1;
+        }
+        .kpi-card .value.muted { color:#94a3b8; font-size:26px; font-weight:600; }
+        .main-row {
+            display:grid; grid-template-columns:1fr 1.15fr; gap:14px;
+        }
+        .panel {
+            background:#fff; border-radius:12px; border:1px solid #e8eef6;
+            box-shadow:0 1px 2px rgba(15,45,90,.04);
+            padding:16px 18px 12px; min-height:380px;
+        }
+        .panel-title {
+            font-size:16px; font-weight:600; color:#0f172a; margin:0 0 4px;
+        }
+        .panel-tip { color:#94a3b8; font-size:12px; margin:0 0 10px; }
+        #levelChart { width:100%; height:320px; }
+        .level-table { width:100%; border-collapse:collapse; margin-top:8px; }
+        .level-table th {
+            background:linear-gradient(180deg,#1d7cfa,#1677ff);
+            color:#fff; font-weight:600; padding:12px 10px;
+            text-align:left; font-size:13px;
+        }
+        .level-table th:first-child { border-radius:6px 0 0 0; }
+        .level-table th:last-child { border-radius:0 6px 0 0; }
+        .level-table td {
+            padding:13px 10px; border-bottom:1px solid #edf2f7;
+            color:#334155; font-size:13px;
+        }
+        .level-table tr:hover td { background:#f8fbff; }
+        .level-dot {
+            display:inline-block; width:8px; height:8px; border-radius:50%;
+            margin-right:6px; vertical-align:middle;
+        }
+        @media (max-width:1100px) {
+            .kpi-row { grid-template-columns:repeat(2,1fr); }
+            .main-row { grid-template-columns:1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="wb">
+    <div class="page-head">
+        <h1>工作台</h1>
+        <p>一眼掌握班组成熟度现状 · 可按批次与组织筛选</p>
+    </div>
+    <form class="layui-form filter-bar" lay-filter="wbFilter" onsubmit="return false;">
+        <div class="layui-inline">
+            <select name="batch_id" lay-filter="wbAuto" lay-search>
+                <option value="">最近有结果批次</option>
+                {volist name="batches" id="b"}
+                <option value="{$b.id}">{$b.name}</option>
+                {/volist}
+            </select>
+        </div>
+        <div class="layui-inline">
+            <select name="org_id" lay-filter="wbAuto" lay-search>
+                <option value="">全部组织</option>
+                {volist name="orgs" id="o"}
+                <option value="{$o.id}">{$o.path}</option>
+                {/volist}
+            </select>
+        </div>
+    </form>
+    <div class="kpi-row">
+        <div class="kpi-card k1">
+            <div class="label">统计班组数</div>
+            <div class="value" id="kpiTeamTotal">-</div>
+        </div>
+        <div class="kpi-card k2">
+            <div class="label">平均成熟得分</div>
+            <div class="value" id="kpiAvgScore">-</div>
+        </div>
+        <div class="kpi-card k3">
+            <div class="label">本质安全型班组</div>
+            <div class="value" id="kpiEssential">-</div>
+        </div>
+        <div class="kpi-card k4">
+            <div class="label">被动型班组</div>
+            <div class="value" id="kpiPassive">-</div>
+        </div>
+    </div>
+
+    <div class="main-row">
+        <div class="panel">
+            <div class="panel-title">成熟度等级分布</div>
+            <p class="panel-tip" id="chartTip">数据来自最近一次有结果的测评批次；尚无结果时显示为空。</p>
+            <div id="levelChart"></div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">等级明细清单</div>
+            <p class="panel-tip">占比 = 该等级班组数 / 有结果班组数</p>
+            <table class="level-table">
+                <thead>
+                <tr>
+                    <th style="width:22%">等级</th>
+                    <th style="width:16%">数量</th>
+                    <th style="width:28%">占比</th>
+                    <th>管理建议</th>
+                </tr>
+                </thead>
+                <tbody id="levelTbody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="/component/layui/layui.js"></script>
+<script src="/component/pear/pear.js"></script>
+<script>
+layui.use(['jquery', 'echarts', 'layer', 'form'], function(){
+    var $ = layui.jquery, echarts = layui.echarts, layer = layui.layer, form = layui.form;
+    form.render();
+    var chart = echarts.init(document.getElementById('levelChart'));
+    var colors = ['#0b3d91', '#1677ff', '#69b1ff', '#bae0ff'];
+
+    function setKpi(id, val, emptyText){
+        var el = document.getElementById(id);
+        if (val === null || val === undefined || val === '') {
+            el.textContent = emptyText || '—';
+            el.classList.add('muted');
+        } else {
+            el.textContent = val;
+            el.classList.remove('muted');
+        }
+    }
+
+    function renderChart(items, total){
+        if (!total) {
+            chart.clear();
+            chart.setOption({
+                title: {
+                    text: '暂无测评结果',
+                    left: 'center',
+                    top: 'center',
+                    textStyle: { color: '#94a3b8', fontSize: 16, fontWeight: 400 }
+                }
+            });
+            return;
+        }
+        var data = items.map(function(it, i){
+            return {
+                name: it.level_name,
+                value: it.count,
+                itemStyle: { color: colors[i % colors.length] }
+            };
+        });
+        chart.setOption({
+            tooltip: {
+                trigger: 'item',
+                formatter: '{b}<br/>{c}（{d}%）',
+                backgroundColor: 'rgba(255,255,255,.96)',
+                borderColor: '#e2e8f0',
+                borderWidth: 1,
+                textStyle: { color: '#334155' }
+            },
+            legend: { show: false },
+            series: [{
+                type: 'pie',
+                radius: ['50%', '74%'],
+                center: ['50%', '52%'],
+                avoidLabelOverlap: true,
+                itemStyle: { borderColor: '#fff', borderWidth: 2 },
+                label: {
+                    formatter: '{b}\n{d}%',
+                    color: '#475569',
+                    fontSize: 12,
+                    lineHeight: 18
+                },
+                labelLine: { length: 12, length2: 10 },
+                data: data
+            }],
+            graphic: [{
+                type: 'text',
+                left: 'center',
+                top: '46%',
+                style: {
+                    text: String(total),
+                    fill: '#0f172a',
+                    fontSize: 28,
+                    fontWeight: 700,
+                    textAlign: 'center'
+                }
+            }, {
+                type: 'text',
+                left: 'center',
+                top: '56%',
+                style: {
+                    text: '班组',
+                    fill: '#94a3b8',
+                    fontSize: 12,
+                    textAlign: 'center'
+                }
+            }]
+        }, true);
+    }
+
+    function renderTable(items){
+        var html = '';
+        (items || []).forEach(function(it, i){
+            var c = colors[i % colors.length];
+            html += '<tr>'
+                + '<td><span class="level-dot" style="background:'+c+'"></span>'+ it.level_name +'</td>'
+                + '<td>'+ it.count +'</td>'
+                + '<td>'+ it.count +' | '+ it.percent_text +'</td>'
+                + '<td>'+ (it.advice || '') +'</td>'
+                + '</tr>';
+        });
+        $('#levelTbody').html(html || '<tr><td colspan="4" style="color:#94a3b8;">暂无数据</td></tr>');
+    }
+
+    function load(){
+        var f = form.val('wbFilter') || {};
+        $.getJSON('/Index/workbenchStats', f, function(res){
+            if (!(res.success || res.code === 0)) {
+                layer.msg(res.msg || '加载失败');
+                return;
+            }
+            var d = res.data || {};
+            setKpi('kpiTeamTotal', d.result_team_cnt != null ? d.result_team_cnt : d.team_total, '0');
+            setKpi('kpiAvgScore', d.avg_score_text != null ? d.avg_score_text : d.avg_score, '—');
+            setKpi('kpiEssential', d.essential_cnt, '0');
+            setKpi('kpiPassive', d.passive_cnt, '0');
+            $('#chartTip').text(d.batch_name
+                ? ('当前统计批次：' + d.batch_name + (d.scored_at ? (' · ' + d.scored_at) : ''))
+                : '暂无已算分批次');
+            renderChart(d.levels || [], d.result_team_cnt || 0);
+            renderTable(d.levels || []);
+        });
+    }
+
+    form.on('select(wbAuto)', load);
+    load();
+    window.addEventListener('resize', function(){ chart.resize(); });
+});
+</script>
+</body>
+</html>

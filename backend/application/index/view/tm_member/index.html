@@ -38,9 +38,9 @@
                 <div class="layui-inline">
                     <select name="roleCode" lay-filter="autoFilter">
                         <option value="">全部角色</option>
-                        {volist name="roles" id="rn" key="rc"}
+                        {foreach name="roles" item="rn" key="rc"}
                         <option value="{$rc}">{$rn}</option>
-                        {/volist}
+                        {/foreach}
                     </select>
                 </div>
                 <div class="layui-inline">
@@ -100,9 +100,9 @@
             <label class="layui-form-label">角色</label>
             <div class="layui-input-block">
                 <select name="role_code">
-                    {volist name="roles" id="rn" key="rc"}
+                    {foreach name="roles" item="rn" key="rc"}
                     <option value="{$rc}">{$rn}</option>
-                    {/volist}
+                    {/foreach}
                 </select>
             </div>
         </div>
@@ -158,7 +158,16 @@ layui.use(['table','form','jquery','layer'], function(){
     }
 
     function reloadFilter(){
-        table.reload('dataTable', {where: form.val('filterForm') || {}, page:{curr:1}});
+        var f = form.val('filterForm') || {};
+        // 空选项必须显式传 ''，否则 table.reload 合并 where 时会残留上次的 roleCode/teamId
+        table.reload('dataTable', {
+            where: {
+                teamId: f.teamId || '',
+                roleCode: f.roleCode || '',
+                keyword: f.keyword || ''
+            },
+            page: {curr: 1}
+        });
     }
     form.on('select(autoFilter)', function(){ reloadFilter(); });
     var keywordTimer = null;

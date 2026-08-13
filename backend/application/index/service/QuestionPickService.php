@@ -88,6 +88,8 @@ class QuestionPickService
      * 为整个指标版本生成开测题集：每个三级指标对应 1 道题及选项。
      * 供批次开始写快照时调用。
      *
+     * 题目/选项一次批量查出，在内存中按指标抽题（避免每指标 2 次查库）。
+     *
      * @param int         $versionId 指标版本 ID
      * @param string|null $mode      抽题模式；null 时由 resolveMode 决定
      * @return array 含 version_id、pick_mode、picked_at、items（indicator/question/options/candidate_cnt）
@@ -95,6 +97,7 @@ class QuestionPickService
     public static function buildExamSet($versionId, $mode = null)
     {
         $mode = self::resolveMode($versionId, $mode);
+        $versionId = (int)$versionId;
 
         $l3List = Db::name('tm_indicator')
             ->where('version_id', $versionId)
@@ -103,38 +106,102 @@ class QuestionPickService
             ->order('sort_no asc,id asc')
             ->select();
 
-        $items = [];
+        if (empty($l3List)) {
+            return [
+                'version_id' => $versionId,
+                'pick_mode'  => $mode,
+                'picked_at'  => date('Y-m-d H:i:s'),
+                'items'      => [],
+            ];
+        }
+
+        $indicatorIds = [];
         foreach ($l3List as $ind) {
-            $candidates = self::listCandidates($ind['id']);
+            $indicatorIds[] = (int)$ind['id'];
+        }
+
+        // 一次取出本版本全部三级下的启用题
+        $allQuestions = Db::name('tm_question')
+            ->where('indicator_id', 'in', $indicatorIds)
+            ->where('status', 1)
+            ->order('sort_no asc,id asc')
+            ->select();
+
+        $candidatesByInd = [];
+        foreach ($allQuestions as $q) {
+            $iid = (int)$q['indicator_id'];
+            if (!isset($candidatesByInd[$iid])) {
+                $candidatesByInd[$iid] = [];
+            }
+            $candidatesByInd[$iid][] = $q;
+        }
+
+        // 先抽题，再只拉中选题目的选项（仍为一次 IN 查询）
+        $pickedMap = [];
+        $pickedQids = [];
+        foreach ($l3List as $ind) {
+            $iid = (int)$ind['id'];
+            $candidates = isset($candidatesByInd[$iid]) ? $candidatesByInd[$iid] : [];
             $picked = self::pickOne($candidates, $mode);
             if (!$picked) {
+                continue;
+            }
+            $qid = (int)$picked['id'];
+            $pickedMap[$iid] = [
+                'indicator'     => $ind,
+                'picked'        => $picked,
+                'candidate_cnt' => count($candidates),
+            ];
+            $pickedQids[$qid] = true;
+        }
+        $pickedQids = array_keys($pickedQids);
+
+        $optionsByQid = [];
+        if (!empty($pickedQids)) {
+            $allOptions = Db::name('tm_option')
+                ->where('question_id', 'in', $pickedQids)
+                ->order('sort_no asc,id asc')
+                ->select();
+            foreach ($allOptions as $opt) {
+                $qid = (int)$opt['question_id'];
+                if (!isset($optionsByQid[$qid])) {
+                    $optionsByQid[$qid] = [];
+                }
+                $optionsByQid[$qid][] = $opt;
+            }
+        }
+
+        $items = [];
+        foreach ($l3List as $ind) {
+            $iid = (int)$ind['id'];
+            if (!isset($pickedMap[$iid])) {
                 // 无题的三级指标跳过，发布校验应已拦住；此处不中断
                 continue;
             }
-            $options = Db::name('tm_option')
-                ->where('question_id', $picked['id'])
-                ->order('sort_no asc,id asc')
-                ->select();
+            $entry = $pickedMap[$iid];
+            $picked = $entry['picked'];
+            $qid = (int)$picked['id'];
+            $options = isset($optionsByQid[$qid]) ? $optionsByQid[$qid] : [];
 
             $items[] = [
                 'indicator'     => [
-                    'id'     => (int)$ind['id'],
-                    'name'   => $ind['name'],
-                    'weight' => (float)$ind['weight'],
+                    'id'        => $iid,
+                    'name'      => $ind['name'],
+                    'weight'    => (float)$ind['weight'],
                     'parent_id' => (int)$ind['parent_id'],
                 ],
                 'question'      => [
-                    'id'    => (int)$picked['id'],
-                    'title' => $picked['title'],
+                    'id'      => $qid,
+                    'title'   => $picked['title'],
                     'sort_no' => (int)$picked['sort_no'],
                 ],
                 'options'       => $options,
-                'candidate_cnt' => count($candidates),
+                'candidate_cnt' => $entry['candidate_cnt'],
             ];
         }
 
         return [
-            'version_id' => (int)$versionId,
+            'version_id' => $versionId,
             'pick_mode'  => $mode,
             'picked_at'  => date('Y-m-d H:i:s'),
             'items'      => $items,
@@ -150,18 +217,34 @@ class QuestionPickService
     public static function validateVersionQuestions($versionId)
     {
         $errors = [];
+        $versionId = (int)$versionId;
         $l3List = Db::name('tm_indicator')
             ->where('version_id', $versionId)
             ->where('level_no', 3)
             ->where('status', 1)
             ->select();
+        if (empty($l3List)) {
+            return $errors;
+        }
+
+        $indicatorIds = [];
+        $nameMap = [];
         foreach ($l3List as $ind) {
-            $cnt = Db::name('tm_question')
-                ->where('indicator_id', $ind['id'])
-                ->where('status', 1)
-                ->count();
+            $iid = (int)$ind['id'];
+            $indicatorIds[] = $iid;
+            $nameMap[$iid] = $ind['name'];
+        }
+
+        $cntMap = Db::name('tm_question')
+            ->where('indicator_id', 'in', $indicatorIds)
+            ->where('status', 1)
+            ->group('indicator_id')
+            ->column('COUNT(*)', 'indicator_id');
+
+        foreach ($indicatorIds as $iid) {
+            $cnt = isset($cntMap[$iid]) ? (int)$cntMap[$iid] : 0;
             if ($cnt < 1) {
-                $errors[] = '三级指标「' . $ind['name'] . '」下至少需要 1 道启用题目';
+                $errors[] = '三级指标「' . $nameMap[$iid] . '」下至少需要 1 道启用题目';
             }
         }
         return $errors;

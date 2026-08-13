@@ -1,5 +1,5 @@
 logo:
-  title: "中钢安环院"
+  title: "班组安全成熟度测评"
   image: "/admin/images/brand/logo.png"
 menu:
   data: "/Index/menu"
@@ -19,7 +19,7 @@ tab:
   index:
     id: "0"
     href: "/Index/welcome"
-    title: "工作台"
+    title: "首页"
 theme:
   defaultColor: "2"
   defaultMenu: "dark-theme"

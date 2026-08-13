@@ -64,9 +64,7 @@
                     <input type="text" name="keyword" placeholder="班组名称（输入即筛选）" class="layui-input" style="width:200px;">
                 </div>
                 <div class="layui-inline">
-                    <button type="button" class="pear-btn pear-btn-md" id="btnExportTeam">导出汇总Excel</button>
                     <button type="button" class="pear-btn pear-btn-md" id="btnExportTeamPdf">导出汇总PDF</button>
-                    <button type="button" class="pear-btn pear-btn-md pear-btn-normal" id="btnExportRank">导出排行Excel</button>
                     <button type="button" class="pear-btn pear-btn-md pear-btn-normal" id="btnExportRankPdf">导出排行PDF</button>
                     <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnPapers">全部答卷</button>
                 </div>
@@ -161,7 +159,7 @@ layui.use(['table','form','jquery','layer'], function(){
         table.reload('teamTable', {
             url: '/TmResult/teamList',
             where: filterWhere(),
-            page: false
+            page: { curr: 1 }
         });
     }
 
@@ -169,7 +167,9 @@ layui.use(['table','form','jquery','layer'], function(){
         elem: '#teamTable',
         id: 'teamTable',
         data: [],
-        page: false,
+        page: true,
+        limit: 10,
+        limits: [10, 20, 50, 100],
         text: { none: '请选择批次，或该批次暂无参评班组' },
         cols: [[
             {field:'rank_no', title:'排名', width:70, align:'center', templet: function(d){
@@ -309,7 +309,7 @@ layui.use(['table','form','jquery','layer'], function(){
                             keyword: pf.keyword || '',
                             status: pf.status || ''
                         },
-                        page: false
+                        page: { curr: 1 }
                     });
                 }
                 // 弹层内延后渲染，避免表头/表体宽度错位
@@ -319,7 +319,9 @@ layui.use(['table','form','jquery','layer'], function(){
                         id: 'paperTable',
                         url: '/TmResult/paperList',
                         where: { batch_id: batchId, team_id: teamId || 0 },
-                        page: false,
+                        page: true,
+                        limit: 10,
+                        limits: [10, 20, 50, 100],
                         even: true,
                         cellMinWidth: 80,
                         cols: [[
@@ -435,20 +437,10 @@ layui.use(['table','form','jquery','layer'], function(){
         if (!bid) { layer.msg('请先选择批次'); return; }
         openPaperList(bid, 0, '全部答卷');
     });
-    $('#btnExportTeam').on('click', function(){
-        var bid = currentBatchId();
-        if (!bid) { layer.msg('请先选择批次'); return; }
-        window.location.href = '/TmResult/exportTeam?batch_id=' + bid;
-    });
     $('#btnExportTeamPdf').on('click', function(){
         var bid = currentBatchId();
         if (!bid) { layer.msg('请先选择批次'); return; }
         window.location.href = '/TmResult/exportTeamPdf?batch_id=' + bid;
-    });
-    $('#btnExportRank').on('click', function(){
-        var bid = currentBatchId();
-        if (!bid) { layer.msg('请先选择批次'); return; }
-        window.location.href = '/TmResult/exportRank?batch_id=' + bid;
     });
     $('#btnExportRankPdf').on('click', function(){
         var bid = currentBatchId();

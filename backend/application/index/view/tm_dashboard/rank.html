@@ -45,7 +45,7 @@
     <form class="layui-form filter-bar" lay-filter="filterForm" onsubmit="return false;">
         <div class="layui-inline">
             <select name="batch_id" lay-filter="autoFilter" lay-search>
-                <option value="">最近有结果批次</option>
+                <option value="">最近批次</option>
                 {volist name="batches" id="b"}
                 <option value="{$b.id}">{$b.name}</option>
                 {/volist}
@@ -60,7 +60,6 @@
             </select>
         </div>
         <div class="layui-inline">
-            <button type="button" class="pear-btn pear-btn-md" id="btnExport">导出Excel</button>
             <button type="button" class="pear-btn pear-btn-md pear-btn-normal" id="btnExportPdf">导出PDF</button>
         </div>
     </form>
@@ -82,7 +81,22 @@ layui.use(['jquery','form','table','echarts','layer'], function(){
     var chart = echarts.init(document.getElementById('rankChart'));
 
     table.render({
-        elem: '#rankTable', id: 'rankTable', data: [], page: false,
+        elem: '#rankTable', id: 'rankTable',
+        url: '/TmDashboard/rankData',
+        page: true,
+        limit: 10,
+        limits: [10, 20, 50],
+        where: {},
+        parseData: function(res){
+            var d = res.data || {};
+            window.__rankMeta = d;
+            return {
+                code: (res.code === 0 || res.success) ? 0 : (res.code || 1),
+                msg: res.msg || '',
+                count: res.count || 0,
+                data: d.list || []
+            };
+        },
         cols: [[
             {field:'rank_no', title:'排名', width:80, align:'center', templet: function(d){
                 var cls = d.rank_no<=3 ? ('rank-medal rank-'+d.rank_no) : '';
@@ -95,21 +109,14 @@ layui.use(['jquery','form','table','echarts','layer'], function(){
             {field:'submit_cnt', title:'提交人数', width:100, align:'center'},
             {field:'advice', title:'管理建议', width:120},
             {field:'scored_at', title:'算分时间', width:170}
-        ]]
-    });
-
-    function load(){
-        var f = form.val('filterForm') || {};
-        $.getJSON('/TmDashboard/rankData', f, function(res){
-            if (!(res.success || res.code===0)) { layer.msg(res.msg||'加载失败'); return; }
-            var d = res.data || {};
-            var list = d.list || [];
+        ]],
+        done: function(){
+            var d = window.__rankMeta || {};
+            var chartList = d.chart_top || [];
             $('#rankTip').text(
                 (d.batch && d.batch.name ? ('批次：' + d.batch.name + ' · ') : '') + (d.tip || '')
             );
-            table.reload('rankTable', { data: list });
-
-            if (!list.length) {
+            if (!chartList.length) {
                 chart.clear();
                 chart.setOption({
                     title: { text: d.tip || '暂无排行数据', left:'center', top:'center',
@@ -117,7 +124,7 @@ layui.use(['jquery','form','table','echarts','layer'], function(){
                 });
                 return;
             }
-            var top = list.slice(0, 15).reverse();
+            var top = chartList.slice(0, 15).reverse();
             chart.setOption({
                 tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
                 grid: { left: 120, right: 30, top: 20, bottom: 30 },
@@ -130,15 +137,21 @@ layui.use(['jquery','form','table','echarts','layer'], function(){
                     label: { show: true, position: 'right' }
                 }]
             }, true);
+        }
+    });
+
+    function load(){
+        var f = form.val('filterForm') || {};
+        table.reload('rankTable', {
+            where: {
+                batch_id: f.batch_id || '',
+                org_id: f.org_id || ''
+            },
+            page: { curr: 1 }
         });
     }
 
     form.on('select(autoFilter)', load);
-    $('#btnExport').on('click', function(){
-        var f = form.val('filterForm') || {};
-        var q = $.param({ batch_id: f.batch_id||'', org_id: f.org_id||'' });
-        window.location.href = '/TmDashboard/exportRank?' + q;
-    });
     $('#btnExportPdf').on('click', function(){
         var f = form.val('filterForm') || {};
         var q = $.param({ batch_id: f.batch_id||'', org_id: f.org_id||'' });

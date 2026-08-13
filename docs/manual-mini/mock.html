@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>小程序界面示意</title>
+<style>
+  :root {
+    --ink: #0f2438;
+    --steel: #0b3a5c;
+    --brand-red: #c8102e;
+    --teal: #0d6e5f;
+    --mist: #e6eef5;
+    --panel: rgba(255, 255, 255, 0.94);
+    --line: #c5d3e0;
+    --muted: #5f7385;
+    --warn: #b45309;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #1a1a1a;
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 24px;
+  }
+  .phone {
+    width: 390px;
+    background: #0a2744;
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,.45);
+  }
+  .nav {
+    height: 44px;
+    background: #0B3A5C;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: .02em;
+  }
+  .screen { display: none; min-height: 720px; position: relative; }
+  .screen.active { display: block; }
+  .page-bg {
+    position: absolute; inset: 0;
+    background: linear-gradient(165deg, #0a2744 0%, #123a5c 42%, #0d4a4a 100%);
+  }
+  .page-bg::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(6,21,38,.55), rgba(6,21,38,.88));
+  }
+  .page-bg.light {
+    background: #e8eef2;
+  }
+  .page-bg.light::after {
+    background: linear-gradient(180deg, rgba(232,238,242,.88), rgba(232,238,242,.94));
+  }
+  .page-body { position: relative; z-index: 1; padding: 12px 14px 20px; }
+  .org-bar {
+    background: rgba(0,0,0,.55);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .org-bar span { color: rgba(255,255,255,.55); font-weight: 400; font-size: 11px; display: block; margin-top: 2px; }
+  .hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    min-height: 110px;
+    background: linear-gradient(120deg, rgba(6,24,42,.95), rgba(11,58,92,.7) 55%, rgba(200,16,46,.35));
+    padding: 14px;
+    color: #fff;
+  }
+  .brand { font-size: 11px; letter-spacing: .14em; color: rgba(255,214,180,.9); font-weight: 600; margin-bottom: 6px; }
+  .hero-title { font-size: 22px; font-weight: 700; line-height: 1.25; }
+  .hero-sub { margin-top: 6px; font-size: 13px; color: rgba(255,255,255,.78); }
+  .card {
+    background: var(--panel);
+    border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(11,58,92,.12);
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .card-title { font-size: 15px; font-weight: 650; margin-bottom: 10px; color: var(--ink); }
+  .rule-item { display: flex; gap: 8px; margin-bottom: 8px; font-size: 12px; color: var(--ink); line-height: 1.45; }
+  .rule-no {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #e6f2ef; color: var(--teal);
+    font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .notice-box { margin-top: 10px; padding: 10px; background: #f7fafc; border-radius: 8px; }
+  .notice-title { font-size: 12px; font-weight: 650; color: var(--steel); margin-bottom: 6px; }
+  .tip { font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 4px; }
+  .batch-item { padding: 10px 0; border-top: 1px solid #e8eef2; }
+  .batch-item:first-of-type { border-top: none; padding-top: 0; }
+  .row-between { display: flex; justify-content: space-between; align-items: center; }
+  .batch-name { font-size: 14px; font-weight: 650; color: var(--ink); }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; }
+  .tag-done { background: #e8f5e9; color: #2e7d32; }
+  .tag-warn { background: #fff3e0; color: var(--warn); }
+  .batch-meta { margin-top: 4px; font-size: 12px; color: var(--muted); }
+  .label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .field {
+    background: #f4f7fa; border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px; font-size: 15px; color: var(--ink);
+  }
+  .placeholder { color: #8fa0b0; }
+  .btn {
+    display: block; width: 100%; border: none; border-radius: 8px;
+    height: 46px; line-height: 46px; text-align: center;
+    font-size: 15px; font-weight: 600; margin-top: 8px; cursor: default;
+  }
+  .btn-teal { background: linear-gradient(135deg, #0d6e5f, #14967f); color: #fff; }
+  .btn-primary { background: linear-gradient(135deg, #0b3a5c, #145a8a); color: #fff; }
+  .btn-ghost {
+    background: rgba(255,255,255,.92); color: var(--steel);
+    border: 1px solid rgba(11,58,92,.35); flex: 1;
+  }
+  .btn-disabled { background: #9db4c7; color: #fff; }
+  .progress-wrap { margin-bottom: 10px; padding: 0 2px; }
+  .progress-label { font-size: 12px; color: var(--muted); }
+  .progress-bar { margin-top: 6px; height: 5px; background: #d5e0e8; border-radius: 999px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 35%; background: linear-gradient(90deg, #1b4f72, #0e7c66); }
+  .save-tip { margin-top: 6px; font-size: 11px; color: var(--teal); }
+  .q-ind {
+    display: inline-block; font-size: 11px; color: var(--teal);
+    background: #e6f2ef; padding: 3px 8px; border-radius: 999px; margin-bottom: 10px;
+  }
+  .q-title { font-size: 17px; font-weight: 650; line-height: 1.45; margin-bottom: 6px; color: var(--ink); }
+  .opt {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 12px; margin-bottom: 8px;
+    border: 1px solid var(--line); border-radius: 8px; background: #f7fafc;
+    font-size: 14px; color: var(--ink);
+  }
+  .opt-on { border-color: var(--teal); background: #eef8f5; }
+  .opt-radio {
+    width: 16px; height: 16px; margin-top: 2px; border-radius: 50%;
+    border: 2px solid #9db0bf; flex-shrink: 0;
+  }
+  .opt-on .opt-radio {
+    border-color: var(--teal);
+    box-shadow: inset 0 0 0 3.5px var(--teal);
+  }
+  .nav-row { display: flex; gap: 10px; margin: 8px 0; }
+  .center { text-align: center; }
+  .score-card { text-align: center; padding: 20px 14px; }
+  .score-num { font-size: 36px; font-weight: 700; color: var(--steel); }
+  .level-pill {
+    display: inline-block; margin-top: 8px; padding: 4px 12px; border-radius: 999px;
+    background: rgba(14,124,102,.12); color: var(--teal); font-weight: 650; font-size: 13px;
+  }
+  .stat-row { margin-top: 10px; font-size: 12px; color: var(--muted); }
+  .team-line { margin-top: 8px; color: var(--muted); font-size: 13px; }
+  .weak-item { padding: 8px 0; border-top: 1px solid #e8eef2; font-size: 13px; }
+  .weak-item:first-of-type { border-top: none; }
+  .ans-top { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+  .ans-no {
+    width: 20px; height: 20px; line-height: 20px; text-align: center;
+    border-radius: 5px; background: var(--mist); font-size: 11px; font-weight: 650;
+  }
+  .ans-ind { flex: 1; font-size: 12px; color: var(--muted); }
+  .tag-ok { background: #e8f5e9; color: #2e7d32; font-size: 11px; padding: 2px 6px; border-radius: 999px; }
+  .tag-warn2 { background: #fff3e0; color: var(--warn); font-size: 11px; padding: 2px 6px; border-radius: 999px; }
+  .ans-title { font-size: 13px; color: var(--ink); margin-bottom: 4px; }
+  .ans-opt { font-size: 12px; color: var(--muted); }
+  .footer {
+    text-align: center; margin-top: 8px; font-size: 10px; color: rgba(255,255,255,.45); line-height: 1.4;
+  }
+  .page-light .footer { color: var(--muted); }
+  .err-card .card-title { color: var(--brand-red); }
+</style>
+</head>
+<body>
+  <div class="phone" id="phone">
+    <div class="nav" id="navTitle">中钢安环院 · 班组成熟度</div>
+
+    <!-- 01 首页 -->
+    <div class="screen active" data-screen="home">
+      <div class="page-bg"></div>
+      <div class="page-body">
+        <div class="org-bar">中钢安环院<span>中国中钢集团 · 班组安全成熟度测评</span></div>
+        <div class="hero">
+          <div class="brand">中钢安环院 · 中国中钢集团</div>
+          <div class="hero-title">班组安全成熟度测评</div>
+          <div class="hero-sub">扫码进场 · 现场作答 · 即时查看个人得分</div>
+        </div>
+        <div class="card">
+          <div class="card-title">当前答卷规则</div>
+          <div class="rule-item"><div class="rule-no">1</div><div>扫码进入测评批次后，选择所属班组并填写真实姓名，即可开始答题。</div></div>
+          <div class="rule-item"><div class="rule-no">2</div><div>题目按指标逐题作答，选中选项后自动保存；可随时返回修改未提交前的答案。</div></div>
+          <div class="rule-item"><div class="rule-no">3</div><div>须答完本场全部题目后方可提交；提交后答卷锁定，不可再修改。</div></div>
+          <div class="notice-box">
+            <div class="notice-title">注意事项</div>
+            <div class="tip">· 请在管理员规定的测评时间内完成并提交。</div>
+            <div class="tip">· 请如实作答，姓名请与现场身份一致。</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="row-between" style="margin-bottom:8px">
+            <div class="card-title" style="margin:0">我的测评</div>
+            <span class="tip" style="margin:0">共 2 场</span>
+          </div>
+          <div class="batch-item">
+            <div class="row-between">
+              <div class="batch-name">2026年一季度班组测评</div>
+              <span class="tag tag-done">已提交</span>
+            </div>
+            <div class="batch-meta">一车间甲班 · 个人分 86.5</div>
+          </div>
+          <div class="batch-item">
+            <div class="row-between">
+              <div class="batch-name">演示链路测评</div>
+              <span class="tag tag-warn">答题中</span>
+            </div>
+            <div class="batch-meta">二车间乙班 · 个人分 —</div>
+          </div>
+        </div>
+        <div class="footer">Copyright © 中钢安环院</div>
+      </div>
+    </div>
+
+    <!-- 02 登记进场 -->
+    <div class="screen" data-screen="exam">
+      <div class="page-bg"></div>
+      <div class="page-body">
+        <div class="org-bar">中钢安环院<span>现场登记</span></div>
+        <div class="hero">
+          <div class="brand">现场登记 · 中钢安环院</div>
+          <div class="hero-title">2026年一季度班组测评</div>
+          <div class="hero-sub">选择所属班组并填写真实姓名后开始作答</div>
+        </div>
+        <div class="card">
+          <span class="label">所属班组</span>
+          <div class="field">一车间甲班 · 生产部 / 一车间</div>
+          <div class="tip" style="margin-top:8px">生产部 / 一车间</div>
+        </div>
+        <div class="card">
+          <span class="label">姓名</span>
+          <div class="field">张三</div>
+        </div>
+        <button class="btn btn-teal">确认并开始答题</button>
+        <div class="footer">Copyright © 中钢安环院</div>
+      </div>
+    </div>
+
+    <!-- 03 答题 -->
+    <div class="screen page-light" data-screen="paper">
+      <div class="page-bg light"></div>
+      <div class="page-body">
+        <div class="progress-wrap">
+          <div class="row-between">
+            <span class="progress-label">进度 14/40</span>
+            <span class="progress-label">35%</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill"></div></div>
+          <div class="save-tip">已保存</div>
+        </div>
+        <div class="card">
+          <div class="q-ind">安全意识与行为</div>
+          <div class="q-title">15. 班组成员能否主动发现并纠正现场不安全行为？</div>
+          <div class="tip">请根据本班组日常实际表现选择最贴近的一项。</div>
+          <div class="opt"><div class="opt-radio"></div><div>很少关注，基本依赖管理人员提醒</div></div>
+          <div class="opt"><div class="opt-radio"></div><div>偶有提醒，但不够主动、不够及时</div></div>
+          <div class="opt opt-on"><div class="opt-radio"></div><div>多数情况下能主动提醒并纠正</div></div>
+          <div class="opt"><div class="opt-radio"></div><div>形成习惯，相互提醒已成为常态</div></div>
+        </div>
+        <div class="nav-row">
+          <button class="btn btn-ghost">上一题</button>
+          <button class="btn btn-ghost">下一题</button>
+        </div>
+        <button class="btn btn-disabled">请答完所有题目（14/40）</button>
+        <div class="tip center" style="margin-top:8px">选中选项后自动保存，确认后请点「下一题」</div>
+        <div class="footer">Copyright © 中钢安环院</div>
+      </div>
+    </div>
+
+    <!-- 04 结果 -->
+    <div class="screen" data-screen="result">
+      <div class="page-bg"></div>
+      <div class="page-body">
+        <div class="org-bar">中钢安环院<span>个人结果</span></div>
+        <div class="hero">
+          <div class="brand">中钢安环院 · 个人结果</div>
+          <div class="hero-title">个人测评结果</div>
+          <div class="hero-sub">2026年一季度班组测评</div>
+          <div class="hero-sub">张三 · 提交于 2026-08-09 15:32</div>
+        </div>
+        <div class="card score-card">
+          <div class="tip" style="margin:0">个人成熟得分</div>
+          <div class="score-num">86.5</div>
+          <div class="level-pill">规范级</div>
+          <div class="stat-row">共 40 题 · 满分项 28 · 待提升 12</div>
+          <div class="team-line">所属班组 · 一车间甲班</div>
+        </div>
+        <div class="card">
+          <div class="card-title">个人薄弱指标</div>
+          <div class="tip">以下指标未拿满分，可重点关注</div>
+          <div class="weak-item row-between"><span>应急处置能力</span><span>3.2 / 5</span></div>
+          <div class="weak-item row-between"><span>隐患排查闭环</span><span>3.5 / 5</span></div>
+        </div>
+        <div class="card">
+          <div class="row-between" style="margin-bottom:8px">
+            <div class="card-title" style="margin:0">答题明细</div>
+            <span class="tip" style="margin:0;color:var(--teal)">展开 · 40 题</span>
+          </div>
+          <div style="padding:8px 0;border-top:1px solid #e8eef2">
+            <div class="ans-top">
+              <div class="ans-no">15</div>
+              <div class="ans-ind">安全意识与行为</div>
+              <span class="tag-ok">满分</span>
+            </div>
+            <div class="ans-title">班组成员能否主动发现并纠正现场不安全行为？</div>
+            <div class="ans-opt">所选：多数情况下能主动提醒并纠正</div>
+          </div>
+        </div>
+        <button class="btn btn-primary">返回首页</button>
+        <div class="footer">Copyright © 中钢安环院</div>
+      </div>
+    </div>
+
+    <!-- 05 无法进入 -->
+    <div class="screen" data-screen="blocked">
+      <div class="page-bg"></div>
+      <div class="page-body">
+        <div class="org-bar">中钢安环院</div>
+        <div class="card err-card">
+          <div class="card-title">无法进入</div>
+          <div class="tip">缺少批次参数。请扫描测评二维码进入。</div>
+        </div>
+        <button class="btn btn-primary">进入首页查看历史</button>
+        <div class="footer">Copyright © 中钢安环院</div>
+      </div>
+    </div>
+  </div>
+  <script>
+    window.showScreen = function (name, title) {
+      document.querySelectorAll('.screen').forEach((el) => {
+        el.classList.toggle('active', el.dataset.screen === name);
+      });
+      if (title) document.getElementById('navTitle').textContent = title;
+    };
+  </script>
+</body>
+</html>

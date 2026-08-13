@@ -167,15 +167,11 @@
         </div>
         <div class="team-pick" id="teamPick">
             <div class="team-pick-tip">
-                <span class="tip-text">勾选班组进行对比（不勾选则展示该组织及下级全部班组）</span>
+                <span class="tip-text">勾选班组进行对比（不勾选则展示该组织及下级全部班组，最多 40 条曲线）</span>
                 <button type="button" class="btn-clear-teams" id="btnClearTeams" disabled>一键清除</button>
             </div>
             <div class="team-empty" id="teamEmpty">当前组织下暂无班组</div>
-            {volist name="teams" id="t"}
-            <span class="team-item" data-org-id="{$t.org_id}">
-                <input type="checkbox" name="team_ids" value="{$t.id}" title="{$t.name}" lay-skin="primary" lay-filter="teamPick">
-            </span>
-            {/volist}
+            <div id="teamCheckboxList"></div>
         </div>
     </form>
 
@@ -205,38 +201,44 @@ layui.use(['jquery','form','echarts','layer'], function(){
     form.render();
     var chart = echarts.init(document.getElementById('trendChart'), null, { renderer: 'canvas' });
     var palette = ['#1677ff','#13c2c2','#52c41a','#faad14','#eb2f96','#722ed1','#fa541c','#2f54eb','#08979c','#d48806','#c41d7f','#531dab'];
-    var orgDescendants = {:json_encode($orgDescendants)} || {};
     var seriesVisible = {};
 
     function filterTeamsByOrg(){
         var orgId = parseInt((form.val('filterForm') || {}).org_id || '0', 10) || 0;
         var $pick = $('#teamPick');
+        var $list = $('#teamCheckboxList').empty();
 
-        // 未选具体组织：隐藏班组勾选区，并清空已选
         if (orgId <= 0) {
             $pick.removeClass('show');
-            $('input[name="team_ids"]').prop('checked', false);
             form.render('checkbox');
+            syncClearTeamsBtn();
             return;
         }
 
-        var allow = {};
-        (orgDescendants[orgId] || [orgId]).forEach(function(id){ allow[String(id)] = true; });
-        var visible = 0;
-        $('.team-item').each(function(){
-            var oid = String($(this).data('org-id') || '');
-            var show = !!allow[oid];
-            $(this).toggle(show);
-            if (!show) {
-                $(this).find('input[name="team_ids"]').prop('checked', false);
-            } else {
-                visible++;
-            }
-        });
-        form.render('checkbox');
-        $('#teamEmpty').toggle(visible === 0);
         $pick.addClass('show');
-        syncClearTeamsBtn();
+        $('#teamEmpty').hide().text('加载班组中…').show();
+        $.getJSON('/TmDashboard/teamsByOrg', { org_id: orgId }, function(res){
+            var list = (res.data && res.data.list) ? res.data.list : [];
+            $list.empty();
+            if (!list.length) {
+                $('#teamEmpty').text('当前组织下暂无班组').show();
+            } else {
+                $('#teamEmpty').hide();
+                list.forEach(function(t){
+                    var $span = $('<span class="team-item"></span>');
+                    $span.append(
+                        $('<input type="checkbox" name="team_ids" lay-skin="primary" lay-filter="teamPick">')
+                            .attr('value', t.id)
+                            .attr('title', t.name || ('班组#' + t.id))
+                    );
+                    $list.append($span);
+                });
+            }
+            form.render('checkbox');
+            syncClearTeamsBtn();
+        }).fail(function(){
+            $('#teamEmpty').text('班组加载失败').show();
+        });
     }
 
     function syncClearTeamsBtn(){

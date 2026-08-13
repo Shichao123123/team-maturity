@@ -1,8 +1,6 @@
 <?php
 namespace app\index\service;
 
-use think\Db;
-
 /**
  * 个人得分：Σ(指标权重 × 选项得分比例)
  */
@@ -79,36 +77,7 @@ class ScoreService
             return ($da > $db) ? -1 : 1;
         });
 
-        foreach ($weak as &$w) {
-            $measure = Db::name('tm_empower_measure')
-                ->where('indicator_id', $w['indicator_id'])
-                ->where('level_code', 'essential')
-                ->order('id asc')
-                ->find();
-            if (!$measure) {
-                $measure = Db::name('tm_empower_measure')
-                    ->where('indicator_id', $w['indicator_id'])
-                    ->order('id asc')
-                    ->find();
-            }
-            $w['measure'] = $measure ? $measure['content'] : '暂无';
-            $levelCode = $level ? $level['level_code'] : '';
-            if ($levelCode && $levelCode !== 'essential') {
-                $byLevel = Db::name('tm_empower_measure')
-                    ->where('indicator_id', $w['indicator_id'])
-                    ->where('level_code', $levelCode)
-                    ->find();
-                if ($byLevel && $byLevel['content'] !== '暂无') {
-                    $w['measure'] = $byLevel['content'];
-                    $w['measure_level'] = $levelCode;
-                } else {
-                    $w['measure_level'] = $measure ? $measure['level_code'] : '';
-                }
-            } else {
-                $w['measure_level'] = $measure ? $measure['level_code'] : '';
-            }
-        }
-        unset($w);
+        MeasureLookup::enrichPersonalWeak($weak, $level ? $level['level_code'] : '');
 
         return [
             'total_score'   => $total,

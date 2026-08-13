@@ -16,6 +16,9 @@ class DashboardService
         'passive'     => '专项整改',
     ];
 
+    /** @var array|null 请求内等级元数据缓存 */
+    private static $levelsMetaCache = null;
+
     /**
      * 列出已有班组算分结果的测评批次。
      *
@@ -23,22 +26,20 @@ class DashboardService
      */
     public static function listBatchesWithResult()
     {
-        $ids = Db::name('tm_team_result')->group('batch_id')->column('batch_id');
-        if (empty($ids)) {
-            return [];
-        }
-        $list = Db::name('tm_batch')
-            ->where('id', 'in', $ids)
-            ->whereNull('deleted_at')
-            ->field('id, name, start_time, end_time, status, score_status')
-            ->order('id desc')
+        // DISTINCT 比先 group 再 in 查询更省一轮
+        $list = Db::name('tm_team_result')->alias('tr')
+            ->join('tm_batch b', 'b.id = tr.batch_id')
+            ->whereNull('b.deleted_at')
+            ->field('b.id, b.name, b.start_time, b.end_time, b.status, b.score_status')
+            ->group('b.id')
+            ->order('b.id desc')
             ->select();
         foreach ($list as &$b) {
             $b['status_text'] = BatchService::statusText($b['status']);
             $b['score_status_text'] = BatchService::scoreStatusText($b['score_status']);
         }
         unset($b);
-        return $list;
+        return $list ?: [];
     }
 
     /**
@@ -48,6 +49,9 @@ class DashboardService
      */
     public static function levelsMeta()
     {
+        if (self::$levelsMetaCache !== null) {
+            return self::$levelsMetaCache;
+        }
         $levelsMeta = Db::name('tm_level_threshold')
             ->where('status', 1)
             ->order('sort_no desc,id asc')
@@ -60,67 +64,135 @@ class DashboardService
                 ['level_code' => 'passive', 'level_name' => '被动型', 'sort_no' => 1],
             ];
         }
-        return $levelsMeta;
+        self::$levelsMetaCache = $levelsMeta;
+        return self::$levelsMetaCache;
+    }
+
+    /**
+     * 解析组织下可统计的班组 ID；未选组织返回 null（表示不限）。
+     *
+     * @param int $orgId
+     * @return array|null
+     */
+    private static function resolveTeamIdsByOrg($orgId)
+    {
+        $orgId = (int)$orgId;
+        if ($orgId <= 0) {
+            return null;
+        }
+        $orgIds = (new OrgModel())->collectDescendantIds($orgId);
+        $teamIds = Db::name('tm_team')
+            ->whereNull('deleted_at')
+            ->where('status', 1)
+            ->where('org_id', 'in', $orgIds)
+            ->column('id');
+        return !empty($teamIds) ? array_map('intval', $teamIds) : [-1];
+    }
+
+    /**
+     * 组织下可选班组（趋势页勾选用，避免首屏塞全量班组）。
+     *
+     * @param int $orgId
+     * @return array
+     */
+    public static function teamsForOrg($orgId)
+    {
+        $orgId = (int)$orgId;
+        if ($orgId <= 0) {
+            return [];
+        }
+        $orgIds = (new OrgModel())->collectDescendantIds($orgId);
+        $rows = Db::name('tm_team')
+            ->whereNull('deleted_at')
+            ->where('status', 1)
+            ->where('org_id', 'in', $orgIds)
+            ->order('id asc')
+            ->field('id, name, org_id')
+            ->select();
+        return $rows ?: [];
     }
 
     /**
      * 统计指定批次（及可选组织）下的成熟度等级分布与班组明细。
      *
+     * 图表/KPI 走 SQL 聚合；班组清单支持分页（page/limit，page=0 返回全部供导出）。
+     *
      * @param int $batchId 批次 ID；0 表示取最近有算分结果的批次
      * @param int $orgId   组织 ID；0 表示全公司，>0 时仅统计该组织及下级班组
-     * @return array 含 batch_id、batch_name、scored_at、org_id、team_total、result_team_cnt、
-     *               avg_score、essential_cnt、passive_cnt、levels（各级占比）、teams（班组明细）
+     * @param int $page    班组清单页码；0 表示全部
+     * @param int $limit   每页条数
+     * @return array
      */
-    public static function levelDist($batchId = 0, $orgId = 0)
+    public static function levelDist($batchId = 0, $orgId = 0, $page = 1, $limit = 10)
     {
         if ($batchId <= 0) {
             $batchId = (int)Db::name('tm_team_result')->order('scored_at desc,id desc')->value('batch_id');
         }
         $batch = $batchId > 0 ? BatchService::find($batchId) : null;
-        $teamIds = null;
-        if ($orgId > 0) {
-            $orgIds = (new OrgModel())->collectDescendantIds($orgId);
-            $teamIds = Db::name('tm_team')
-                ->whereNull('deleted_at')
-                ->where('status', 1)
-                ->where('org_id', 'in', $orgIds)
-                ->column('id');
-            if (empty($teamIds)) {
-                $teamIds = [-1];
-            }
-        }
+        $teamIds = self::resolveTeamIdsByOrg($orgId);
 
         $countMap = [];
         $sum = 0.0;
         $n = 0;
         $scoredAt = '';
         $detailTeams = [];
+        $teamListCount = 0;
 
         if ($batchId > 0) {
-            $q = Db::name('tm_team_result')->alias('tr')
+            // KPI / 饼图：数据库聚合，避免把全部班组拉进内存
+            $aggQ = Db::name('tm_team_result')->alias('tr')
+                ->where('tr.batch_id', $batchId);
+            if ($teamIds !== null) {
+                $aggQ->where('tr.team_id', 'in', $teamIds);
+            }
+            $aggRows = $aggQ
+                ->field('tr.level_code, COUNT(*) as cnt, SUM(tr.team_score) as score_sum, MAX(tr.scored_at) as last_scored')
+                ->group('tr.level_code')
+                ->select();
+            foreach ($aggRows as $ar) {
+                $code = $ar['level_code'];
+                $cnt = (int)$ar['cnt'];
+                $countMap[$code] = $cnt;
+                $sum += (float)$ar['score_sum'];
+                $n += $cnt;
+                if ($scoredAt === '' || (string)$ar['last_scored'] > $scoredAt) {
+                    $scoredAt = (string)$ar['last_scored'];
+                }
+            }
+
+            $listQ = Db::name('tm_team_result')->alias('tr')
                 ->join('tm_team t', 't.id = tr.team_id', 'LEFT')
                 ->where('tr.batch_id', $batchId)
-                ->field('tr.*, t.name as team_name, t.org_id');
+                ->field('tr.team_id, tr.team_score, tr.level_code, t.name as team_name');
             if ($teamIds !== null) {
-                $q->where('tr.team_id', 'in', $teamIds);
+                $listQ->where('tr.team_id', 'in', $teamIds);
             }
-            $rows = $q->select();
+            $countQ = Db::name('tm_team_result')->alias('tr')->where('tr.batch_id', $batchId);
+            if ($teamIds !== null) {
+                $countQ->where('tr.team_id', 'in', $teamIds);
+            }
+            $teamListCount = (int)$countQ->count();
+
+            $listQ->order('tr.team_score desc, tr.team_id asc');
+            $page = (int)$page;
+            $limit = (int)$limit;
+            if ($page > 0 && $limit > 0) {
+                $listQ->page($page, $limit);
+            }
+            $rows = $listQ->select();
+
+            $levelNames = [];
+            foreach (self::levelsMeta() as $m) {
+                $levelNames[$m['level_code']] = $m['level_name'];
+            }
             foreach ($rows as $row) {
                 $code = $row['level_code'];
-                if (!isset($countMap[$code])) {
-                    $countMap[$code] = 0;
-                }
-                $countMap[$code]++;
-                $sum += (float)$row['team_score'];
-                $n++;
-                if ($scoredAt === '' || $row['scored_at'] > $scoredAt) {
-                    $scoredAt = $row['scored_at'];
-                }
                 $detailTeams[] = [
                     'team_id'    => (int)$row['team_id'],
                     'team_name'  => $row['team_name'],
                     'team_score' => $row['team_score'],
                     'level_code' => $code,
+                    'level_name' => isset($levelNames[$code]) ? $levelNames[$code] : $code,
                 ];
             }
         }
@@ -139,23 +211,6 @@ class DashboardService
                 'advice'       => isset(self::$levelAdvice[$code]) ? self::$levelAdvice[$code] : '',
             ];
         }
-
-        $levelNames = [];
-        foreach (self::levelsMeta() as $m) {
-            $levelNames[$m['level_code']] = $m['level_name'];
-        }
-        foreach ($detailTeams as &$dt) {
-            $dt['level_name'] = isset($levelNames[$dt['level_code']]) ? $levelNames[$dt['level_code']] : $dt['level_code'];
-        }
-        unset($dt);
-        usort($detailTeams, function ($a, $b) {
-            $sa = (float)$a['team_score'];
-            $sb = (float)$b['team_score'];
-            if ($sa == $sb) {
-                return 0;
-            }
-            return ($sb > $sa) ? 1 : -1;
-        });
 
         $teamTotal = (int)Db::name('tm_team')->whereNull('deleted_at')->where('status', 1)->count();
         if ($teamIds !== null && $teamIds !== [-1]) {
@@ -176,6 +231,7 @@ class DashboardService
             'passive_cnt'     => isset($countMap['passive']) ? (int)$countMap['passive'] : 0,
             'levels'          => $levels,
             'teams'           => $detailTeams,
+            'team_count'      => $teamListCount,
         ];
     }
 
@@ -254,8 +310,8 @@ class DashboardService
         }
 
         $teamIds = array_values(array_unique(array_map('intval', $teamIds ?: [])));
-        // 勾选或组织下钻：不截成 8；仅设安全上限防止异常数据撑爆图表
-        $maxTeams = ($explicitTeams || $orgId > 0) ? 100 : (int)$limitTeams;
+        // 勾选或组织下钻：图表系列过多会卡，硬顶 40（可勾选缩小范围）
+        $maxTeams = ($explicitTeams || $orgId > 0) ? 40 : (int)$limitTeams;
         if (count($teamIds) > $maxTeams) {
             $teamIds = array_slice($teamIds, 0, $maxTeams);
             $tipSuffix .= '；班组过多，仅展示前 ' . $maxTeams . ' 个';
@@ -308,14 +364,16 @@ class DashboardService
     }
 
     /**
-     * 按批次生成班组得分排行榜。
+     * 按批次生成班组得分排行榜（支持分页；图表用 chart_top 固定取前 N）。
      *
-     * @param int $batchId 批次 ID；0 表示取最近有算分结果的批次
-     * @param int $orgId   组织 ID；0 表示不限，>0 时仅统计该组织及下级班组
-     * @param int $limit   返回条数上限
-     * @return array 含 batch（批次摘要）、list（排名行：rank_no、team_name、team_score、level 等）、tip
+     * @param int $batchId
+     * @param int $orgId
+     * @param int $page   页码；0 表示按 limit 取前 N（兼容旧调用）
+     * @param int $limit  每页/条数上限
+     * @param int $chartTop 柱状图专用条数
+     * @return array
      */
-    public static function rank($batchId = 0, $orgId = 0, $limit = 50)
+    public static function rank($batchId = 0, $orgId = 0, $page = 1, $limit = 10, $chartTop = 15)
     {
         if ($batchId <= 0) {
             $batchId = (int)Db::name('tm_team_result')->order('scored_at desc,id desc')->value('batch_id');
@@ -323,32 +381,49 @@ class DashboardService
         $batch = $batchId > 0 ? BatchService::find($batchId) : null;
         if ($batchId <= 0 || !$batch) {
             return [
-                'batch' => null,
-                'list'  => [],
-                'tip'   => '暂无已算分批次',
+                'batch'     => null,
+                'list'      => [],
+                'chart_top' => [],
+                'count'     => 0,
+                'tip'       => '暂无已算分批次',
             ];
         }
 
-        $q = Db::name('tm_team_result')->alias('tr')
+        $base = function () use ($batchId, $orgId) {
+            $q = Db::name('tm_team_result')->alias('tr')
+                ->join('tm_team t', 't.id = tr.team_id', 'LEFT')
+                ->join('tm_org o', 'o.id = t.org_id', 'LEFT')
+                ->where('tr.batch_id', $batchId)
+                ->field('tr.team_id, tr.team_score, tr.level_code, tr.submit_cnt, tr.scored_at,
+                    t.name as team_name, o.name as org_name, t.org_id');
+            if ($orgId > 0) {
+                $orgIds = (new OrgModel())->collectDescendantIds($orgId);
+                $q->where('t.org_id', 'in', $orgIds);
+            }
+            return $q;
+        };
+
+        $countQ = Db::name('tm_team_result')->alias('tr')
             ->join('tm_team t', 't.id = tr.team_id', 'LEFT')
-            ->join('tm_org o', 'o.id = t.org_id', 'LEFT')
-            ->where('tr.batch_id', $batchId)
-            ->field('tr.team_id, tr.team_score, tr.level_code, tr.submit_cnt, tr.scored_at,
-                t.name as team_name, o.name as org_name, t.org_id');
+            ->where('tr.batch_id', $batchId);
         if ($orgId > 0) {
             $orgIds = (new OrgModel())->collectDescendantIds($orgId);
-            $q->where('t.org_id', 'in', $orgIds);
+            $countQ->where('t.org_id', 'in', $orgIds);
         }
-        $rows = $q->order('tr.team_score desc, tr.team_id asc')->limit($limit)->select();
+        $total = (int)$countQ->count();
 
-        $levelNames = Db::name('tm_level_threshold')->column('level_name', 'level_code');
-        $list = [];
-        $rank = 0;
-        foreach ($rows as $r) {
-            $rank++;
+        $page = (int)$page;
+        $limit = (int)$limit;
+        if ($limit < 1) {
+            $limit = 10;
+        }
+        $chartTop = max(1, (int)$chartTop);
+
+        $levelNames = LevelJudgeService::nameMap();
+        $mapRow = function ($r, $rankNo) use ($levelNames) {
             $code = $r['level_code'];
-            $list[] = [
-                'rank_no'     => $rank,
+            return [
+                'rank_no'     => $rankNo,
                 'team_id'     => (int)$r['team_id'],
                 'team_name'   => $r['team_name'],
                 'org_name'    => $r['org_name'] ?: '',
@@ -359,6 +434,31 @@ class DashboardService
                 'scored_at'   => $r['scored_at'],
                 'advice'      => isset(self::$levelAdvice[$code]) ? self::$levelAdvice[$code] : '',
             ];
+        };
+
+        // 图表固定取全局 Top N（与分页无关）
+        $chartRows = $base()->order('tr.team_score desc, tr.team_id asc')->limit($chartTop)->select();
+        $chartList = [];
+        $cr = 0;
+        foreach ($chartRows as $r) {
+            $cr++;
+            $chartList[] = $mapRow($r, $cr);
+        }
+
+        if ($page <= 0) {
+            // 兼容导出：取前 $limit 条
+            $rows = $base()->order('tr.team_score desc, tr.team_id asc')->limit($limit)->select();
+            $offset = 0;
+        } else {
+            $offset = ($page - 1) * $limit;
+            $rows = $base()->order('tr.team_score desc, tr.team_id asc')->limit($offset, $limit)->select();
+        }
+
+        $list = [];
+        $rank = $offset;
+        foreach ($rows as $r) {
+            $rank++;
+            $list[] = $mapRow($r, $rank);
         }
 
         return [
@@ -368,8 +468,10 @@ class DashboardService
                 'start_time' => $batch['start_time'],
                 'end_time'   => $batch['end_time'],
             ],
-            'list' => $list,
-            'tip'  => '按班组得分降序；同分按班组 ID 稳定排序',
+            'list'      => $list,
+            'chart_top' => $chartList,
+            'count'     => $total,
+            'tip'       => '按班组得分降序；同分按班组 ID 稳定排序',
         ];
     }
 }

@@ -82,13 +82,13 @@
 <body>
 <div class="wb">
     <div class="page-head">
-        <h1>工作台</h1>
+        <h1>首页</h1>
         <p>一眼掌握班组成熟度现状 · 可按批次与组织筛选</p>
     </div>
     <form class="layui-form filter-bar" lay-filter="wbFilter" onsubmit="return false;">
         <div class="layui-inline">
             <select name="batch_id" lay-filter="wbAuto" lay-search>
-                <option value="">最近有结果批次</option>
+                <option value="">最近批次</option>
                 {volist name="batches" id="b"}
                 <option value="{$b.id}">{$b.name}</option>
                 {/volist}

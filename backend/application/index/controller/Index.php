@@ -44,7 +44,7 @@ class Index extends Base
         $req = Request::instance();
         $batchId = (int)$req->param('batch_id', 0);
         $orgId = (int)$req->param('org_id', 0);
-        $data = DashboardService::levelDist($batchId, $orgId);
+        $data = DashboardService::levelDist($batchId, $orgId, 1, 1);
         return json(DefaultResponse(0, true, 'ok', [
             'team_total'      => $data['team_total'],
             'avg_score'       => $data['avg_score'],

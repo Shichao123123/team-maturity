@@ -71,7 +71,7 @@
     <form class="layui-form filter-bar" lay-filter="filterForm" onsubmit="return false;">
         <div class="layui-inline">
             <select name="batch_id" lay-filter="autoFilter" lay-search>
-                <option value="">最近有结果批次</option>
+                <option value="">最近批次</option>
                 {volist name="batches" id="b"}
                 <option value="{$b.id}">{$b.name}</option>
                 {/volist}
@@ -130,31 +130,30 @@ layui.use(['jquery','form','echarts','table','layer'], function(){
     var colors = ['#0b3d91', '#1677ff', '#69b1ff', '#bae0ff'];
 
     table.render({
-        elem: '#teamTable', id: 'teamTable', data: [], page: false,
+        elem: '#teamTable', id: 'teamTable',
+        url: '/TmDashboard/levelDist',
+        page: true,
+        limit: 10,
+        limits: [10, 20, 50],
+        where: {},
+        parseData: function(res){
+            var d = res.data || {};
+            window.__levelDistMeta = d;
+            return {
+                code: (res.code === 0 || res.success) ? 0 : (res.code || 1),
+                msg: res.msg || '',
+                count: res.count || 0,
+                data: d.teams || []
+            };
+        },
         cols: [[
             {type:'numbers', title:'#', width:50},
             {field:'team_name', title:'班组', minWidth:140},
             {field:'team_score', title:'得分', width:100},
             {field:'level_name', title:'等级', width:120}
-        ]]
-    });
-
-    function setKpi(id, val, emptyText){
-        var el = document.getElementById(id);
-        if (val === null || val === undefined || val === '') {
-            el.textContent = emptyText || '—';
-            el.classList.add('muted');
-        } else {
-            el.textContent = val;
-            el.classList.remove('muted');
-        }
-    }
-
-    function load(){
-        var f = form.val('filterForm') || {};
-        $.getJSON('/TmDashboard/levelDist', f, function(res){
-            if (!(res.success || res.code===0)) { layer.msg(res.msg||'加载失败'); return; }
-            var d = res.data || {};
+        ]],
+        done: function(){
+            var d = window.__levelDistMeta || {};
             setKpi('kpiTeamTotal', d.result_team_cnt, '0');
             setKpi('kpiAvgScore', d.avg_score, '—');
             setKpi('kpiEssential', d.essential_cnt, '0');
@@ -201,7 +200,28 @@ layui.use(['jquery','form','echarts','table','layer'], function(){
                 html += '<tr><td><span class="level-dot" style="background:'+c+'"></span>'+it.level_name+'</td><td>'+it.count+'</td><td>'+it.count+' | '+it.percent_text+'</td><td>'+(it.advice||'')+'</td></tr>';
             });
             $('#levelTbody').html(html || '<tr><td colspan="4" style="color:#94a3b8;">暂无数据</td></tr>');
-            table.reload('teamTable', { data: d.teams || [] });
+        }
+    });
+
+    function setKpi(id, val, emptyText){
+        var el = document.getElementById(id);
+        if (val === null || val === undefined || val === '') {
+            el.textContent = emptyText || '—';
+            el.classList.add('muted');
+        } else {
+            el.textContent = val;
+            el.classList.remove('muted');
+        }
+    }
+
+    function load(){
+        var f = form.val('filterForm') || {};
+        table.reload('teamTable', {
+            where: {
+                batch_id: f.batch_id || '',
+                org_id: f.org_id || ''
+            },
+            page: { curr: 1 }
         });
     }
 

@@ -42,7 +42,15 @@ class TmResult extends Base
         $batchId = (int)$req->param('batch_id', 0);
         $keyword = $req->param('keyword', '', 'trim');
         $levelCode = $req->param('level_code', '', 'trim');
-        list($ok, $msg, $data) = ResultService::teamList($batchId, $keyword, $levelCode);
+        $page = (int)$req->param('page', 1);
+        $limit = (int)$req->param('limit', 10);
+        if ($page < 1) {
+            $page = 1;
+        }
+        if ($limit < 1) {
+            $limit = 10;
+        }
+        list($ok, $msg, $data) = ResultService::teamList($batchId, $keyword, $levelCode, $page, $limit);
         if (!$ok) {
             return json(DefaultResponse(400, false, $msg));
         }
@@ -86,7 +94,15 @@ class TmResult extends Base
         $teamId = (int)$req->param('team_id', 0);
         $keyword = $req->param('keyword', '', 'trim');
         $status = $req->param('status', null);
-        list($ok, $msg, $data) = ResultService::paperList($batchId, $teamId, $keyword, $status);
+        $page = (int)$req->param('page', 1);
+        $limit = (int)$req->param('limit', 10);
+        if ($page < 1) {
+            $page = 1;
+        }
+        if ($limit < 1) {
+            $limit = 10;
+        }
+        list($ok, $msg, $data) = ResultService::paperList($batchId, $teamId, $keyword, $status, $page, $limit);
         if (!$ok) {
             return json(DefaultResponse(400, false, $msg));
         }

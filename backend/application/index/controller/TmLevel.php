@@ -138,6 +138,7 @@ class TmLevel extends Base
             return json(DefaultResponse(500, false, $e->getMessage()));
         }
 
+        \app\index\service\LevelJudgeService::clearCache();
         return json(DefaultResponse(0, true, '等级阈值已保存'));
     }
 

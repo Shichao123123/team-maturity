@@ -39,20 +39,7 @@ class TmDashboard extends Base
     public function trend()
     {
         $this->assignFilters();
-        $teams = \think\Db::name('tm_team')
-            ->whereNull('deleted_at')
-            ->where('status', 1)
-            ->order('id asc')
-            ->field('id, name, org_id')
-            ->select();
-        $orgModel = new OrgModel();
-        $orgDesc = [];
-        foreach ($orgModel->getSelectOptions() as $o) {
-            $oid = (int)$o['id'];
-            $orgDesc[$oid] = $orgModel->collectDescendantIds($oid);
-        }
-        $this->assign('teams', $teams);
-        $this->assign('orgDescendants', $orgDesc);
+        // 班组列表改为按组织 AJAX 加载，避免首屏塞入全量班组/组织树
         return $this->fetch('tm_dashboard/trend');
     }
 
@@ -77,8 +64,34 @@ class TmDashboard extends Base
         $req = Request::instance();
         $batchId = (int)$req->param('batch_id', 0);
         $orgId = (int)$req->param('org_id', 0);
-        $data = DashboardService::levelDist($batchId, $orgId);
-        return json(DefaultResponse(0, true, 'ok', $data));
+        $page = (int)$req->param('page', 1);
+        $limit = (int)$req->param('limit', 10);
+        if ($page < 1) {
+            $page = 1;
+        }
+        if ($limit < 1) {
+            $limit = 10;
+        }
+        $data = DashboardService::levelDist($batchId, $orgId, $page, $limit);
+        return json([
+            'code'    => 0,
+            'success' => true,
+            'msg'     => 'ok',
+            'count'   => isset($data['team_count']) ? (int)$data['team_count'] : count($data['teams']),
+            'data'    => $data,
+        ]);
+    }
+
+    /**
+     * 趋势页：按组织加载可选班组（避免首屏渲染全量班组）。
+     *
+     * @return \think\response\Json
+     */
+    public function teamsByOrg()
+    {
+        $orgId = (int)Request::instance()->param('org_id', 0);
+        $list = DashboardService::teamsForOrg($orgId);
+        return json(DefaultResponse(0, true, 'ok', ['list' => $list, 'count' => count($list)]));
     }
 
     /**
@@ -109,9 +122,22 @@ class TmDashboard extends Base
         $req = Request::instance();
         $batchId = (int)$req->param('batch_id', 0);
         $orgId = (int)$req->param('org_id', 0);
-        $limit = (int)$req->param('limit', 50);
-        $data = DashboardService::rank($batchId, $orgId, $limit);
-        return json(DefaultResponse(0, true, 'ok', $data));
+        $page = (int)$req->param('page', 1);
+        $limit = (int)$req->param('limit', 10);
+        if ($page < 1) {
+            $page = 1;
+        }
+        if ($limit < 1) {
+            $limit = 10;
+        }
+        $data = DashboardService::rank($batchId, $orgId, $page, $limit, 15);
+        return json([
+            'code'    => 0,
+            'success' => true,
+            'msg'     => 'ok',
+            'count'   => isset($data['count']) ? (int)$data['count'] : count($data['list']),
+            'data'    => $data,
+        ]);
     }
 
     /**
@@ -124,7 +150,7 @@ class TmDashboard extends Base
         $req = Request::instance();
         $batchId = (int)$req->param('batch_id', 0);
         $orgId = (int)$req->param('org_id', 0);
-        $data = DashboardService::rank($batchId, $orgId, 500);
+        $data = DashboardService::rank($batchId, $orgId, 0, 500);
         if (empty($data['list'])) {
             return json(DefaultResponse(400, false, '暂无可导出的排行数据'));
         }
@@ -155,7 +181,7 @@ class TmDashboard extends Base
         $req = Request::instance();
         $batchId = (int)$req->param('batch_id', 0);
         $orgId = (int)$req->param('org_id', 0);
-        $data = DashboardService::rank($batchId, $orgId, 500);
+        $data = DashboardService::rank($batchId, $orgId, 0, 500);
         if (empty($data['list'])) {
             return json(DefaultResponse(400, false, '暂无可导出的排行数据'));
         }
@@ -209,7 +235,7 @@ class TmDashboard extends Base
         $req = Request::instance();
         $batchId = (int)$req->param('batch_id', 0);
         $orgId = (int)$req->param('org_id', 0);
-        $data = DashboardService::levelDist($batchId, $orgId);
+        $data = DashboardService::levelDist($batchId, $orgId, 0, 0);
         if (empty($data['result_team_cnt'])) {
             return json(DefaultResponse(400, false, '暂无可导出的看板数据'));
         }

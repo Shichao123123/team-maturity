@@ -1,0 +1,51 @@
+logo:
+  title: "班组安全成熟度测评
+"
+  image: "/admin/images/brand/logo.png"
+menu:
+  data: "/Index/menu"
+  method: "GET"
+  accordion: true
+  collapse: false
+  control: false
+  controlWidth: 500
+  select: "0"
+  async: true
+tab:
+  enable: true
+  keepState: true
+  session: true
+  preload: false
+  max: "30"
+  index:
+    id: "0"
+    href: "/Index/welcome"
+    title: "工作台"
+theme:
+  defaultColor: "2"
+  defaultMenu: "dark-theme"
+  defaultHeader: "light-theme"
+  allowCustom: true
+  banner: false
+colors:
+- id: "1"
+  color: "#2d8cf0"
+  second: "#ecf5ff"
+- id: "2"
+  color: "#36b368"
+  second: "#f0f9eb"
+- id: "3"
+  color: "#f6ad55"
+  second: "#fdf6ec"
+- id: "4"
+  color: "#f56c6c"
+  second: "#fef0f0"
+- id: "5"
+  color: "#3963bc"
+  second: "#ecf5ff"
+other:
+  keepLoad: "800"
+  autoHead: false
+  footer: false
+header:
+  message: false

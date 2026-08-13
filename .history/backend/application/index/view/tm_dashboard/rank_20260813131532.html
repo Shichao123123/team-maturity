@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    {include file="common/meta" /}
+    {include file="common/css" /}
+    <style>
+        body {
+            margin:0;
+            background:
+                radial-gradient(900px 420px at 8% -10%, rgba(22,119,255,.10), transparent 55%),
+                radial-gradient(700px 360px at 100% 0%, rgba(250,173,20,.08), transparent 50%),
+                #f2f5fa;
+        }
+        .wb { padding:16px; }
+        .page-head { margin-bottom:14px; }
+        .page-head h1 { margin:0 0 4px; font-size:20px; font-weight:700; color:#0f172a; }
+        .page-head p { margin:0; color:#64748b; font-size:13px; }
+        .filter-bar {
+            background:#fff; border:1px solid #e8eef6; border-radius:10px;
+            padding:12px 14px; margin-bottom:14px;
+            box-shadow:0 1px 2px rgba(15,45,90,.03);
+        }
+        .panel {
+            background:#fff; border-radius:12px; border:1px solid #e8eef6;
+            box-shadow:0 1px 2px rgba(15,45,90,.04); padding:16px 18px;
+        }
+        .panel-title { font-size:16px; font-weight:600; color:#0f172a; margin:0 0 6px; }
+        .panel-tip { color:#94a3b8; font-size:12px; margin:0 0 10px; }
+        .rank-medal { font-weight:700; }
+        .rank-1 { color:#d48806; }
+        .rank-2 { color:#8c8c8c; }
+        .rank-3 { color:#ad6800; }
+        #rankChart {
+            width:100%; height:320px; margin-bottom:12px;
+            background:#fafbfc; border:1px solid #eef2f7; border-radius:8px;
+        }
+    </style>
+</head>
+<body>
+<div class="wb">
+    <div class="page-head">
+        <h1>班组排行榜</h1>
+        <p>按批次得分降序对比班组成熟水平</p>
+    </div>
+    <form class="layui-form filter-bar" lay-filter="filterForm" onsubmit="return false;">
+        <div class="layui-inline">
+            <select name="batch_id" lay-filter="autoFilter" lay-search>
+                <option value="">最近有结果批次</option>
+                {volist name="batches" id="b"}
+                <option value="{$b.id}">{$b.name}</option>
+                {/volist}
+            </select>
+        </div>
+        <div class="layui-inline">
+            <select name="org_id" lay-filter="autoFilter" lay-search>
+                <option value="">全部组织</option>
+                {volist name="orgs" id="o"}
+                <option value="{$o.id}">{$o.path}</option>
+                {/volist}
+            </select>
+        </div>
+        <div class="layui-inline">
+            <button type="button" class="pear-btn pear-btn-md pear-btn-normal" id="btnExportPdf">导出PDF</button>
+        </div>
+    </form>
+
+    <div class="panel">
+        <div class="panel-title">班组排行榜</div>
+        <p class="panel-tip" id="rankTip">按班组得分降序展示</p>
+        <div id="rankChart"></div>
+        <table id="rankTable" lay-filter="rankTable"></table>
+    </div>
+</div>
+
+<script src="/component/layui/layui.js"></script>
+<script src="/component/pear/pear.js"></script>
+<script>
+layui.use(['jquery','form','table','echarts','layer'], function(){
+    var $ = layui.jquery, form = layui.form, table = layui.table, echarts = layui.echarts, layer = layui.layer;
+    form.render();
+    var chart = echarts.init(document.getElementById('rankChart'));
+
+    table.render({
+        elem: '#rankTable', id: 'rankTable',
+        url: '/TmDashboard/rankData',
+        page: true,
+        limit: 10,
+        limits: [10, 20, 50],
+        where: {},
+        parseData: function(res){
+            var d = res.data || {};
+            window.__rankMeta = d;
+            return {
+                code: (res.code === 0 || res.success) ? 0 : (res.code || 1),
+                msg: res.msg || '',
+                count: res.count || 0,
+                data: d.list || []
+            };
+        },
+        cols: [[
+            {field:'rank_no', title:'排名', width:80, align:'center', templet: function(d){
+                var cls = d.rank_no<=3 ? ('rank-medal rank-'+d.rank_no) : '';
+                return '<span class="'+cls+'">'+d.rank_no+'</span>';
+            }},
+            {field:'team_name', title:'班组', minWidth:140},
+            {field:'org_name', title:'所属组织', minWidth:160},
+            {field:'team_score', title:'班组得分', width:110, align:'center'},
+            {field:'level_name', title:'成熟度等级', width:120, align:'center'},
+            {field:'submit_cnt', title:'提交人数', width:100, align:'center'},
+            {field:'advice', title:'管理建议', width:120},
+            {field:'scored_at', title:'算分时间', width:170}
+        ]],
+        done: function(){
+            var d = window.__rankMeta || {};
+            var chartList = d.chart_top || [];
+            $('#rankTip').text(
+                (d.batch && d.batch.name ? ('批次：' + d.batch.name + ' · ') : '') + (d.tip || '')
+            );
+            if (!chartList.length) {
+                chart.clear();
+                chart.setOption({
+                    title: { text: d.tip || '暂无排行数据', left:'center', top:'center',
+                        textStyle:{ color:'#94a3b8', fontSize:16, fontWeight:400 } }
+                });
+                return;
+            }
+            var top = chartList.slice(0, 15).reverse();
+            chart.setOption({
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                grid: { left: 120, right: 30, top: 20, bottom: 30 },
+                xAxis: { type: 'value', name: '得分', min: 0, max: 100 },
+                yAxis: { type: 'category', data: top.map(function(r){ return r.team_name; }) },
+                series: [{
+                    type: 'bar',
+                    data: top.map(function(r){ return r.team_score; }),
+                    itemStyle: { color: '#1677ff' },
+                    label: { show: true, position: 'right' }
+                }]
+            }, true);
+        }
+    });
+
+    function load(){
+        var f = form.val('filterForm') || {};
+        table.reload('rankTable', {
+            where: {
+                batch_id: f.batch_id || '',
+                org_id: f.org_id || ''
+            },
+            page: { curr: 1 }
+        });
+    }
+
+    form.on('select(autoFilter)', load);
+    $('#btnExportPdf').on('click', function(){
+        var f = form.val('filterForm') || {};
+        var q = $.param({ batch_id: f.batch_id||'', org_id: f.org_id||'' });
+        window.location.href = '/TmDashboard/exportRankPdf?' + q;
+    });
+    load();
+    window.addEventListener('resize', function(){ chart.resize(); });
+});
+</script>
+</body>
+</html>

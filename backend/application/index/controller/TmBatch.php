@@ -227,7 +227,7 @@ class TmBatch extends Base
     }
 
     /**
-     * 结束批次（截止答题）API（POST）。
+     * 结束批次（截止答题）并自动正式算分 API（POST）。
      *
      * @return \think\response\Json 结束结果
      */
@@ -247,7 +247,22 @@ class TmBatch extends Base
     }
 
     /**
-     * 对批次执行算分（班组得分与等级）API（POST）。
+     * 进行中批次：查看当前答题概况（预估分，不落库）API。
+     *
+     * @return \think\response\Json
+     */
+    public function scorePreview()
+    {
+        $id = (int)Request::instance()->param('id', 0);
+        list($ok, $msg, $data) = BatchService::scorePreview($id);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg, $data));
+        }
+        return json(DefaultResponse(0, true, $msg, $data));
+    }
+
+    /**
+     * 对已结束批次执行正式算分（班组得分与等级落库）API（POST）。
      *
      * @return \think\response\Json 算分结果摘要
      */
