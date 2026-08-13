@@ -3,25 +3,72 @@
 <head>
     {include file="common/meta" /}
     {include file="common/css" /}
+    <style>
+        :root {
+            --arc-bg: #eef2f7;
+            --arc-panel: #ffffff;
+            --arc-line: #d9e2ec;
+            --arc-text: #1e293b;
+            --arc-muted: #64748b;
+            --arc-accent: #1677ff;
+            --arc-shadow: 0 8px 24px rgba(15,45,90,.06);
+        }
+        body.pear-container { background:
+            radial-gradient(900px 420px at 0% -10%, rgba(22,119,255,.08), transparent 55%),
+            var(--arc-bg) !important; }
+        .archive-main-panel {
+            margin:4px; background:var(--arc-panel);
+            border:1px solid var(--arc-line); border-radius:14px;
+            box-shadow: var(--arc-shadow); padding:16px 18px 18px;
+            min-height:calc(100vh - 110px);
+        }
+        .archive-main-head {
+            display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+            margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #edf2f7;
+        }
+        .archive-page-title {
+            margin:0 0 2px; font-size:16px; font-weight:700; color:var(--arc-text);
+        }
+        .archive-page-sub { margin:0; font-size:12px; color:var(--arc-muted); }
+        .archive-toolbar .layui-form-item { margin-bottom:12px; }
+        .archive-toolbar .layui-input {
+            border-radius:10px !important; border-color:#d7e0ea !important;
+        }
+        .archive-tree-actions { display:flex; gap:6px; flex-wrap:wrap; }
+        .archive-tree-actions .pear-btn {
+            border-radius:999px !important; padding:0 12px !important; height:28px; line-height:28px;
+            border:1px solid var(--arc-line) !important; background:#fff !important; color:#475569 !important;
+        }
+        .archive-tree-actions .pear-btn:hover { border-color:#b7d3ff !important; color:var(--arc-accent) !important; }
+    </style>
 </head>
 <body class="pear-container">
-<div class="layui-card">
-    <div class="layui-card-body">
-        <form class="layui-form" lay-filter="filterForm" onsubmit="return false;">
-            <div class="layui-form-item">
-                <div class="layui-inline">
-                    <input type="text" name="keyword" placeholder="组织名称" class="layui-input">
-                </div>
-                <div class="layui-inline">
-                    <button type="button" class="pear-btn pear-btn-md" id="btnAdd">新增</button>
-                    <a class="pear-btn pear-btn-md" href="/TmOrg/importTemplate">下载模板</a>
-                    <button type="button" class="pear-btn pear-btn-md pear-btn-success" id="btnImport">导入Excel</button>
-                    <input type="file" id="fileImport" accept=".xls,.xlsx,.csv" style="display:none">
-                </div>
-            </div>
-        </form>
-        <table id="dataTable" lay-filter="dataTable"></table>
+<div class="archive-main-panel">
+    <div class="archive-main-head">
+        <div>
+            <h2 class="archive-page-title">组织架构</h2>
+            <p class="archive-page-sub">维护层级树，支持展开折叠与批量导入</p>
+        </div>
+        <div class="archive-tree-actions">
+            <button type="button" class="pear-btn pear-btn-xs" id="btnExpand">展开全部</button>
+            <button type="button" class="pear-btn pear-btn-xs" id="btnFold">折叠全部</button>
+        </div>
     </div>
+    <form class="layui-form archive-toolbar" lay-filter="filterForm" onsubmit="return false;">
+        <div class="layui-form-item">
+            <div class="layui-inline">
+                <input type="text" name="keyword" placeholder="搜索组织名称" class="layui-input" style="width:220px;">
+            </div>
+            <div class="layui-inline">
+                <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnAdd">新增组织</button>
+                <a class="pear-btn pear-btn-md" href="/TmOrg/importTemplate">下载模板</a>
+                <button type="button" class="pear-btn pear-btn-md pear-btn-success" id="btnImport">导入</button>
+                <button type="button" class="pear-btn pear-btn-md" id="btnUndoImport" title="仅撤回最近一次组织导入">撤回导入</button>
+                <input type="file" id="fileImport" accept=".xls,.xlsx,.csv" style="display:none">
+            </div>
+        </div>
+    </form>
+    <table id="dataTable" lay-filter="dataTable"></table>
 </div>
 
 <script type="text/html" id="bar">
@@ -87,33 +134,41 @@
 <script src="/component/layui/layui.js"></script>
 <script src="/component/pear/pear.js"></script>
 <script>
-layui.use(['table','form','jquery','layer'], function(){
-    var table = layui.table, form = layui.form, $ = layui.jquery, layer = layui.layer;
+layui.use(['table','form','jquery','layer','treetable'], function(){
+    var table = layui.table, form = layui.form, $ = layui.jquery, layer = layui.layer, treetable = layui.treetable;
     var typeMap = {0:'其他',1:'公司/集团',2:'厂/分厂',3:'工段/部门'};
 
-    function reloadFilter(){
-        table.reload('dataTable', {where: form.val('filterForm') || {}, page:{curr:1}});
+    function loadTree(){
+        var where = form.val('filterForm') || {};
+        $('#dataTable').next('.treeTable').remove();
+        treetable.render({
+            elem: '#dataTable',
+            url: '/TmOrg/getTreeList',
+            where: {keyword: where.keyword || ''},
+            treeColIndex: 0,
+            treeSpid: 0,
+            treeIdName: 'id',
+            treePidName: 'pid',
+            treeDefaultClose: false,
+            skin: 'line',
+            page: false,
+            cols: [[
+                {field:'name', title:'组织名称', minWidth:220},
+                {field:'org_type', title:'类型', width:110, templet: function(d){ return typeMap[d.org_type] || d.org_type; }},
+                {field:'sort_no', title:'排序', width:80},
+                {field:'status', title:'状态', width:80, templet: function(d){ return d.status==1?'启用':'停用'; }},
+                {title:'操作', toolbar:'#bar', width:140}
+            ]]
+        });
     }
+
     var keywordTimer = null;
     $('form[lay-filter="filterForm"] input[name="keyword"]').on('input', function(){
         clearTimeout(keywordTimer);
-        keywordTimer = setTimeout(reloadFilter, 300);
+        keywordTimer = setTimeout(loadTree, 300);
     });
-
-    table.render({
-        elem: '#dataTable',
-        id: 'dataTable',
-        url: '/TmOrg/getList',
-        page: true,
-        cols: [[
-            {field:'name', title:'名称'},
-            {field:'parent_name', title:'上级组织'},
-            {field:'org_type', title:'类型', width:110, templet: function(d){ return typeMap[d.org_type] || d.org_type; }},
-            {field:'sort_no', title:'排序', width:80},
-            {field:'status', title:'状态', width:80, templet: function(d){ return d.status==1?'启用':'停用'; }},
-            {title:'操作', toolbar:'#bar', width:140}
-        ]]
-    });
+    $('#btnExpand').on('click', function(){ treetable.expandAll('#dataTable'); });
+    $('#btnFold').on('click', function(){ treetable.foldAll('#dataTable'); });
 
     function openForm(row){
         layer.open({
@@ -128,7 +183,7 @@ layui.use(['table','form','jquery','layer'], function(){
                         if (res.success || res.code===0) {
                             layer.closeAll();
                             layer.msg(res.msg || '成功');
-                            table.reload('dataTable');
+                            loadTree();
                         } else {
                             layer.msg(res.msg || '失败');
                         }
@@ -141,6 +196,23 @@ layui.use(['table','form','jquery','layer'], function(){
 
     $('#btnAdd').on('click', function(){ openForm(null); });
     $('#btnImport').on('click', function(){ $('#fileImport').click(); });
+    $('#btnUndoImport').on('click', function(){
+        layer.confirm('确认撤回最近一次组织导入？<br>将删除该次新增的组织，并还原该次改过的组织。', {
+            title: '撤回上次导入',
+            btn: ['确认撤回', '取消']
+        }, function(index){
+            layer.close(index);
+            var load = layer.load(2);
+            $.post('/TmOrg/undoLastImport', {}, function(res){
+                layer.close(load);
+                layer.msg(res.msg || '');
+                if (res.success || res.code === 0) loadTree();
+            }, 'json').fail(function(){
+                layer.close(load);
+                layer.msg('请求失败');
+            });
+        });
+    });
     $('#fileImport').on('change', function(){
         var f = this.files[0];
         if (!f) return;
@@ -153,7 +225,7 @@ layui.use(['table','form','jquery','layer'], function(){
             success: function(res){
                 layer.close(load);
                 layer.msg(res.msg || '');
-                if (res.success || res.code===0) table.reload('dataTable');
+                if (res.success || res.code===0) loadTree();
             },
             error: function(){ layer.close(load); layer.msg('上传失败'); },
             complete: function(){ $('#fileImport').val(''); }
@@ -165,12 +237,14 @@ layui.use(['table','form','jquery','layer'], function(){
             layer.confirm('确认删除？', function(index){
                 $.post('/TmOrg/delete', {id: obj.data.id}, function(res){
                     layer.msg(res.msg || '');
-                    if (res.success || res.code===0) table.reload('dataTable');
+                    if (res.success || res.code===0) loadTree();
                 }, 'json');
                 layer.close(index);
             });
         }
     });
+
+    loadTree();
 });
 </script>
 </body>

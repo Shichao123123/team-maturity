@@ -18,11 +18,13 @@ class TeamModel extends Model
      * @param int         $limit   每页条数
      * @return array [总数, 列表行（含 org_name）]
      */
-    public function getPage($orgId = null, $keyword = '', $status = null, $page = 1, $limit = 15)
+    public function getPage($orgId = null, $keyword = '', $status = null, $page = 1, $limit = 15, $orgIds = null)
     {
-        $apply = function ($q) use ($orgId, $keyword, $status) {
+        $apply = function ($q) use ($orgId, $keyword, $status, $orgIds) {
             $q->whereNull('t.deleted_at');
-            if ($orgId !== null && $orgId !== '') {
+            if (is_array($orgIds) && count($orgIds) > 0) {
+                $q->whereIn('t.org_id', array_map('intval', $orgIds));
+            } elseif ($orgId !== null && $orgId !== '') {
                 $q->where('t.org_id', (int)$orgId);
             }
             if ($keyword !== '') {

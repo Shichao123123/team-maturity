@@ -2,6 +2,7 @@
 namespace app\index\controller;
 
 use app\index\model\OrgModel;
+use app\index\service\ArchiveTreeService;
 use app\index\service\ExcelHelper;
 use app\index\service\ImportService;
 use app\index\service\OpLogService;
@@ -48,6 +49,18 @@ class TmOrg extends Base
         $model = new OrgModel();
         list($count, $list) = $model->getPage($parentId, $keyword, $page, $limit);
         return json(DefaultResponseList(0, $count, 'ok', $list));
+    }
+
+    /**
+     * 组织树表数据（扁平 id/pid，供 treetable）。
+     *
+     * @return \think\response\Json
+     */
+    public function getTreeList()
+    {
+        $keyword = Request::instance()->param('keyword', '', 'trim');
+        $list = ArchiveTreeService::orgFlat($keyword);
+        return json(DefaultResponse(0, true, 'ok', $list));
     }
 
     /**
@@ -154,12 +167,13 @@ class TmOrg extends Base
      */
     public function importTemplate()
     {
-        ExcelHelper::download('组织导入模板.xls', [
-            '组织编码', '上级组织编码', '组织名称', '组织类型', '排序', '状态',
+        // 状态导入时固定为启用，模板不要求填；组织类型、排序均可留空
+        ExcelHelper::download('组织导入模板.csv', [
+            '组织名称', '上级组织', '组织类型', '排序',
         ], [
-            ['ORG001', '', '示例公司', '公司/集团', '1', '启用'],
-            ['ORG002', 'ORG001', '一厂', '厂/分厂', '1', '启用'],
-            ['ORG003', 'ORG002', '生产一工段', '工段/部门', '1', '启用'],
+            ['示例公司', '', '', ''],
+            ['一厂', '示例公司', '', ''],
+            ['生产一工段', '一厂', '', ''],
         ]);
     }
 
@@ -181,8 +195,23 @@ class TmOrg extends Base
         $adminId = isset($this->currentAdmin['id']) ? $this->currentAdmin['id'] : 0;
         $result = ImportService::importOrgs($rows, $adminId, $pathOrMsg);
         OpLogService::write('import', 'org', isset($result['job_id']) ? $result['job_id'] : null, $result);
-        $msg = "导入完成：成功 {$result['success_cnt']}，失败 {$result['fail_cnt']}";
+        $msg = "导入完成：成功 {$result['success_cnt']}，失败 {$result['fail_cnt']}（误操作可点「撤回上次导入」）";
         return json(DefaultResponse(0, true, $msg, $result));
+    }
+
+    /**
+     * 撤回最近一次组织导入（删除本次新增、还原本次更新）。
+     *
+     * @return \think\response\Json
+     */
+    public function undoLastImport()
+    {
+        list($ok, $msg, $data) = ImportService::undoLastOrgImport();
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+        OpLogService::write('import_undo', 'org', isset($data['job_id']) ? $data['job_id'] : null, $data);
+        return json(DefaultResponse(0, true, $msg, $data));
     }
 
     /**

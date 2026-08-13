@@ -1,6 +1,7 @@
 <?php
 namespace app\index\controller;
 
+use app\index\service\ImportService;
 use think\Db;
 use think\Request;
 
@@ -97,13 +98,7 @@ class TmImport extends Base
         if (!$row) {
             return json(DefaultResponse(404, false, '记录不存在'));
         }
-        $errors = [];
-        if (!empty($row['error_json'])) {
-            $decoded = json_decode($row['error_json'], true);
-            if (is_array($decoded)) {
-                $errors = $decoded;
-            }
-        }
+        list($errors, $meta) = ImportService::parseJobPayload(isset($row['error_json']) ? $row['error_json'] : null);
         $row['type_name'] = isset($this->typeNames[$row['type']])
             ? $this->typeNames[$row['type']]
             : $row['type'];
@@ -111,6 +106,8 @@ class TmImport extends Base
             ? $this->statusNames[(int)$row['status']]
             : (string)$row['status'];
         $row['errors'] = $errors;
+        $row['can_undo'] = !empty($meta['can_undo']) && empty($meta['undone_at']);
+        $row['undone_at'] = !empty($meta['undone_at']) ? $meta['undone_at'] : null;
         $row['file_name'] = $row['file_path'] ? basename($row['file_path']) : '';
         unset($row['error_json'], $row['file_path']);
 

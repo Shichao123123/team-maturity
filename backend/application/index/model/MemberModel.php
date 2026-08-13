@@ -19,11 +19,13 @@ class MemberModel extends Model
      * @param int         $limit    每页条数
      * @return array [总数, 列表行（含 team_name）]
      */
-    public function getPage($teamId = null, $keyword = '', $roleCode = '', $status = null, $page = 1, $limit = 15)
+    public function getPage($teamId = null, $keyword = '', $roleCode = '', $status = null, $page = 1, $limit = 15, $teamIds = null)
     {
-        $apply = function ($q) use ($teamId, $keyword, $roleCode, $status) {
+        $apply = function ($q) use ($teamId, $keyword, $roleCode, $status, $teamIds) {
             $q->whereNull('m.deleted_at');
-            if ($teamId !== null && $teamId !== '') {
+            if (is_array($teamIds) && count($teamIds) > 0) {
+                $q->whereIn('m.team_id', array_map('intval', $teamIds));
+            } elseif ($teamId !== null && $teamId !== '') {
                 $q->where('m.team_id', (int)$teamId);
             }
             if ($keyword !== '') {

@@ -65,7 +65,7 @@ class ImportService
      * @param array $errors  失败明细列表（每项含 line、msg 等）
      * @return array 含 job_id、total_cnt、success_cnt、fail_cnt、status、errors
      */
-    public static function finishJob($jobId, $total, $success, $errors)
+    public static function finishJob($jobId, $total, $success, $errors, $meta = null)
     {
         $fail = count($errors);
         $status = 1;
@@ -74,11 +74,19 @@ class ImportService
         } elseif ($fail > 0 && $success === 0) {
             $status = 3;
         }
+        if (is_array($meta)) {
+            $errorJson = json_encode([
+                'errors' => $errors ? array_values($errors) : [],
+                'meta'   => $meta,
+            ], JSON_UNESCAPED_UNICODE);
+        } else {
+            $errorJson = $errors ? json_encode($errors, JSON_UNESCAPED_UNICODE) : null;
+        }
         Db::name('tm_import_job')->where('id', $jobId)->update([
             'total_cnt'   => $total,
             'success_cnt' => $success,
             'fail_cnt'    => $fail,
-            'error_json'  => $errors ? json_encode($errors, JSON_UNESCAPED_UNICODE) : null,
+            'error_json'  => $errorJson,
             'status'      => $status,
             'finished_at' => tmNow(),
         ]);
@@ -89,7 +97,30 @@ class ImportService
             'fail_cnt'    => $fail,
             'status'      => $status,
             'errors'      => $errors,
+            'meta'        => $meta,
         ];
+    }
+
+    /**
+     * 解析导入任务 error_json（兼容旧版纯错误数组与新版 {errors, meta}）。
+     *
+     * @param string|null $errorJson
+     * @return array [array $errors, array|null $meta]
+     */
+    public static function parseJobPayload($errorJson)
+    {
+        if ($errorJson === null || $errorJson === '') {
+            return [[], null];
+        }
+        $decoded = json_decode($errorJson, true);
+        if (!is_array($decoded)) {
+            return [[], null];
+        }
+        if (isset($decoded['errors']) && is_array($decoded['errors'])) {
+            $meta = isset($decoded['meta']) && is_array($decoded['meta']) ? $decoded['meta'] : null;
+            return [$decoded['errors'], $meta];
+        }
+        return [$decoded, null];
     }
 
     /**
@@ -156,9 +187,9 @@ class ImportService
     }
 
     /**
-     * 批量导入组织：按编码与上级关系多轮解析，同名更新、否则新增。
+     * 批量导入组织：按「组织名称 + 上级组织（名称）」多轮解析；同名同上级则更新，否则新增。
      *
-     * @param array  $rows     关联数组行（组织编码、组织名称、上级组织编码等列）
+     * @param array  $rows     关联数组行（组织名称、上级组织必填逻辑；组织类型/排序可选；状态固定启用）
      * @param int    $adminId  操作管理员 ID
      * @param string $filePath 上传文件本地路径，写入导入任务 file_path
      * @return array finishJob 返回的任务结果摘要
@@ -168,13 +199,19 @@ class ImportService
         $jobId = self::beginJob('org', $filePath ?: 'upload', $adminId);
         $errors = [];
         $success = 0;
-        $codeMap = []; // code => id
+        $insertedIds = [];
+        $updatedBefore = []; // id => 导入前快照
 
-        // 已有组织按名称缓存（同名取最新）
-        $exist = Db::name('tm_org')->whereNull('deleted_at')->order('id asc')->select();
+        // name => id（用于解析上级；同名取 id 较大者）
+        // parentId|name => id（用于同级去重更新）
         $nameMap = [];
+        $existKey = [];
+        $existById = [];
+        $exist = Db::name('tm_org')->whereNull('deleted_at')->order('id asc')->select();
         foreach ($exist as $e) {
-            $nameMap[$e['name']] = $e['id'];
+            $nameMap[$e['name']] = (int)$e['id'];
+            $existKey[(int)$e['parent_id'] . '|' . $e['name']] = (int)$e['id'];
+            $existById[(int)$e['id']] = $e;
         }
 
         // 多轮解析，保证上级先入库
@@ -185,45 +222,54 @@ class ImportService
             $next = [];
             foreach ($pending as $idx => $row) {
                 $lineNo = $idx + 2;
-                $code = isset($row['组织编码']) ? trim($row['组织编码']) : '';
                 $name = isset($row['组织名称']) ? trim($row['组织名称']) : '';
-                $parentCode = isset($row['上级组织编码']) ? trim($row['上级组织编码']) : '';
-                if ($code === '' || $name === '') {
-                    $errors[] = ['line' => $lineNo, 'msg' => '组织编码、组织名称不能为空'];
-                    continue;
+                $parentName = '';
+                if (isset($row['上级组织'])) {
+                    $parentName = trim($row['上级组织']);
+                } elseif (isset($row['上级组织名称'])) {
+                    $parentName = trim($row['上级组织名称']);
                 }
-                if (isset($codeMap[$code])) {
-                    $errors[] = ['line' => $lineNo, 'msg' => '组织编码重复: ' . $code];
+                if ($name === '') {
+                    $errors[] = ['line' => $lineNo, 'msg' => '组织名称不能为空'];
                     continue;
                 }
 
                 $parentId = 0;
-                if ($parentCode !== '') {
-                    if (!isset($codeMap[$parentCode])) {
-                        // 上级尚未处理，下一轮
+                if ($parentName !== '') {
+                    if (!isset($nameMap[$parentName])) {
+                        // 上级尚未处理或不存在，下一轮再试
                         $next[$idx] = $row;
                         continue;
                     }
-                    $parentId = $codeMap[$parentCode];
+                    $parentId = $nameMap[$parentName];
                 }
 
-                // 类型仅标识，不校验必须三层；空则按是否有上级给默认标签
-                $orgTypeRaw = isset($row['组织类型']) ? $row['组织类型'] : '';
-                if (trim((string)$orgTypeRaw) === '') {
-                    $orgType = ($parentCode === '') ? 1 : 3;
+                // 组织类型可要可不要：有则用，无则按是否有上级给默认（顶级=公司/集团，下级=工段/部门）
+                $orgTypeRaw = isset($row['组织类型']) ? trim((string)$row['组织类型']) : '';
+                if ($orgTypeRaw === '') {
+                    $orgType = ($parentName === '') ? 1 : 3;
                 } else {
                     $orgType = self::mapOrgType($orgTypeRaw);
-                }
-                if (!in_array($orgType, [0, 1, 2, 3], true)) {
-                    $errors[] = ['line' => $lineNo, 'msg' => '组织类型无效'];
-                    continue;
+                    if (!in_array($orgType, [0, 1, 2, 3], true)) {
+                        $orgType = ($parentName === '') ? 1 : 3;
+                    }
                 }
                 $sortNo = isset($row['排序']) && $row['排序'] !== '' ? (int)$row['排序'] : 0;
-                $status = self::mapStatus(isset($row['状态']) ? $row['状态'] : 1);
+                // 导入一律启用
+                $status = 1;
 
-                // 同名则更新，否则新增
-                if (isset($nameMap[$name])) {
-                    $id = $nameMap[$name];
+                $key = $parentId . '|' . $name;
+                if (isset($existKey[$key])) {
+                    $id = $existKey[$key];
+                    if (!isset($updatedBefore[$id]) && isset($existById[$id])) {
+                        $old = $existById[$id];
+                        $updatedBefore[$id] = [
+                            'parent_id' => (int)$old['parent_id'],
+                            'org_type'  => (int)$old['org_type'],
+                            'sort_no'   => (int)$old['sort_no'],
+                            'status'    => (int)$old['status'],
+                        ];
+                    }
                     Db::name('tm_org')->where('id', $id)->update([
                         'parent_id'  => $parentId,
                         'org_type'   => $orgType,
@@ -232,7 +278,7 @@ class ImportService
                         'updated_at' => tmNow(),
                     ]);
                 } else {
-                    $id = Db::name('tm_org')->insertGetId([
+                    $id = (int)Db::name('tm_org')->insertGetId([
                         'parent_id'  => $parentId,
                         'name'       => $name,
                         'org_type'   => $orgType,
@@ -240,21 +286,224 @@ class ImportService
                         'status'     => $status,
                         'created_at' => tmNow(),
                     ]);
-                    $nameMap[$name] = $id;
+                    $existKey[$key] = $id;
+                    $insertedIds[] = $id;
                 }
-                $codeMap[$code] = $id;
+                $nameMap[$name] = $id;
                 $success++;
             }
             if (count($next) === count($pending)) {
                 foreach ($next as $idx => $row) {
-                    $errors[] = ['line' => $idx + 2, 'msg' => '找不到上级组织编码: ' . (isset($row['上级组织编码']) ? $row['上级组织编码'] : '')];
+                    $p = isset($row['上级组织']) ? trim($row['上级组织']) : '';
+                    if ($p === '' && isset($row['上级组织名称'])) {
+                        $p = trim($row['上级组织名称']);
+                    }
+                    $errors[] = ['line' => $idx + 2, 'msg' => '找不到上级组织: ' . $p . '（请确认名称与表格中「组织名称」一致，且上级行写在前面）'];
                 }
                 break;
             }
             $pending = $next;
         }
 
-        return self::finishJob($jobId, count($rows), $success, $errors);
+        $meta = [
+            'can_undo'      => ($success > 0),
+            'undone_at'     => null,
+            'inserted_ids'  => $insertedIds,
+            'updated'       => $updatedBefore,
+        ];
+        return self::finishJob($jobId, count($rows), $success, $errors, $meta);
+    }
+
+    /**
+     * 撤回最近一次组织导入。
+     *
+     * @return array [bool ok, string msg, array|null data]
+     */
+    public static function undoLastOrgImport()
+    {
+        return self::undoLastImport('org');
+    }
+
+    /**
+     * 撤回最近一次班组导入。
+     *
+     * @return array [bool ok, string msg, array|null data]
+     */
+    public static function undoLastTeamImport()
+    {
+        return self::undoLastImport('team');
+    }
+
+    /**
+     * 撤回最近一次成员导入。
+     *
+     * @return array [bool ok, string msg, array|null data]
+     */
+    public static function undoLastMemberImport()
+    {
+        return self::undoLastImport('member');
+    }
+
+    /**
+     * 撤回最近一次指定类型导入：删除本次新增、还原本次更新。
+     *
+     * @param string $type org|team|member
+     * @return array [bool ok, string msg, array|null data]
+     */
+    public static function undoLastImport($type)
+    {
+        $labels = ['org' => '组织', 'team' => '班组', 'member' => '成员'];
+        if (!isset($labels[$type])) {
+            return [false, '不支持的导入类型', null];
+        }
+        $label = $labels[$type];
+
+        $job = Db::name('tm_import_job')
+            ->where('type', $type)
+            ->where('success_cnt', '>', 0)
+            ->whereIn('status', [1, 2])
+            ->order('id desc')
+            ->find();
+        if (!$job) {
+            return [false, '没有可撤回的' . $label . '导入记录', null];
+        }
+
+        list($errors, $meta) = self::parseJobPayload(isset($job['error_json']) ? $job['error_json'] : null);
+        if (!$meta || empty($meta['can_undo'])) {
+            return [false, '该次导入不支持撤回（可能是旧数据或已撤回）', null];
+        }
+        if (!empty($meta['undone_at'])) {
+            return [false, '最近一次' . $label . '导入已经撤回过了', null];
+        }
+
+        $insertedIds = isset($meta['inserted_ids']) && is_array($meta['inserted_ids'])
+            ? array_map('intval', $meta['inserted_ids']) : [];
+        $updated = isset($meta['updated']) && is_array($meta['updated']) ? $meta['updated'] : [];
+
+        Db::startTrans();
+        try {
+            if ($type === 'org') {
+                foreach ($updated as $id => $before) {
+                    $id = (int)$id;
+                    if ($id <= 0 || !is_array($before)) {
+                        continue;
+                    }
+                    Db::name('tm_org')->where('id', $id)->whereNull('deleted_at')->update([
+                        'parent_id'  => isset($before['parent_id']) ? (int)$before['parent_id'] : 0,
+                        'org_type'   => isset($before['org_type']) ? (int)$before['org_type'] : 1,
+                        'sort_no'    => isset($before['sort_no']) ? (int)$before['sort_no'] : 0,
+                        'status'     => isset($before['status']) ? (int)$before['status'] : 1,
+                        'updated_at' => tmNow(),
+                    ]);
+                }
+                rsort($insertedIds);
+                $deleted = 0;
+                foreach ($insertedIds as $id) {
+                    $id = (int)$id;
+                    if ($id <= 0) {
+                        continue;
+                    }
+                    $row = Db::name('tm_org')->where('id', $id)->whereNull('deleted_at')->find();
+                    if (!$row) {
+                        continue;
+                    }
+                    $child = Db::name('tm_org')->where('parent_id', $id)->whereNull('deleted_at')->count();
+                    if ($child > 0) {
+                        throw new \RuntimeException('组织「' . $row['name'] . '」下仍有下级，无法撤回');
+                    }
+                    $team = Db::name('tm_team')->where('org_id', $id)->whereNull('deleted_at')->count();
+                    if ($team > 0) {
+                        throw new \RuntimeException('组织「' . $row['name'] . '」下已有班组，无法撤回');
+                    }
+                    Db::name('tm_org')->where('id', $id)->update(['deleted_at' => tmNow()]);
+                    $deleted++;
+                }
+            } elseif ($type === 'team') {
+                foreach ($updated as $id => $before) {
+                    $id = (int)$id;
+                    if ($id <= 0 || !is_array($before)) {
+                        continue;
+                    }
+                    Db::name('tm_team')->where('id', $id)->whereNull('deleted_at')->update([
+                        'org_id'     => isset($before['org_id']) ? (int)$before['org_id'] : 0,
+                        'status'     => isset($before['status']) ? (int)$before['status'] : 1,
+                        'updated_at' => tmNow(),
+                    ]);
+                }
+                $deleted = 0;
+                foreach ($insertedIds as $id) {
+                    $id = (int)$id;
+                    if ($id <= 0) {
+                        continue;
+                    }
+                    $row = Db::name('tm_team')->where('id', $id)->whereNull('deleted_at')->find();
+                    if (!$row) {
+                        continue;
+                    }
+                    $member = Db::name('tm_member')->where('team_id', $id)->whereNull('deleted_at')->count();
+                    if ($member > 0) {
+                        throw new \RuntimeException('班组「' . $row['name'] . '」下已有成员，无法撤回');
+                    }
+                    Db::name('tm_team')->where('id', $id)->update(['deleted_at' => tmNow()]);
+                    $deleted++;
+                }
+            } else { // member
+                foreach ($updated as $id => $before) {
+                    $id = (int)$id;
+                    if ($id <= 0 || !is_array($before)) {
+                        continue;
+                    }
+                    Db::name('tm_member')->where('id', $id)->whereNull('deleted_at')->update([
+                        'team_id'    => isset($before['team_id']) ? (int)$before['team_id'] : 0,
+                        'name'       => isset($before['name']) ? $before['name'] : '',
+                        'mobile'     => isset($before['mobile']) ? $before['mobile'] : '',
+                        'post_name'  => isset($before['post_name']) ? $before['post_name'] : '',
+                        'role_code'  => isset($before['role_code']) ? $before['role_code'] : 'member',
+                        'status'     => isset($before['status']) ? (int)$before['status'] : 1,
+                        'updated_at' => tmNow(),
+                    ]);
+                }
+                $deleted = 0;
+                foreach ($insertedIds as $id) {
+                    $id = (int)$id;
+                    if ($id <= 0) {
+                        continue;
+                    }
+                    $row = Db::name('tm_member')->where('id', $id)->whereNull('deleted_at')->find();
+                    if (!$row) {
+                        continue;
+                    }
+                    $paper = Db::name('tm_paper')->where('member_id', $id)->count();
+                    if ($paper > 0) {
+                        throw new \RuntimeException('成员「' . $row['name'] . '」已有答卷，无法撤回');
+                    }
+                    Db::name('tm_member')->where('id', $id)->update(['deleted_at' => tmNow()]);
+                    $deleted++;
+                }
+            }
+
+            $meta['can_undo'] = false;
+            $meta['undone_at'] = tmNow();
+            $meta['undo_deleted'] = $deleted;
+            $meta['undo_restored'] = count($updated);
+            Db::name('tm_import_job')->where('id', (int)$job['id'])->update([
+                'error_json' => json_encode([
+                    'errors' => $errors,
+                    'meta'   => $meta,
+                ], JSON_UNESCAPED_UNICODE),
+            ]);
+
+            Db::commit();
+            return [true, '已撤回上次' . $label . '导入：还原 ' . count($updated) . ' 条，删除新增 ' . $deleted . ' 条', [
+                'job_id'   => (int)$job['id'],
+                'type'     => $type,
+                'restored' => count($updated),
+                'deleted'  => $deleted,
+            ]];
+        } catch (\Exception $e) {
+            Db::rollback();
+            return [false, $e->getMessage(), null];
+        }
     }
 
     /**
@@ -270,6 +519,8 @@ class ImportService
         $jobId = self::beginJob('team', $filePath ?: 'upload', $adminId);
         $errors = [];
         $success = 0;
+        $insertedIds = [];
+        $updatedBefore = [];
 
         $orgs = Db::name('tm_org')->whereNull('deleted_at')->select();
         $orgByName = [];
@@ -293,27 +544,42 @@ class ImportService
                 continue;
             }
             $status = self::mapStatus(isset($row['状态']) ? $row['状态'] : 1);
+            $orgId = (int)$orgByName[$orgName];
             $exist = Db::name('tm_team')
                 ->where('name', $name)
-                ->where('org_id', $orgByName[$orgName])
+                ->where('org_id', $orgId)
                 ->whereNull('deleted_at')
                 ->find();
             if ($exist) {
-                Db::name('tm_team')->where('id', $exist['id'])->update([
+                $id = (int)$exist['id'];
+                if (!isset($updatedBefore[$id])) {
+                    $updatedBefore[$id] = [
+                        'org_id' => (int)$exist['org_id'],
+                        'status' => (int)$exist['status'],
+                    ];
+                }
+                Db::name('tm_team')->where('id', $id)->update([
                     'status'     => $status,
                     'updated_at' => tmNow(),
                 ]);
             } else {
-                Db::name('tm_team')->insert([
-                    'org_id'     => $orgByName[$orgName],
+                $id = (int)Db::name('tm_team')->insertGetId([
+                    'org_id'     => $orgId,
                     'name'       => $name,
                     'status'     => $status,
                     'created_at' => tmNow(),
                 ]);
+                $insertedIds[] = $id;
             }
             $success++;
         }
-        return self::finishJob($jobId, count($rows), $success, $errors);
+        $meta = [
+            'can_undo'     => ($success > 0),
+            'undone_at'    => null,
+            'inserted_ids' => $insertedIds,
+            'updated'      => $updatedBefore,
+        ];
+        return self::finishJob($jobId, count($rows), $success, $errors, $meta);
     }
 
     /**
@@ -329,6 +595,8 @@ class ImportService
         $jobId = self::beginJob('member', $filePath ?: 'upload', $adminId);
         $errors = [];
         $success = 0;
+        $insertedIds = [];
+        $updatedBefore = [];
 
         $teams = Db::name('tm_team')->whereNull('deleted_at')->select();
         $teamByName = [];
@@ -371,14 +639,32 @@ class ImportService
                 'status'    => $status,
             ];
             if ($exist) {
+                $id = (int)$exist['id'];
+                if (!isset($updatedBefore[$id])) {
+                    $updatedBefore[$id] = [
+                        'team_id'   => (int)$exist['team_id'],
+                        'name'      => $exist['name'],
+                        'mobile'    => $exist['mobile'],
+                        'post_name' => isset($exist['post_name']) ? $exist['post_name'] : '',
+                        'role_code' => $exist['role_code'],
+                        'status'    => (int)$exist['status'],
+                    ];
+                }
                 $data['updated_at'] = tmNow();
-                Db::name('tm_member')->where('id', $exist['id'])->update($data);
+                Db::name('tm_member')->where('id', $id)->update($data);
             } else {
                 $data['created_at'] = tmNow();
-                Db::name('tm_member')->insert($data);
+                $id = (int)Db::name('tm_member')->insertGetId($data);
+                $insertedIds[] = $id;
             }
             $success++;
         }
-        return self::finishJob($jobId, count($rows), $success, $errors);
+        $meta = [
+            'can_undo'     => ($success > 0),
+            'undone_at'    => null,
+            'inserted_ids' => $insertedIds,
+            'updated'      => $updatedBefore,
+        ];
+        return self::finishJob($jobId, count($rows), $success, $errors, $meta);
     }
 }

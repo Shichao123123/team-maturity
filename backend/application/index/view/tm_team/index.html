@@ -4,7 +4,93 @@
     {include file="common/meta" /}
     {include file="common/css" /}
     <style>
-        .tip { color:#64748b; font-size:12px; line-height:1.6; margin:0 0 10px; }
+        :root {
+            --arc-bg: #eef2f7;
+            --arc-panel: #ffffff;
+            --arc-line: #d9e2ec;
+            --arc-text: #1e293b;
+            --arc-muted: #64748b;
+            --arc-accent: #1677ff;
+            --arc-accent-soft: rgba(22,119,255,.10);
+            --arc-shadow: 0 8px 24px rgba(15,45,90,.06);
+        }
+        body.pear-container { background:
+            radial-gradient(900px 420px at 0% -10%, rgba(22,119,255,.08), transparent 55%),
+            var(--arc-bg) !important; }
+        .tip { color:var(--arc-muted); font-size:12px; line-height:1.6; margin:0 0 10px; }
+        .archive-layout {
+            display:flex; gap:16px; align-items:stretch;
+            min-height:calc(100vh - 110px); padding:4px;
+        }
+        .archive-tree-panel {
+            width:280px; flex:0 0 280px; background:var(--arc-panel);
+            border:1px solid var(--arc-line); border-radius:14px;
+            box-shadow: var(--arc-shadow); display:flex; flex-direction:column;
+            overflow:hidden;
+        }
+        .archive-tree-head {
+            padding:14px 14px 10px; border-bottom:1px solid #edf2f7;
+            background:linear-gradient(180deg,#f8fbff 0%,#fff 100%);
+        }
+        .archive-tree-title {
+            font-weight:700; color:var(--arc-text); margin:0 0 2px; font-size:15px;
+            letter-spacing:.2px;
+        }
+        .archive-tree-sub { color:var(--arc-muted); font-size:12px; margin:0 0 10px; }
+        .archive-tree-actions { display:flex; gap:6px; }
+        .archive-tree-actions .pear-btn {
+            border-radius:999px !important; padding:0 12px !important; height:28px; line-height:28px;
+            border:1px solid var(--arc-line) !important; background:#fff !important; color:#475569 !important;
+        }
+        .archive-tree-actions .pear-btn:hover { border-color:#b7d3ff !important; color:var(--arc-accent) !important; }
+        .archive-tree-body { padding:10px 10px 14px; overflow:auto; flex:1; }
+        .archive-main-panel {
+            flex:1; min-width:0; background:var(--arc-panel);
+            border:1px solid var(--arc-line); border-radius:14px;
+            box-shadow: var(--arc-shadow); padding:16px 18px 18px;
+        }
+        .archive-main-head {
+            display:flex; align-items:center; justify-content:space-between; gap:12px;
+            margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid #edf2f7;
+        }
+        .archive-current {
+            display:inline-flex; align-items:center; gap:8px;
+            margin:0; color:var(--arc-text); font-size:14px; font-weight:600;
+        }
+        .archive-current .chip {
+            display:inline-block; max-width:320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+            background:var(--arc-accent-soft); color:var(--arc-accent);
+            border-radius:999px; padding:3px 10px; font-size:12px; font-weight:600;
+        }
+        .archive-toolbar .layui-form-item { margin-bottom:12px; }
+        .archive-toolbar .layui-input {
+            border-radius:10px !important; border-color:#d7e0ea !important;
+        }
+        .atree, .atree ul { list-style:none; margin:0; padding:0; }
+        .atree-children { padding-left:12px; margin-left:10px; border-left:1px dashed #dbe4ee; }
+        .atree li { margin:2px 0; }
+        .anode {
+            display:flex; align-items:center; gap:6px; padding:7px 10px; border-radius:10px;
+            cursor:pointer; color:#334155; font-size:13px; line-height:1.35;
+            border:1px solid transparent; transition: background .15s ease, border-color .15s ease, color .15s ease;
+        }
+        .anode:hover { background:#f5f9ff; border-color:#e4eefc; }
+        .anode.active {
+            background:var(--arc-accent-soft); border-color:#c9defe; color:var(--arc-accent); font-weight:600;
+            box-shadow: inset 3px 0 0 var(--arc-accent);
+        }
+        .anode .node-ico {
+            width:22px; height:22px; border-radius:7px; flex:0 0 22px;
+            display:inline-flex; align-items:center; justify-content:center;
+            background:#eef2f7; color:#64748b; font-size:12px;
+        }
+        .anode.active .node-ico { background:#fff; color:var(--arc-accent); }
+        .anode .node-text { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .atree .twist {
+            width:16px; flex:0 0 16px; color:#94a3b8; user-select:none; text-align:center;
+            font-size:11px; transition: transform .15s ease;
+        }
+        .atree .twist.empty { visibility:hidden; }
         .team-meta {
             background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;
             padding:10px 14px; margin-bottom:12px; color:#334155; font-size:13px;
@@ -39,25 +125,39 @@
     </style>
 </head>
 <body class="pear-container">
-<div class="layui-card">
-    <div class="layui-card-body">
-        <form class="layui-form" lay-filter="filterForm" onsubmit="return false;">
+<div class="archive-layout">
+    <div class="archive-tree-panel">
+        <div class="archive-tree-head">
+            <div class="archive-tree-title">组织导航</div>
+            <p class="archive-tree-sub">点选节点查看对应班组</p>
+            <div class="archive-tree-actions">
+                <button type="button" class="pear-btn pear-btn-xs" id="btnTreeExpand">展开全部</button>
+                <button type="button" class="pear-btn pear-btn-xs" id="btnTreeFold">折叠全部</button>
+            </div>
+        </div>
+        <div class="archive-tree-body">
+            <div class="anode active" id="treeAll" data-id="" data-name="全部组织">
+                <span class="twist empty">·</span>
+                <span class="node-ico">全</span>
+                <span class="node-text">全部组织</span>
+            </div>
+            <div id="sideTree"></div>
+        </div>
+    </div>
+    <div class="archive-main-panel">
+        <div class="archive-main-head">
+            <div class="archive-current">当前范围 <span class="chip" id="currentLabel">全部组织</span></div>
+        </div>
+        <form class="layui-form archive-toolbar" lay-filter="filterForm" onsubmit="return false;">
             <div class="layui-form-item">
                 <div class="layui-inline">
-                    <select name="orgId" lay-filter="autoFilter">
-                        <option value="">全部组织</option>
-                        {volist name="orgs" id="o"}
-                        <option value="{$o.id}">{$o.path}</option>
-                        {/volist}
-                    </select>
+                    <input type="text" name="keyword" placeholder="搜索班组名称" class="layui-input" style="width:220px;">
                 </div>
                 <div class="layui-inline">
-                    <input type="text" name="keyword" placeholder="班组名称（输入即筛选）" class="layui-input">
-                </div>
-                <div class="layui-inline">
-                    <button type="button" class="pear-btn pear-btn-md" id="btnAdd">新增</button>
+                    <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnAdd">新增班组</button>
                     <a class="pear-btn pear-btn-md" href="/TmTeam/importTemplate">下载模板</a>
-                    <button type="button" class="pear-btn pear-btn-md pear-btn-success" id="btnImport">导入Excel</button>
+                    <button type="button" class="pear-btn pear-btn-md pear-btn-success" id="btnImport">导入</button>
+                    <button type="button" class="pear-btn pear-btn-md" id="btnUndoImport" title="仅撤回最近一次班组导入">撤回导入</button>
                     <input type="file" id="fileImport" accept=".xls,.xlsx,.csv" style="display:none">
                 </div>
             </div>
@@ -158,25 +258,103 @@
 layui.use(['table','form','jquery','layer'], function(){
     var table = layui.table, form = layui.form, $ = layui.jquery, layer = layui.layer;
     form.render();
+    var selectedOrgId = '';
+    var selectedOrgName = '全部组织';
 
     function fmtScore(v){
         if (v === null || v === undefined || v === '') return '—';
         return Number(v).toFixed(1);
     }
-    function reloadFilter(){
-        table.reload('dataTable', {where: form.val('filterForm') || {}, page:{curr:1}});
+
+    function renderSideTree(nodes, $parent){
+        if (!nodes || !nodes.length) return;
+        var $ul = $('<ul class="atree"></ul>');
+        nodes.forEach(function(n){
+            var hasChild = n.children && n.children.length;
+            var $li = $('<li></li>');
+            var $row = $('<div class="anode"></div>').attr('data-id', n.id).attr('data-name', n.name);
+            var $twist = $('<span class="twist"></span>').text(hasChild ? '▼' : '·');
+            if (!hasChild) $twist.addClass('empty');
+            $row.append($twist)
+                .append($('<span class="node-ico"></span>').text('组'))
+                .append($('<span class="node-text"></span>').text(n.name));
+            $li.append($row);
+            if (hasChild) {
+                var $childWrap = $('<div class="atree-children"></div>');
+                renderSideTree(n.children, $childWrap);
+                $li.append($childWrap);
+                $twist.on('click', function(e){
+                    e.stopPropagation();
+                    var open = $twist.text() === '▼';
+                    $twist.text(open ? '▶' : '▼');
+                    $childWrap.toggle(!open);
+                });
+            }
+            $ul.append($li);
+        });
+        $parent.append($ul);
     }
-    form.on('select(autoFilter)', function(){ reloadFilter(); });
+
+    function loadSideTree(){
+        $.getJSON('/TmTeam/sideTree', function(res){
+            var $box = $('#sideTree').empty();
+            if (!(res.success || res.code===0)) return;
+            renderSideTree(res.data || [], $box);
+        });
+    }
+
+    function expandSideTree(open){
+        $('#sideTree .atree-children').toggle(!!open);
+        $('#sideTree .twist').each(function(){
+            var $t = $(this);
+            if ($t.hasClass('empty')) return;
+            $t.text(open ? '▼' : '▶');
+        });
+    }
+    $('#btnTreeExpand').on('click', function(){ expandSideTree(true); });
+    $('#btnTreeFold').on('click', function(){ expandSideTree(false); });
+
+    function setActiveTree(orgId){
+        $('.archive-tree-panel .anode').removeClass('active');
+        if (!orgId) {
+            $('#treeAll').addClass('active');
+        } else {
+            $('.archive-tree-panel .anode[data-id="'+orgId+'"]').addClass('active');
+        }
+    }
+
+    function reloadList(){
+        $('#currentLabel').text(selectedOrgName || '全部组织');
+        setActiveTree(selectedOrgId);
+        var f = form.val('filterForm') || {};
+        table.reload('dataTable', {
+            where: {
+                orgId: selectedOrgId || '',
+                orgSubtree: selectedOrgId ? 1 : 0,
+                keyword: f.keyword || ''
+            },
+            page: {curr: 1}
+        });
+    }
+
     var keywordTimer = null;
     $('form[lay-filter="filterForm"] input[name="keyword"]').on('input', function(){
         clearTimeout(keywordTimer);
-        keywordTimer = setTimeout(reloadFilter, 300);
+        keywordTimer = setTimeout(reloadList, 300);
+    });
+
+    $(document).on('click', '.archive-tree-panel .anode', function(e){
+        if ($(e.target).hasClass('twist')) return;
+        selectedOrgId = $(this).attr('data-id') || '';
+        selectedOrgName = $(this).attr('data-name') || $(this).text() || '全部组织';
+        reloadList();
     });
 
     table.render({
         elem: '#dataTable',
         id: 'dataTable',
         url: '/TmTeam/getList',
+        where: {orgId: '', orgSubtree: 0, keyword: ''},
         page: true,
         cols: [[
             {field:'name', title:'班组名称'},
@@ -185,6 +363,7 @@ layui.use(['table','form','jquery','layer'], function(){
             {title:'操作', toolbar:'#bar', width:220}
         ]]
     });
+    setActiveTree('');
 
     function openForm(row){
         layer.open({
@@ -192,12 +371,16 @@ layui.use(['table','form','jquery','layer'], function(){
             content: $('#editTpl').html(),
             success: function(){
                 form.render(null, 'editForm');
-                if (row) form.val('editForm', row);
+                if (row) {
+                    form.val('editForm', row);
+                } else if (selectedOrgId) {
+                    form.val('editForm', {org_id: selectedOrgId, status: 1});
+                }
                 form.on('submit(save)', function(d){
                     var url = d.field.id ? '/TmTeam/edit' : '/TmTeam/add';
                     $.post(url, d.field, function(res){
                         layer.msg(res.msg||'');
-                        if (res.success || res.code===0){ layer.closeAll('page'); table.reload('dataTable'); }
+                        if (res.success || res.code===0){ layer.closeAll('page'); reloadList(); }
                     }, 'json');
                     return false;
                 });
@@ -407,6 +590,23 @@ layui.use(['table','form','jquery','layer'], function(){
 
     $('#btnAdd').on('click', function(){ openForm(null); });
     $('#btnImport').on('click', function(){ $('#fileImport').click(); });
+    $('#btnUndoImport').on('click', function(){
+        layer.confirm('确认撤回最近一次班组导入？<br>将删除该次新增的班组，并还原该次改过的班组。', {
+            title: '撤回上次导入',
+            btn: ['确认撤回', '取消']
+        }, function(index){
+            layer.close(index);
+            var load = layer.load(2);
+            $.post('/TmTeam/undoLastImport', {}, function(res){
+                layer.close(load);
+                layer.msg(res.msg || '');
+                if (res.success || res.code === 0) { loadSideTree(); reloadList(); }
+            }, 'json').fail(function(){
+                layer.close(load);
+                layer.msg('请求失败');
+            });
+        });
+    });
     $('#fileImport').on('change', function(){
         var f = this.files[0];
         if (!f) return;
@@ -419,7 +619,7 @@ layui.use(['table','form','jquery','layer'], function(){
             success: function(res){
                 layer.close(load);
                 layer.msg(res.msg || '');
-                if (res.success || res.code===0) table.reload('dataTable');
+                if (res.success || res.code===0) { loadSideTree(); reloadList(); }
             },
             error: function(){ layer.close(load); layer.msg('上传失败'); },
             complete: function(){ $('#fileImport').val(''); }
@@ -430,14 +630,16 @@ layui.use(['table','form','jquery','layer'], function(){
         if (obj.event === 'edit') openForm(obj.data);
         if (obj.event === 'del') {
             layer.confirm('确认删除？', function(i){
-                $.post('/TmTeam/delete', {id:obj.data.id}, function(res){
+                $.post('/TmTeam/delete', {id: obj.data.id}, function(res){
                     layer.msg(res.msg||'');
-                    if (res.success || res.code===0) table.reload('dataTable');
+                    if (res.success || res.code===0) reloadList();
                 }, 'json');
                 layer.close(i);
             });
         }
     });
+
+    loadSideTree();
 });
 </script>
 </body>

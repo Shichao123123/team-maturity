@@ -4,6 +4,99 @@
     {include file="common/meta" /}
     {include file="common/css" /}
     <style>
+        :root {
+            --arc-bg: #eef2f7;
+            --arc-panel: #ffffff;
+            --arc-line: #d9e2ec;
+            --arc-text: #1e293b;
+            --arc-muted: #64748b;
+            --arc-accent: #1677ff;
+            --arc-accent-soft: rgba(22,119,255,.10);
+            --arc-team: #0f766e;
+            --arc-team-soft: rgba(15,118,110,.10);
+            --arc-shadow: 0 8px 24px rgba(15,45,90,.06);
+        }
+        body.pear-container { background:
+            radial-gradient(900px 420px at 0% -10%, rgba(22,119,255,.08), transparent 55%),
+            var(--arc-bg) !important; }
+        .archive-layout {
+            display:flex; gap:16px; align-items:stretch;
+            min-height:calc(100vh - 110px); padding:4px;
+        }
+        .archive-tree-panel {
+            width:300px; flex:0 0 300px; background:var(--arc-panel);
+            border:1px solid var(--arc-line); border-radius:14px;
+            box-shadow: var(--arc-shadow); display:flex; flex-direction:column;
+            overflow:hidden;
+        }
+        .archive-tree-head {
+            padding:14px 14px 10px; border-bottom:1px solid #edf2f7;
+            background:linear-gradient(180deg,#f8fbff 0%,#fff 100%);
+        }
+        .archive-tree-title {
+            font-weight:700; color:var(--arc-text); margin:0 0 2px; font-size:15px;
+            letter-spacing:.2px;
+        }
+        .archive-tree-sub { color:var(--arc-muted); font-size:12px; margin:0 0 10px; }
+        .archive-tree-actions { display:flex; gap:6px; }
+        .archive-tree-actions .pear-btn {
+            border-radius:999px !important; padding:0 12px !important; height:28px; line-height:28px;
+            border:1px solid var(--arc-line) !important; background:#fff !important; color:#475569 !important;
+        }
+        .archive-tree-actions .pear-btn:hover { border-color:#b7d3ff !important; color:var(--arc-accent) !important; }
+        .archive-tree-body { padding:10px 10px 14px; overflow:auto; flex:1; }
+        .archive-main-panel {
+            flex:1; min-width:0; background:var(--arc-panel);
+            border:1px solid var(--arc-line); border-radius:14px;
+            box-shadow: var(--arc-shadow); padding:16px 18px 18px;
+        }
+        .archive-main-head {
+            display:flex; align-items:center; justify-content:space-between; gap:12px;
+            margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid #edf2f7;
+        }
+        .archive-current {
+            display:inline-flex; align-items:center; gap:8px;
+            margin:0; color:var(--arc-text); font-size:14px; font-weight:600;
+        }
+        .archive-current .chip {
+            display:inline-block; max-width:360px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+            background:var(--arc-accent-soft); color:var(--arc-accent);
+            border-radius:999px; padding:3px 10px; font-size:12px; font-weight:600;
+        }
+        .archive-toolbar .layui-form-item { margin-bottom:12px; }
+        .archive-toolbar .layui-input,
+        .archive-toolbar .layui-form-select .layui-input {
+            border-radius:10px !important; border-color:#d7e0ea !important;
+        }
+        .atree, .atree ul { list-style:none; margin:0; padding:0; }
+        .atree-children { padding-left:12px; margin-left:10px; border-left:1px dashed #dbe4ee; }
+        .atree li { margin:2px 0; }
+        .anode {
+            display:flex; align-items:center; gap:6px; padding:7px 10px; border-radius:10px;
+            cursor:pointer; color:#334155; font-size:13px; line-height:1.35;
+            border:1px solid transparent; transition: background .15s ease, border-color .15s ease, color .15s ease;
+        }
+        .anode:hover { background:#f5f9ff; border-color:#e4eefc; }
+        .anode.active {
+            background:var(--arc-accent-soft); border-color:#c9defe; color:var(--arc-accent); font-weight:600;
+            box-shadow: inset 3px 0 0 var(--arc-accent);
+        }
+        .anode.is-team.active {
+            background:var(--arc-team-soft); border-color:#b7e0db; color:var(--arc-team);
+            box-shadow: inset 3px 0 0 var(--arc-team);
+        }
+        .anode .node-ico {
+            width:22px; height:22px; border-radius:7px; flex:0 0 22px;
+            display:inline-flex; align-items:center; justify-content:center;
+            background:#eef2f7; color:#64748b; font-size:12px;
+        }
+        .anode.is-team .node-ico { background:#e6f4f2; color:var(--arc-team); }
+        .anode.active .node-ico { background:#fff; color:inherit; }
+        .anode .node-text { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .atree .twist {
+            width:16px; flex:0 0 16px; color:#94a3b8; user-select:none; text-align:center; font-size:11px;
+        }
+        .atree .twist.empty { visibility:hidden; }
         .paper-summary { color:#64748b; font-size:12px; line-height:1.5; }
         .paper-summary .score { color:#1677ff; font-weight:600; }
         .paper-summary .level { color:#0f766e; font-weight:600; }
@@ -23,18 +116,31 @@
     </style>
 </head>
 <body class="pear-container">
-<div class="layui-card">
-    <div class="layui-card-body">
-        <form class="layui-form" lay-filter="filterForm" onsubmit="return false;">
+<div class="archive-layout">
+    <div class="archive-tree-panel">
+        <div class="archive-tree-head">
+            <div class="archive-tree-title">组织 / 班组</div>
+            <p class="archive-tree-sub">点组织看范围成员，点班组看该班组</p>
+            <div class="archive-tree-actions">
+                <button type="button" class="pear-btn pear-btn-xs" id="btnTreeExpand">展开全部</button>
+                <button type="button" class="pear-btn pear-btn-xs" id="btnTreeFold">折叠全部</button>
+            </div>
+        </div>
+        <div class="archive-tree-body">
+            <div class="anode active" id="treeAll" data-type="all" data-id="" data-name="全部">
+                <span class="twist empty">·</span>
+                <span class="node-ico">全</span>
+                <span class="node-text">全部</span>
+            </div>
+            <div id="sideTree"></div>
+        </div>
+    </div>
+    <div class="archive-main-panel">
+        <div class="archive-main-head">
+            <div class="archive-current">当前范围 <span class="chip" id="currentLabel">全部</span></div>
+        </div>
+        <form class="layui-form archive-toolbar" lay-filter="filterForm" onsubmit="return false;">
             <div class="layui-form-item">
-                <div class="layui-inline">
-                    <select name="teamId" lay-filter="autoFilter">
-                        <option value="">全部班组</option>
-                        {volist name="teams" id="t"}
-                        <option value="{$t.id}">{$t.name}</option>
-                        {/volist}
-                    </select>
-                </div>
                 <div class="layui-inline">
                     <select name="roleCode" lay-filter="autoFilter">
                         <option value="">全部角色</option>
@@ -44,12 +150,13 @@
                     </select>
                 </div>
                 <div class="layui-inline">
-                    <input type="text" name="keyword" placeholder="姓名/手机号" class="layui-input">
+                    <input type="text" name="keyword" placeholder="搜索姓名 / 手机号" class="layui-input" style="width:200px;">
                 </div>
                 <div class="layui-inline">
-                    <button type="button" class="pear-btn pear-btn-md" id="btnAdd">新增</button>
+                    <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnAdd">新增成员</button>
                     <a class="pear-btn pear-btn-md" href="/TmMember/importTemplate" title="可选：批量补录">下载模板</a>
-                    <button type="button" class="pear-btn pear-btn-md pear-btn-success" id="btnImport" title="正式测评以小程序自助登记为主，导入非前置">导入Excel</button>
+                    <button type="button" class="pear-btn pear-btn-md pear-btn-success" id="btnImport" title="正式测评以小程序自助登记为主，导入非前置">导入</button>
+                    <button type="button" class="pear-btn pear-btn-md" id="btnUndoImport" title="仅撤回最近一次成员导入">撤回导入</button>
                     <input type="file" id="fileImport" accept=".xls,.xlsx,.csv" style="display:none">
                 </div>
             </div>
@@ -151,35 +258,116 @@
 <script>
 layui.use(['table','form','jquery','layer'], function(){
     var table = layui.table, form = layui.form, $ = layui.jquery, layer = layui.layer;
+    var selected = {type: 'all', id: '', name: '全部'};
 
     function fmtScore(v){
         if (v === null || v === undefined || v === '') return '—';
         return Number(v).toFixed(1);
     }
 
-    function reloadFilter(){
-        var f = form.val('filterForm') || {};
-        // 空选项必须显式传 ''，否则 table.reload 合并 where 时会残留上次的 roleCode/teamId
-        table.reload('dataTable', {
-            where: {
-                teamId: f.teamId || '',
-                roleCode: f.roleCode || '',
-                keyword: f.keyword || ''
-            },
-            page: {curr: 1}
+    function renderSideTree(nodes, $parent){
+        if (!nodes || !nodes.length) return;
+        var $ul = $('<ul class="atree"></ul>');
+        nodes.forEach(function(n){
+            var hasChild = n.children && n.children.length;
+            var isTeam = n.node_type === 'team';
+            var $li = $('<li></li>');
+            var $row = $('<div class="anode"></div>')
+                .attr('data-id', n.id)
+                .attr('data-type', n.node_type || 'org')
+                .attr('data-name', n.name);
+            if (isTeam) $row.addClass('is-team');
+            var $twist = $('<span class="twist"></span>').text(hasChild ? '▼' : '·');
+            if (!hasChild) $twist.addClass('empty');
+            $row.append($twist)
+                .append($('<span class="node-ico"></span>').text(isTeam ? '班' : '组'))
+                .append($('<span class="node-text"></span>').text(n.name));
+            $li.append($row);
+            if (hasChild) {
+                var $childWrap = $('<div class="atree-children"></div>');
+                renderSideTree(n.children, $childWrap);
+                $li.append($childWrap);
+                $twist.on('click', function(e){
+                    e.stopPropagation();
+                    var open = $twist.text() === '▼';
+                    $twist.text(open ? '▶' : '▼');
+                    $childWrap.toggle(!open);
+                });
+            }
+            $ul.append($li);
+        });
+        $parent.append($ul);
+    }
+
+    function loadSideTree(){
+        $.getJSON('/TmMember/sideTree', function(res){
+            var $box = $('#sideTree').empty();
+            if (!(res.success || res.code===0)) return;
+            renderSideTree(res.data || [], $box);
         });
     }
-    form.on('select(autoFilter)', function(){ reloadFilter(); });
+
+    function expandSideTree(open){
+        $('#sideTree .atree-children').toggle(!!open);
+        $('#sideTree .twist').each(function(){
+            var $t = $(this);
+            if ($t.hasClass('empty')) return;
+            $t.text(open ? '▼' : '▶');
+        });
+    }
+    $('#btnTreeExpand').on('click', function(){ expandSideTree(true); });
+    $('#btnTreeFold').on('click', function(){ expandSideTree(false); });
+
+    function setActiveTree(){
+        $('.archive-tree-panel .anode').removeClass('active');
+        if (selected.type === 'all') {
+            $('#treeAll').addClass('active');
+            return;
+        }
+        $('.archive-tree-panel .anode[data-type="'+selected.type+'"][data-id="'+selected.id+'"]').addClass('active');
+    }
+
+    function listWhere(){
+        var f = form.val('filterForm') || {};
+        var w = {
+            teamId: '',
+            orgId: '',
+            roleCode: f.roleCode || '',
+            keyword: f.keyword || ''
+        };
+        if (selected.type === 'team') w.teamId = selected.id;
+        if (selected.type === 'org') w.orgId = selected.id;
+        return w;
+    }
+
+    function reloadList(){
+        $('#currentLabel').text(selected.name || '全部');
+        setActiveTree();
+        table.reload('dataTable', {where: listWhere(), page: {curr: 1}});
+    }
+
+    form.on('select(autoFilter)', function(){ reloadList(); });
     var keywordTimer = null;
     $('form[lay-filter="filterForm"] input[name="keyword"]').on('input', function(){
         clearTimeout(keywordTimer);
-        keywordTimer = setTimeout(reloadFilter, 300);
+        keywordTimer = setTimeout(reloadList, 300);
+    });
+
+    $(document).on('click', '.archive-tree-panel .anode', function(e){
+        if ($(e.target).hasClass('twist')) return;
+        selected = {
+            type: $(this).attr('data-type') || 'all',
+            id: $(this).attr('data-id') || '',
+            name: $(this).attr('data-name') || $(this).text() || '全部'
+        };
+        reloadList();
     });
 
     table.render({
         elem: '#dataTable',
         id: 'dataTable',
         url: '/TmMember/getList',
+        where: listWhere(),
         page: true,
         cols: [[
             {field:'name', title:'姓名', width:90},
@@ -215,12 +403,16 @@ layui.use(['table','form','jquery','layer'], function(){
             content: $('#editTpl').html(),
             success: function(){
                 form.render(null, 'editForm');
-                if (row) form.val('editForm', row);
+                if (row) {
+                    form.val('editForm', row);
+                } else if (selected.type === 'team' && selected.id) {
+                    form.val('editForm', {team_id: selected.id, status: 1, role_code: 'member'});
+                }
                 form.on('submit(save)', function(d){
                     var url = d.field.id ? '/TmMember/edit' : '/TmMember/add';
                     $.post(url, d.field, function(res){
                         layer.msg(res.msg||'');
-                        if (res.success || res.code===0){ layer.closeAll('page'); table.reload('dataTable'); }
+                        if (res.success || res.code===0){ layer.closeAll('page'); reloadList(); }
                     }, 'json');
                     return false;
                 });
@@ -229,6 +421,7 @@ layui.use(['table','form','jquery','layer'], function(){
     }
 
     function openPaperList(member){
+        var memberId = member.id;
         layer.open({
             type:1,
             title: '答题记录 — ' + (member.name || ''),
@@ -239,7 +432,7 @@ layui.use(['table','form','jquery','layer'], function(){
                 table.render({
                     elem: '#paperTable',
                     url: '/TmMember/paperList',
-                    where: { member_id: member.id },
+                    where: { member_id: memberId },
                     page: false,
                     parseData: function(res){
                         var list = (res.data && res.data.list) ? res.data.list : [];
@@ -260,7 +453,7 @@ layui.use(['table','form','jquery','layer'], function(){
                 });
                 table.on('tool(paperTable)', function(obj){
                     if (obj.event === 'detail') {
-                        openPaperDetail(obj.data.paper_id, member.id, member.name);
+                        openPaperDetail(obj.data.paper_id, memberId, member.name);
                     }
                 });
             }
@@ -355,6 +548,23 @@ layui.use(['table','form','jquery','layer'], function(){
 
     $('#btnAdd').on('click', function(){ openForm(null); });
     $('#btnImport').on('click', function(){ $('#fileImport').click(); });
+    $('#btnUndoImport').on('click', function(){
+        layer.confirm('确认撤回最近一次成员导入？<br>将删除该次新增的成员，并还原该次改过的成员。', {
+            title: '撤回上次导入',
+            btn: ['确认撤回', '取消']
+        }, function(index){
+            layer.close(index);
+            var load = layer.load(2);
+            $.post('/TmMember/undoLastImport', {}, function(res){
+                layer.close(load);
+                layer.msg(res.msg || '');
+                if (res.success || res.code === 0) { loadSideTree(); reloadList(); }
+            }, 'json').fail(function(){
+                layer.close(load);
+                layer.msg('请求失败');
+            });
+        });
+    });
     $('#fileImport').on('change', function(){
         var f = this.files[0];
         if (!f) return;
@@ -367,7 +577,7 @@ layui.use(['table','form','jquery','layer'], function(){
             success: function(res){
                 layer.close(load);
                 layer.msg(res.msg || '');
-                if (res.success || res.code===0) table.reload('dataTable');
+                if (res.success || res.code===0) { loadSideTree(); reloadList(); }
             },
             error: function(){ layer.close(load); layer.msg('上传失败'); },
             complete: function(){ $('#fileImport').val(''); }
@@ -379,14 +589,16 @@ layui.use(['table','form','jquery','layer'], function(){
         if (obj.event==='edit') openForm(obj.data);
         if (obj.event==='del') {
             layer.confirm('确认删除？', function(i){
-                $.post('/TmMember/delete', {id:obj.data.id}, function(res){
+                $.post('/TmMember/delete', {id: obj.data.id}, function(res){
                     layer.msg(res.msg||'');
-                    if (res.success || res.code===0) table.reload('dataTable');
+                    if (res.success || res.code===0) reloadList();
                 }, 'json');
                 layer.close(i);
             });
         }
     });
+
+    loadSideTree();
 });
 </script>
 </body>

@@ -3,6 +3,7 @@ namespace app\index\controller;
 
 use app\index\model\OrgModel;
 use app\index\model\TeamModel;
+use app\index\service\ArchiveTreeService;
 use app\index\service\ExcelHelper;
 use app\index\service\ImportService;
 use app\index\service\OpLogService;
@@ -37,8 +38,27 @@ class TmTeam extends Base
         $orgId = $req->param('orgId', null);
         $keyword = $req->param('keyword', '', 'trim');
         $status = $req->param('status', null);
-        list($count, $list) = (new TeamModel())->getPage($orgId, $keyword, $status, $page, $limit);
+        $orgSubtree = (int)$req->param('orgSubtree', 0);
+        $orgIds = null;
+        if ($orgSubtree && $orgId !== null && $orgId !== '') {
+            $orgIds = ArchiveTreeService::orgSubtreeIdList((int)$orgId);
+            if (!$orgIds) {
+                return json(DefaultResponseList(0, 0, 'ok', []));
+            }
+            $orgId = null;
+        }
+        list($count, $list) = (new TeamModel())->getPage($orgId, $keyword, $status, $page, $limit, $orgIds);
         return json(DefaultResponseList(0, $count, 'ok', $list));
+    }
+
+    /**
+     * 左侧组织树（嵌套）。
+     *
+     * @return \think\response\Json
+     */
+    public function sideTree()
+    {
+        return json(DefaultResponse(0, true, 'ok', ArchiveTreeService::nestedOrgTree()));
     }
 
     /**
@@ -264,7 +284,22 @@ class TmTeam extends Base
         $adminId = isset($this->currentAdmin['id']) ? $this->currentAdmin['id'] : 0;
         $result = ImportService::importTeams($rows, $adminId, $pathOrMsg);
         OpLogService::write('import', 'team', isset($result['job_id']) ? $result['job_id'] : null, $result);
-        $msg = "导入完成：成功 {$result['success_cnt']}，失败 {$result['fail_cnt']}";
+        $msg = "导入完成：成功 {$result['success_cnt']}，失败 {$result['fail_cnt']}（误操作可点「撤回上次导入」）";
         return json(DefaultResponse(0, true, $msg, $result));
+    }
+
+    /**
+     * 撤回最近一次班组导入。
+     *
+     * @return \think\response\Json
+     */
+    public function undoLastImport()
+    {
+        list($ok, $msg, $data) = ImportService::undoLastTeamImport();
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+        OpLogService::write('import_undo', 'team', isset($data['job_id']) ? $data['job_id'] : null, $data);
+        return json(DefaultResponse(0, true, $msg, $data));
     }
 }

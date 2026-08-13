@@ -84,33 +84,35 @@ class ExcelHelper
      */
     public static function download($filename, array $headers, array $rows = [])
     {
-        self::ensureAutoload();
-        $excel = new \PHPExcel();
-        $sheet = $excel->getActiveSheet();
-        $sheet->setTitle('Sheet1');
-
-        foreach ($headers as $c => $h) {
-            $sheet->setCellValueByColumnAndRow($c, 1, $h);
-            $sheet->getStyleByColumnAndRow($c, 1)->getFont()->setBold(true);
-            $sheet->getColumnDimensionByColumn($c)->setAutoSize(true);
-        }
-        foreach ($rows as $r => $row) {
-            foreach ($headers as $c => $h) {
-                $val = isset($row[$h]) ? $row[$h] : (isset($row[$c]) ? $row[$c] : '');
-                $sheet->setCellValueByColumnAndRow($c, $r + 2, $val);
-            }
+        // 使用 CSV（带 BOM），避免 PHPExcel Excel5/OLE 在 PHP7.3+ 的 continue 告警被框架打成 500
+        $filename = preg_replace('/\.(xls|xlsx)$/i', '.csv', (string)$filename);
+        if (!preg_match('/\.csv$/i', $filename)) {
+            $filename .= '.csv';
         }
 
-        // 清理缓冲，避免损坏文件
-        if (ob_get_length()) {
+        while (ob_get_level() > 0) {
             ob_end_clean();
         }
 
-        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Type: text/csv; charset=UTF-8');
         header('Content-Disposition: attachment;filename="' . $filename . '"');
         header('Cache-Control: max-age=0');
-        $writer = \PHPExcel_IOFactory::createWriter($excel, 'Excel5');
-        $writer->save('php://output');
+        // Excel 打开 UTF-8 CSV 需要 BOM
+        echo "\xEF\xBB\xBF";
+
+        $out = fopen('php://output', 'w');
+        if ($out === false) {
+            exit;
+        }
+        fputcsv($out, $headers);
+        foreach ($rows as $row) {
+            $line = [];
+            foreach ($headers as $c => $h) {
+                $line[] = isset($row[$h]) ? $row[$h] : (isset($row[$c]) ? $row[$c] : '');
+            }
+            fputcsv($out, $line);
+        }
+        fclose($out);
         exit;
     }
 
