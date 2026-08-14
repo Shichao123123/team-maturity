@@ -6,8 +6,7 @@
  * - 详情 → 本地设置 → 勾选「不校验合法域名、web-view、TLS 版本以及 HTTPS 证书」
  */
 module.exports = {
-  baseUrl: 'http://127.0.0.1:8088',
-  // 真机可改为：'http://192.168.1.3:8088'
+  baseUrl: 'https://fdsdxc.xyz',
   appName: '班组安全成熟度测评',
   orgShortName: '中钢安环院',
   orgName: '中钢武汉安全环保研究院股份有限公司',
