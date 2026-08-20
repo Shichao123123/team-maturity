@@ -15,6 +15,6 @@ module.exports = {
   copyright:
     'Copyright © ' +
     new Date().getFullYear() +
-    ' 中钢武汉安全环保研究院股份有限公司（中钢安环院） 版权所有',
+    ' 中钢武汉安全环保研究院股份有限公司 版权所有',
 };
 

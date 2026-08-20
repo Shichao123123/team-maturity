@@ -764,6 +764,8 @@ class MiniPaperService
             return [false, '当前批次不可作答'];
         }
         if (!empty($batch['end_time']) && $batch['end_time'] < tmNow()) {
+            // 到期自动结束并算分（与 PC「结束并自动算分」一致）
+            BatchService::finishIfExpired($batchId);
             return [false, '测评已超过截止时间'];
         }
         return [true, 'ok'];

@@ -8,8 +8,6 @@ Component({
     },
   },
   data: {
-    orgShortName: config.orgShortName,
-    orgName: config.orgName,
     copyright: config.copyright,
     orgSite: config.orgSite,
   },

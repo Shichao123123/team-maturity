@@ -36,6 +36,7 @@
         .status-tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:12px; }
         .st-0 { background:#f1f5f9; color:#475569; }
         .st-1 { background:#dcfce7; color:#166534; }
+        .st-1-late { background:#ffedd5; color:#9a3412; }
         .st-2 { background:#fee2e2; color:#991b1b; }
         .act-row { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 12px; }
         .batch-detail-scroll { max-height: calc(100vh - 160px); overflow:auto; padding-right:4px; }
@@ -430,8 +431,18 @@ layui.use(['table','form','jquery','layer','laydate'], function(){
         keywordTimer = setTimeout(reloadFilter, 300);
     });
 
+    function isPastEndTime(d){
+        if (!d || !d.end_time) return false;
+        var t = Date.parse(String(d.end_time).replace(/-/g, '/'));
+        return !isNaN(t) && t < Date.now();
+    }
+
     function statusHtml(d){
         var s = parseInt(d.status, 10);
+        // 状态需管理员点「结束并算分」才会变已结束；过截止仅拦截答题，列表提示「已过截止」
+        if (s === 1 && isPastEndTime(d)) {
+            return '<span class="status-tag st-1-late" title="截止时间已过，请点详情→结束并自动算分">已过截止</span>';
+        }
         var cls = 'st-' + (s === 1 || s === 2 ? s : 0);
         return '<span class="status-tag '+cls+'">'+(d.status_text||'')+'</span>';
     }
@@ -448,7 +459,7 @@ layui.use(['table','form','jquery','layer','laydate'], function(){
             }},
             {field:'start_time', title:'开始', width:160},
             {field:'end_time', title:'结束', width:160},
-            {field:'status', title:'状态', width:90, templet: statusHtml},
+            {field:'status', title:'状态', width:100, templet: statusHtml},
             {field:'score_status_text', title:'算分', width:90},
             {field:'team_cnt', title:'班组', width:70, align:'center'},
             {field:'submitted_cnt', title:'已提交', width:80, align:'center'},
@@ -544,7 +555,10 @@ layui.use(['table','form','jquery','layer','laydate'], function(){
             (d.version_no ? '（'+d.version_no+'）' : '') +
             ' · ' + (d.start_time||'') + ' ~ ' + (d.end_time||'') +
             ' · 算分状态：' + (d.score_status_text||'') +
-            (d.has_snap ? (' · 快照题数 ' + (d.question_cnt||0)) : ' · 尚未写快照')
+            (d.has_snap ? (' · 快照题数 ' + (d.question_cnt||0)) : ' · 尚未写快照') +
+            (parseInt(d.status, 10) === 1 && isPastEndTime(d)
+                ? ' · <span style="color:#9a3412;">截止已过，请结束并算分</span>'
+                : '')
         );
         var qrContent = d.qr_content || ('pages/exam/index?batch_id=' + d.id);
         var wxReady = !!d.wxacode_configured && !!d.wxacode_url;

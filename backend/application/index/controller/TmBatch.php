@@ -69,6 +69,8 @@ class TmBatch extends Base
      */
     public function getList()
     {
+        // 懒触发：打开列表时自动结束已过截止的进行中批次并算分
+        BatchService::autoFinishExpired();
         $req = Request::instance();
         $page = (int)$req->param('page', 1);
         $limit = (int)$req->param('limit', 15);
@@ -86,6 +88,7 @@ class TmBatch extends Base
     public function detail()
     {
         $id = (int)Request::instance()->param('id', 0);
+        BatchService::finishIfExpired($id);
         $row = BatchService::detail($id);
         if (!$row) {
             return json(DefaultResponse(404, false, '批次不存在'));

@@ -455,6 +455,86 @@ class BatchService
     }
 
     /**
+     * 若批次仍为进行中且已过 end_time，则自动结束并算分。
+     *
+     * @param int|string $batchId 批次 ID
+     * @return array [ok, msg, data] ok=false 表示无需处理或失败
+     */
+    public static function finishIfExpired($batchId)
+    {
+        $batch = self::find($batchId);
+        if (!$batch) {
+            return [false, '批次不存在', null];
+        }
+        if ((int)$batch['status'] !== 1) {
+            return [false, '无需处理', null];
+        }
+        if (empty($batch['end_time']) || $batch['end_time'] >= tmNow()) {
+            return [false, '未到截止时间', null];
+        }
+        list($ok, $msg, $data) = self::finish($batchId, true);
+        if ($ok) {
+            try {
+                OpLogService::write('batch', 'auto_finish', (int)$batchId, [
+                    'reason' => 'end_time_passed',
+                    'end_time' => $batch['end_time'],
+                    'msg' => $msg,
+                ], 0);
+            } catch (\Exception $e) {
+                // 写日志失败不影响主流程
+            }
+        }
+        return [$ok, $msg, $data];
+    }
+
+    /**
+     * 扫描并自动结束所有已过截止时间的进行中批次（带节流，避免频繁扫库）。
+     *
+     * @param int $limit           单次最多处理条数
+     * @param int $minIntervalSec  最短触发间隔（秒）
+     * @param bool $force          是否忽略节流
+     * @return array [processed_count, items]
+     */
+    public static function autoFinishExpired($limit = 20, $minIntervalSec = 60, $force = false)
+    {
+        $limit = max(1, min(50, (int)$limit));
+        $minIntervalSec = max(10, (int)$minIntervalSec);
+        $lockFile = defined('RUNTIME_PATH')
+            ? (RUNTIME_PATH . 'auto_finish_batch.lock')
+            : (sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'tm_auto_finish_batch.lock');
+
+        if (!$force) {
+            $last = is_file($lockFile) ? (int)@file_get_contents($lockFile) : 0;
+            if ($last > 0 && (time() - $last) < $minIntervalSec) {
+                return [0, []];
+            }
+        }
+        @file_put_contents($lockFile, (string)time());
+
+        $now = tmNow();
+        $ids = Db::name('tm_batch')
+            ->whereNull('deleted_at')
+            ->where('status', 1)
+            ->whereNotNull('end_time')
+            ->where('end_time', '<>', '')
+            ->where('end_time', '<', $now)
+            ->order('id asc')
+            ->limit($limit)
+            ->column('id');
+
+        $items = [];
+        foreach ($ids as $id) {
+            list($ok, $msg, $data) = self::finishIfExpired($id);
+            $items[] = [
+                'batch_id' => (int)$id,
+                'ok'       => (bool)$ok,
+                'msg'      => $msg,
+            ];
+        }
+        return [count($items), $items];
+    }
+
+    /**
      * 进行中批次：按当前已提交答卷实时估算班组分与等级，不落库、不改 score_status。
      * 用于查看「当前答题大致情况」。
      *

@@ -42,6 +42,7 @@ class MemberSelfRegisterService
             return [false, '当前批次不可作答', $batch];
         }
         if (!empty($batch['end_time']) && $batch['end_time'] < $now) {
+            BatchService::finishIfExpired($batchId);
             return [false, '测评已超过截止时间', $batch];
         }
 

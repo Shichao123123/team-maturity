@@ -4,24 +4,10 @@
   text-align: center;
 }
 
-.brand-footer-org {
-  font-size: 24rpx;
-  font-weight: 650;
-  color: rgba(255, 255, 255, 0.92);
-  letter-spacing: 0.08em;
-}
-
-.brand-footer-full {
-  margin-top: 8rpx;
-  font-size: 20rpx;
-  color: rgba(255, 255, 255, 0.55);
-  line-height: 1.4;
-}
-
 .brand-footer-copy {
-  margin-top: 14rpx;
   font-size: 20rpx;
   color: rgba(255, 255, 255, 0.45);
+  line-height: 1.4;
 }
 
 .brand-footer-site {
@@ -31,15 +17,7 @@
   letter-spacing: 0.02em;
 }
 
-/* 浅底页面（答题/结果内容区） */
-.brand-footer.light .brand-footer-org {
-  color: #0b3a5c;
-}
-
-.brand-footer.light .brand-footer-full {
-  color: #5f7385;
-}
-
+/* 浅底页面（答题内容区） */
 .brand-footer.light .brand-footer-copy,
 .brand-footer.light .brand-footer-site {
   color: #8fa0b0;

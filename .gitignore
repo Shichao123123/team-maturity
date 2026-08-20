@@ -32,7 +32,7 @@ backend/runtime/temp/
 backend/extend/fonts/*.ttf
 backend/extend/fonts/*.ttc
 backend/extend/fonts/*.otf
-
+.history
 # PDF chart temp images
 backend/runtime/pdf-charts/
 backend/runtime/pdf-fonts/
