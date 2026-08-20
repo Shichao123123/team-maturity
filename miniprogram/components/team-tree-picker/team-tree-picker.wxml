@@ -1,0 +1,36 @@
+<view class="ttp">
+  <view class="ttp-field" bindtap="open">
+    <text class="{{label ? 'ttp-value' : 'ttp-placeholder'}}">{{label || placeholder}}</text>
+    <text class="ttp-arrow">›</text>
+  </view>
+  <view class="ttp-path tip" wx:if="{{orgPath}}">{{orgPath}}</view>
+
+  <view class="ttp-mask" wx:if="{{visible}}" catchtouchmove="noop" bindtap="close"></view>
+  <view class="ttp-sheet {{visible ? 'ttp-sheet-on' : ''}}" wx:if="{{visible}}" catchtouchmove="noop">
+    <view class="ttp-sheet-hd">
+      <text class="ttp-sheet-title">选择所属班组</text>
+      <text class="ttp-sheet-close" bindtap="close">关闭</text>
+    </view>
+    <scroll-view scroll-y class="ttp-sheet-bd" enhanced="{{true}}" show-scrollbar="{{false}}">
+      <view wx:if="{{!rows.length}}" class="ttp-empty">暂无参评班组</view>
+      <view
+        wx:for="{{rows}}"
+        wx:key="id"
+        class="ttp-row {{item.type === 'team' && item.team_id === teamId ? 'ttp-row-on' : ''}}"
+        style="padding-left: {{24 + item.depth * 28}}rpx;"
+        data-item="{{item}}"
+        bindtap="onRowTap"
+      >
+        <text
+          class="ttp-caret {{item.hasChildren ? '' : 'ttp-caret-hide'}} {{item.expanded ? 'ttp-caret-open' : ''}}"
+        >▸</text>
+        <view class="ttp-row-main">
+          <text class="ttp-name {{item.type === 'org' ? 'ttp-name-org' : ''}}">{{item.name}}</text>
+          <text class="ttp-tag" wx:if="{{item.type === 'org'}}">组织</text>
+          <text class="ttp-tag ttp-tag-team" wx:elif="{{item.type === 'team'}}">班组</text>
+        </view>
+        <view class="ttp-check" wx:if="{{item.type === 'team' && item.team_id === teamId}}"></view>
+      </view>
+    </scroll-view>
+  </view>
+</view>

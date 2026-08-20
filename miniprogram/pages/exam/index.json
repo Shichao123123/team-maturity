@@ -1,6 +1,7 @@
 {
   "navigationBarTitleText": "进入测评",
   "usingComponents": {
-    "brand-footer": "/components/brand-footer/brand-footer"
+    "brand-footer": "/components/brand-footer/brand-footer",
+    "team-tree-picker": "/components/team-tree-picker/team-tree-picker"
   }
 }

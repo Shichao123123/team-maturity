@@ -8,9 +8,10 @@ Page({
     batchId: 0,
     batchName: '',
     teams: [],
-    teamIndex: -1,
+    teamTree: [],
     teamId: 0,
     teamLabel: '',
+    teamOrgPath: '',
     name: '',
     loading: true,
     submitting: false,
@@ -48,6 +49,114 @@ Page({
     }
   },
 
+  /**
+   * 兼容旧接口：仅有扁平 teams 时，按 org_path 拼简易树。
+   */
+  buildTreeFallback(teams) {
+    const list = teams || [];
+    if (!list.length) return [];
+    const root = { childrenMap: {} };
+
+    list.forEach((t) => {
+      const parts = String(t.org_path || '')
+        .split(/\s*\/\s*/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      let cursor = root;
+      let pathAcc = [];
+      parts.forEach((name, idx) => {
+        pathAcc.push(name);
+        const key = pathAcc.join('/');
+        if (!cursor.childrenMap[key]) {
+          cursor.childrenMap[key] = {
+            id: 'fo-' + key,
+            type: 'org',
+            name,
+            childrenMap: {},
+            children: [],
+          };
+        }
+        cursor = cursor.childrenMap[key];
+      });
+      const teamNode = {
+        id: 't' + t.team_id,
+        type: 'team',
+        name: t.team_name,
+        team_id: t.team_id,
+        org_id: t.org_id || 0,
+        org_path: t.org_path || '',
+        children: [],
+      };
+      if (!cursor.children) cursor.children = [];
+      // 暂存到 map 的 team 列表
+      if (!cursor._teams) cursor._teams = [];
+      cursor._teams.push(teamNode);
+    });
+
+    const toArr = (node) => {
+      const orgs = Object.keys(node.childrenMap || {}).map((k) => node.childrenMap[k]);
+      return orgs.map((o) => {
+        const children = toArr(o).concat(o._teams || []);
+        return {
+          id: o.id,
+          type: 'org',
+          name: o.name,
+          children,
+        };
+      });
+    };
+
+    const tree = toArr(root);
+    // 无组织路径的班组挂根
+    list.forEach((t) => {
+      if (!String(t.org_path || '').trim()) {
+        tree.push({
+          id: 't' + t.team_id,
+          type: 'team',
+          name: t.team_name,
+          team_id: t.team_id,
+          org_id: t.org_id || 0,
+          org_path: '',
+          children: [],
+        });
+      }
+    });
+    return tree;
+  },
+
+  applyTeams(data, preferTeamId) {
+    const teams = data.teams || [];
+    let teamTree = data.team_tree || [];
+    if (!teamTree.length && teams.length) {
+      teamTree = this.buildTreeFallback(teams);
+    }
+
+    let teamId = 0;
+    let teamLabel = '';
+    let teamOrgPath = '';
+    const prefer = preferTeamId > 0 ? preferTeamId : Number(data.team_id || 0) || 0;
+    if (prefer > 0) {
+      const hit = teams.find((t) => Number(t.team_id) === prefer);
+      if (hit) {
+        teamId = hit.team_id;
+        teamLabel = hit.team_name;
+        teamOrgPath = hit.org_path || '';
+      }
+    }
+
+    this.setData({
+      loading: false,
+      showForm: true,
+      batchName: data.batch_name || this.data.batchName || '',
+      teams,
+      teamTree,
+      teamId,
+      teamLabel,
+      teamOrgPath,
+      name: data.member_name || this.data.name || '',
+    });
+  },
+
   bootstrap(batchId, preferTeamId) {
     this.setData({ loading: true, err: '', showForm: false });
     ensureLogin()
@@ -59,7 +168,6 @@ Page({
           title: data.batch_name || '进入测评',
         });
 
-        // 已做过题：不再要求选班组填姓名
         if (action === 'result') {
           wx.redirectTo({
             url: '/pages/result/index?batch_id=' + batchId,
@@ -79,7 +187,6 @@ Page({
           return;
         }
         if (action === 'home') {
-          // 测试模式仍可继续；否则回首页看历史
           if (data.can_retake && data.paper_id) {
             wx.redirectTo({
               url:
@@ -100,28 +207,23 @@ Page({
         }
         if (action === 'blocked') {
           if (data.can_retake) {
-            // 测试模式：仍展示登记表单
-            const teams = data.teams && data.teams.length
-              ? data.teams
-              : [];
-            this.setData({
-              loading: false,
-              showForm: true,
-              batchName: data.batch_name || '',
-              teams,
-              name: data.member_name || '',
-            });
-            if (!teams.length) {
-              // 补拉班组列表
-              return get('/TmMini/batchTeams', { batch_id: batchId }).then((tb) => {
-                const tdata = tb.data || {};
-                this.setData({
-                  teams: tdata.teams || [],
-                  batchName: tdata.batch_name || data.batch_name || '',
-                });
-              });
+            if (data.teams && data.teams.length) {
+              this.applyTeams(data, preferTeamId);
+              return;
             }
-            return;
+            return get('/TmMini/batchTeams', { batch_id: batchId }).then((tb) => {
+              const tdata = tb.data || {};
+              this.applyTeams(
+                {
+                  batch_name: tdata.batch_name || data.batch_name || '',
+                  teams: tdata.teams || [],
+                  team_tree: tdata.team_tree || [],
+                  member_name: data.member_name || '',
+                  team_id: data.team_id || 0,
+                },
+                preferTeamId
+              );
+            });
           }
           this.setData({
             loading: false,
@@ -131,30 +233,7 @@ Page({
           return;
         }
 
-        // register：展示表单（默认选中第一项，避免 picker 显示了但 teamId 仍为 0）
-        const teams = data.teams || [];
-        let teamIndex = -1;
-        if (preferTeamId > 0) {
-          teamIndex = teams.findIndex((t) => Number(t.team_id) === preferTeamId);
-        } else if (data.team_id > 0) {
-          teamIndex = teams.findIndex((t) => Number(t.team_id) === Number(data.team_id));
-        }
-        if (teamIndex < 0 && teams.length > 0) {
-          teamIndex = 0;
-        }
-        const picked = teamIndex >= 0 ? teams[teamIndex] : null;
-        this.setData({
-          loading: false,
-          showForm: true,
-          batchName: data.batch_name || '',
-          teams,
-          teamIndex,
-          teamId: picked ? picked.team_id : 0,
-          teamLabel: picked
-            ? picked.team_name + (picked.org_path ? ' · ' + picked.org_path : '')
-            : '',
-          name: data.member_name || '',
-        });
+        this.applyTeams(data, preferTeamId);
       })
       .catch((err) => {
         this.setData({ loading: false, err: err.message || '加载失败' });
@@ -165,14 +244,12 @@ Page({
     wx.reLaunch({ url: '/pages/index/index' });
   },
 
-  onTeamChange(e) {
-    const idx = Number(e.detail.value);
-    const team = this.data.teams[idx];
-    if (!team) return;
+  onTeamPick(e) {
+    const d = e.detail || {};
     this.setData({
-      teamIndex: idx,
-      teamId: team.team_id,
-      teamLabel: team.team_name + (team.org_path ? ' · ' + team.org_path : ''),
+      teamId: d.team_id || 0,
+      teamLabel: d.team_name || '',
+      teamOrgPath: d.org_path || '',
     });
   },
 

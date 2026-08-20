@@ -194,6 +194,119 @@ class MemberSelfRegisterService
     }
 
     /**
+     * 批次参评班组的组织树（仅含有班组的组织分支；叶子为班组）。
+     *
+     * @param int        $batchId 批次 ID
+     * @param array|null $teams   可选，已查好的 listBatchTeams 结果，避免重复查询
+     * @return array 嵌套节点：type=org|team，org 含 children，team 含 team_id/org_path
+     */
+    public static function listBatchTeamTree($batchId, $teams = null)
+    {
+        if ($teams === null) {
+            $teams = self::listBatchTeams($batchId);
+        }
+        if (empty($teams)) {
+            return [];
+        }
+
+        $orgs = Db::name('tm_org')
+            ->whereNull('deleted_at')
+            ->order('sort_no asc,id asc')
+            ->select();
+        $orgById = [];
+        foreach ($orgs as $o) {
+            $orgById[(int)$o['id']] = $o;
+        }
+
+        $keepOrg = [];
+        $teamsByOrg = [];
+        foreach ($teams as $t) {
+            $oid = (int)$t['org_id'];
+            if (!isset($teamsByOrg[$oid])) {
+                $teamsByOrg[$oid] = [];
+            }
+            $teamsByOrg[$oid][] = $t;
+            $pid = $oid;
+            $guard = 0;
+            while ($pid > 0 && $guard < 20) {
+                $keepOrg[$pid] = true;
+                if (!isset($orgById[$pid])) {
+                    break;
+                }
+                $pid = (int)$orgById[$pid]['parent_id'];
+                $guard++;
+            }
+        }
+
+        $childrenMap = [];
+        foreach ($orgById as $id => $o) {
+            if (empty($keepOrg[$id])) {
+                continue;
+            }
+            $pid = (int)$o['parent_id'];
+            if ($pid > 0 && empty($keepOrg[$pid])) {
+                $pid = 0;
+            }
+            if (!isset($childrenMap[$pid])) {
+                $childrenMap[$pid] = [];
+            }
+            $childrenMap[$pid][] = $id;
+        }
+
+        $build = function ($parentId) use (&$build, &$childrenMap, &$orgById, &$teamsByOrg) {
+            $nodes = [];
+            $childOrgIds = isset($childrenMap[$parentId]) ? $childrenMap[$parentId] : [];
+            foreach ($childOrgIds as $oid) {
+                $o = $orgById[$oid];
+                $childNodes = $build($oid);
+                $teamNodes = [];
+                if (!empty($teamsByOrg[$oid])) {
+                    foreach ($teamsByOrg[$oid] as $t) {
+                        $teamNodes[] = [
+                            'id'       => 't' . (int)$t['team_id'],
+                            'type'     => 'team',
+                            'name'     => (string)$t['team_name'],
+                            'team_id'  => (int)$t['team_id'],
+                            'org_id'   => (int)$t['org_id'],
+                            'org_path' => (string)$t['org_path'],
+                            'children' => [],
+                        ];
+                    }
+                }
+                $nodes[] = [
+                    'id'       => 'o' . $oid,
+                    'type'     => 'org',
+                    'name'     => (string)$o['name'],
+                    'org_id'   => $oid,
+                    'children' => array_merge($childNodes, $teamNodes),
+                ];
+            }
+            return $nodes;
+        };
+
+        $tree = $build(0);
+
+        // 无组织或组织已删的班组挂到根
+        foreach ($teamsByOrg as $oid => $list) {
+            if ($oid <= 0 || empty($orgById[$oid])) {
+                foreach ($list as $t) {
+                    $tree[] = [
+                        'id'       => 't' . (int)$t['team_id'],
+                        'type'     => 'team',
+                        'name'     => (string)$t['team_name'],
+                        'team_id'  => (int)$t['team_id'],
+                        'org_id'   => (int)$t['org_id'],
+                        'org_path' => (string)$t['org_path'],
+                        'children' => [],
+                    ];
+                }
+            }
+        }
+
+        return $tree;
+    }
+
+    /**
      * 递归拼接组织名称路径（根到当前节点，以 " / " 分隔）。
      *
      * @param int $orgId 组织 ID

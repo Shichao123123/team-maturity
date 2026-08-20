@@ -32,6 +32,7 @@ class TmMini extends MiniBase
             'batch_id'   => $batchId,
             'batch_name' => $batch['name'],
             'teams'      => $list,
+            'team_tree'  => MemberSelfRegisterService::listBatchTeamTree($batchId, $list),
         ]);
     }
 

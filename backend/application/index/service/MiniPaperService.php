@@ -98,7 +98,9 @@ class MiniPaperService
         }
 
         $base['action'] = 'register';
-        $base['teams'] = MemberSelfRegisterService::listBatchTeams($batchId);
+        $teams = MemberSelfRegisterService::listBatchTeams($batchId);
+        $base['teams'] = $teams;
+        $base['team_tree'] = MemberSelfRegisterService::listBatchTeamTree($batchId, $teams);
         return [true, 'ok', $base, 200];
     }
 

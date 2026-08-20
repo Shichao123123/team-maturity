@@ -32,22 +32,14 @@
 
       <view class="card">
         <text class="label">所属班组</text>
-        <picker
-          mode="selector"
-          range="{{teams}}"
-          range-key="team_name"
-          value="{{teamIndex >= 0 ? teamIndex : 0}}"
-          bindchange="onTeamChange"
-        >
-          <view class="field">
-            <text class="{{teamLabel ? 'picker-value' : 'picker-placeholder'}}">
-              {{teamLabel || '请选择班组'}}
-            </text>
-          </view>
-        </picker>
-        <view class="org-path tip" wx:if="{{teamIndex >= 0 && teams[teamIndex].org_path}}">
-          {{teams[teamIndex].org_path}}
-        </view>
+        <team-tree-picker
+          tree="{{teamTree}}"
+          team-id="{{teamId}}"
+          label="{{teamLabel}}"
+          org-path="{{teamOrgPath}}"
+          placeholder="请从组织树中选择班组"
+          bind:change="onTeamPick"
+        />
       </view>
 
       <view class="card">
