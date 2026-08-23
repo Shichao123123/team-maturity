@@ -1,4 +1,3 @@
 <view class="brand-footer {{light ? 'light' : ''}}">
   <view class="brand-footer-copy" wx:if="{{copyright}}">{{copyright}}</view>
-  <view class="brand-footer-site" wx:if="{{orgSite}}">{{orgSite}} · All Rights Reserved</view>
 </view>

@@ -26,7 +26,7 @@
         <view class="hero-panel-body">
           <view class="brand">现场登记 · {{orgShortName}}</view>
           <view class="hero-title">{{batchName || '测评批次'}}</view>
-          <view class="hero-sub">选择所属班组并填写真实姓名后开始作答</view>
+          <view class="hero-sub">依次选择公司、部门、班组，并填写角色与姓名后开始作答</view>
         </view>
       </view>
 
@@ -37,34 +37,47 @@
           team-id="{{teamId}}"
           label="{{teamLabel}}"
           org-path="{{teamOrgPath}}"
-          placeholder="请从组织树中选择班组"
+          placeholder="请依次选择公司 / 部门 / 班组"
           bind:change="onTeamPick"
+          bind:visibilitychange="onTeamPickerVisible"
         />
       </view>
 
-      <view class="card">
-        <text class="label">姓名</text>
-        <view class="field">
-          <input
-            class="field-input"
-            placeholder="请输入真实姓名"
-            maxlength="32"
-            value="{{name}}"
-            bindinput="onNameInput"
-          />
+      <block wx:if="{{!teamPickerOpen}}">
+        <view class="card">
+          <text class="label">个人角色</text>
+          <picker mode="selector" range="{{roleLabels}}" value="{{roleIndex}}" bindchange="onRoleChange">
+            <view class="field field-picker">
+              <text class="{{roleLabel ? 'picker-value' : 'picker-placeholder'}}">{{roleLabel || '请选择角色'}}</text>
+              <text class="field-arrow">›</text>
+            </view>
+          </picker>
         </view>
-      </view>
 
-      <button
-        class="btn btn-teal btn-block"
-        loading="{{submitting}}"
-        disabled="{{submitting}}"
-        bindtap="submitEnter"
-      >
-        确认并开始答题
-      </button>
+        <view class="card">
+          <text class="label">姓名</text>
+          <view class="field">
+            <input
+              class="field-input"
+              placeholder="请输入真实姓名"
+              maxlength="32"
+              value="{{name}}"
+              bindinput="onNameInput"
+            />
+          </view>
+        </view>
+
+        <button
+          class="btn btn-teal btn-block"
+          loading="{{submitting}}"
+          disabled="{{submitting}}"
+          bindtap="submitEnter"
+        >
+          确认并开始答题
+        </button>
+      </block>
     </block>
 
-    <brand-footer />
+    <brand-footer wx:if="{{!teamPickerOpen}}" />
   </view>
 </view>

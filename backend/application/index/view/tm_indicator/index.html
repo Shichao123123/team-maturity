@@ -45,6 +45,15 @@
         .q-actions { margin-top:10px; }
         .empty-tip { color:#64748b; padding:24px 8px; }
         .readonly-tip { color:#d48806; font-size:12px; }
+        .ind-card {
+            border:1px solid #e8eef6; border-radius:8px; padding:14px 16px; margin-bottom:14px; background:#fafcff;
+        }
+        .ind-card .ind-level {
+            display:inline-block; font-size:12px; padding:2px 8px; border-radius:999px;
+            background:#e6f4ff; color:#1677ff; margin-bottom:10px;
+        }
+        .ind-card .layui-form-label { width:70px; }
+        .ind-card .layui-input-block { margin-left:100px; }
         .opt-row { display:flex; gap:8px; margin-bottom:8px; align-items:center; }
         .opt-row .layui-input { flex:1; }
         .opt-row .ratio { width:88px; flex:0 0 88px; }
@@ -74,12 +83,36 @@
         <div class="left-hd">
             <div class="tit">指标树</div>
             <div class="ops">
-                <span class="readonly-tip" style="font-size:12px;">一/二/三级结构固定</span>
+                <span class="readonly-tip" style="font-size:12px;">结构固定，点节点可改名称与分数</span>
             </div>
         </div>
         <div id="treeBox"></div>
     </div>
     <div class="right">
+        <div id="indCard" class="ind-card" style="display:none;">
+            <div class="ind-level" id="indLevelText">编辑指标</div>
+            <form class="layui-form" lay-filter="indForm" id="indForm">
+                <input type="hidden" name="id" id="indId">
+                <div class="layui-form-item">
+                    <label class="layui-form-label">名称</label>
+                    <div class="layui-input-block">
+                        <input type="text" name="name" id="indName" class="layui-input" maxlength="128" autocomplete="off">
+                    </div>
+                </div>
+                <div class="layui-form-item">
+                    <label class="layui-form-label">分数</label>
+                    <div class="layui-input-block">
+                        <input type="number" name="weight" id="indWeight" class="layui-input" min="0" max="100" step="0.01" style="width:140px; display:inline-block;">
+                        <span class="layui-word-aux" id="indWeightTip" style="margin-left:8px;">对应树上的 [分数]</span>
+                    </div>
+                </div>
+                <div class="layui-form-item edit-only">
+                    <div class="layui-input-block">
+                        <button type="button" class="pear-btn pear-btn-primary pear-btn-md" id="btnSaveInd">保存</button>
+                    </div>
+                </div>
+            </form>
+        </div>
         <div class="right-hd">
             <div class="tit">题目列表 <span id="qCount" style="color:#1677ff;">0</span></div>
             <div class="ops">
@@ -129,7 +162,7 @@
             <div class="layui-input-block" id="optBox"></div>
             <div class="layui-input-block" style="margin-top:6px;">
                 <button type="button" class="pear-btn pear-btn-xs" id="btnAddOpt">加选项</button>
-                <span class="layui-word-aux">选项权重常用 1 / 0.75 / 0.5 / 0.25（得分 = 三级指标权重 × 选项权重）</span>
+                <span class="layui-word-aux">选项得分比例常用 1 / 0.75 / 0.5 / 0.25（得分 = 三级指标权重 × 得分比例）</span>
             </div>
         </div>
         <div class="layui-form-item">
@@ -158,12 +191,51 @@ layui.use(['form','jquery','layer','tree'], function(){
     var canEdit = false;
     var nodeMap = {};
 
+    function levelLabel(lv){
+        lv = parseInt(lv, 10) || 0;
+        if (lv === 1) return '一级指标';
+        if (lv === 2) return '二级指标';
+        if (lv === 3) return '三级指标';
+        return '指标';
+    }
+
+    function fillIndicatorForm(node){
+        if (!node || !node.id) {
+            $('#indCard').hide();
+            return;
+        }
+        var lv = parseInt(node.level_no, 10) || 0;
+        var scoreTotal = node.score_total != null ? parseFloat(node.score_total) : null;
+        var weight = node.weight != null ? parseFloat(node.weight) : 0;
+        // 一/二级树上 [分数] 用的是下级满分合计；二级库里 weight 常为 0
+        var showScore = (lv === 2 && scoreTotal != null) ? scoreTotal : weight;
+        var weightEditable = canEdit && lv !== 2;
+
+        $('#indCard').show();
+        $('#indLevelText').text(levelLabel(lv));
+        $('#indId').val(node.id);
+        $('#indName').val(node.name || '').prop('disabled', !canEdit);
+        $('#indWeight').val(showScore);
+        $('#indWeight').prop('disabled', !weightEditable);
+        if (lv === 2) {
+            $('#indWeightTip').text('二级分数=下级三级合计（只读），请点开三级指标改分');
+        } else if (lv === 1) {
+            $('#indWeightTip').text('对应树上的 [分数]；发布时需与下级三级合计一致');
+        } else {
+            $('#indWeightTip').text('对应树上的 [分数]，用于计分');
+        }
+        $('#btnSaveInd').toggle(!!canEdit);
+    }
+
     function setEditMode(flag){
         canEdit = !!flag;
         $('.edit-only').toggle(canEdit);
         $('#editState').text(canEdit
-            ? '当前为草稿：指标树固定，仅可在三级指标下新增/编辑/删除题目'
-            : '已发布/停用只读；请到「指标版本」复制为草稿后再改题目');
+            ? '当前为草稿：可改名称；一/三级可改分数；二级分数看下级三级'
+            : '已发布/停用只读；请到「指标版本」复制为草稿后再改');
+        if (currentNode) {
+            fillIndicatorForm(currentNode);
+        }
     }
 
     function walk(nodes, fn){
@@ -183,9 +255,11 @@ layui.use(['form','jquery','layer','tree'], function(){
                 spread: spread,
                 level_no: n.level_no,
                 weight: n.weight,
+                score_total: n.score_total,
                 code: n.code,
                 sort_no: n.sort_no,
                 name: n.name,
+                description: n.description || '',
                 parent_id: n.parent_id,
                 children: (n.children && n.children.length) ? toTreeData(n.children, mode, depth + 1) : []
             };
@@ -204,6 +278,7 @@ layui.use(['form','jquery','layer','tree'], function(){
                 currentNode = nodeMap[currentIndicatorId] || obj.data;
                 $('#treeBox .layui-tree-set').removeClass('tm-active');
                 if (obj.elem && obj.elem.length) obj.elem.addClass('tm-active');
+                fillIndicatorForm(currentNode);
                 loadQuestions();
             }
         });
@@ -229,6 +304,7 @@ layui.use(['form','jquery','layer','tree'], function(){
                 renderTree('l1');
                 currentIndicatorId = 0;
                 currentNode = null;
+                fillIndicatorForm(null);
                 loadQuestions();
             });
         });
@@ -252,9 +328,9 @@ layui.use(['form','jquery','layer','tree'], function(){
                     html += '<div class="opt" data-option-id="'+(o.id||'')+'">';
                     html += '<span class="opt-text">○ '+o.content+'</span>';
                     if (canEdit) {
-                        html += '<label class="opt-w">权重 <input type="number" class="opt-weight-input" min="0" max="1" step="0.01" value="'+w+'" data-option-id="'+(o.id||'')+'" data-origin="'+w+'"></label>';
+                        html += '<label class="opt-w">得分比例 <input type="number" class="opt-weight-input" min="0" max="1" step="0.01" value="'+w+'" data-option-id="'+(o.id||'')+'" data-origin="'+w+'"></label>';
                     } else {
-                        html += '<span class="opt-w">权重 '+w+'</span>';
+                        html += '<span class="opt-w">得分比例 '+w+'</span>';
                     }
                     html += '</div>';
                 });
@@ -270,7 +346,7 @@ layui.use(['form','jquery','layer','tree'], function(){
         });
     }
 
-    // 列表内直接改选项权重 → POST /TmIndicator/saveOptionWeight
+    // 列表内直接改选项得分比例 → POST /TmIndicator/saveOptionWeight
     $(document).on('change', '.opt-weight-input', function(){
         var $el = $(this);
         var optionId = $el.data('option-id');
@@ -302,12 +378,12 @@ layui.use(['form','jquery','layer','tree'], function(){
     }
 
     function renderOpts(opts){
-        var html = '<div class="opt-head"><span class="h-content">选项内容</span><span class="h-ratio">权重</span><span class="h-act"></span></div>';
+        var html = '<div class="opt-head"><span class="h-content">选项内容</span><span class="h-ratio">得分比例</span><span class="h-act"></span></div>';
         (opts||[]).forEach(function(o){
             html += '<div class="opt-row">'
                 + '<input type="hidden" class="opt-id" value="'+(o.id||'')+'">'
                 + '<input type="text" class="layui-input opt-content" value="'+(o.content||'').replace(/"/g,'&quot;')+'" placeholder="选项内容">'
-                + '<input type="number" step="0.01" min="0" max="1" class="layui-input ratio opt-ratio" value="'+(o.score_ratio!=null?o.score_ratio:1)+'" placeholder="权重" title="选项权重">'
+                + '<input type="number" step="0.01" min="0" max="1" class="layui-input ratio opt-ratio" value="'+(o.score_ratio!=null?o.score_ratio:1)+'" placeholder="比例" title="选项得分比例">'
                 + '<button type="button" class="pear-btn pear-btn-xs pear-btn-danger btn-rm-opt">删</button>'
                 + '</div>';
         });
@@ -423,7 +499,7 @@ layui.use(['form','jquery','layer','tree'], function(){
                         '<div class="opt-row">'
                         + '<input type="hidden" class="opt-id" value="">'
                         + '<input type="text" class="layui-input opt-content" placeholder="选项内容">'
-                        + '<input type="number" step="0.01" min="0" max="1" class="layui-input ratio opt-ratio" value="0.25" placeholder="权重" title="选项权重">'
+                        + '<input type="number" step="0.01" min="0" max="1" class="layui-input ratio opt-ratio" value="0.25" placeholder="比例" title="选项得分比例">'
                         + '<button type="button" class="pear-btn pear-btn-xs pear-btn-danger btn-rm-opt">删</button>'
                         + '</div>'
                     );
@@ -531,6 +607,56 @@ layui.use(['form','jquery','layer','tree'], function(){
 
     form.on('select(versionId)', function(){ loadTree(); });
     $('#btnAddQ').on('click', function(){ openQForm(null); });
+    $('#btnSaveInd').on('click', function(){
+        if (!canEdit) {
+            layer.msg('当前版本不可编辑');
+            return;
+        }
+        var id = parseInt($('#indId').val() || '0', 10) || 0;
+        if (id <= 0) {
+            layer.msg('请先选择左侧指标');
+            return;
+        }
+        var name = $.trim($('#indName').val() || '');
+        if (!name) {
+            layer.msg('请填写指标名称');
+            return;
+        }
+        var node = currentNode || nodeMap[id] || {};
+        var lv = parseInt(node.level_no, 10) || 0;
+        // 二级分数只是下级合计展示，保存时不改 weight，避免把合计写进无用字段
+        var weight = (lv === 2)
+            ? (node.weight != null ? node.weight : 0)
+            : $('#indWeight').val();
+        $.post('/TmIndicator/saveIndicator', {
+            version_id: $('#versionId').val(),
+            id: id,
+            name: name,
+            description: node.description || '',
+            code: node.code || '',
+            weight: weight,
+            sort_no: node.sort_no != null ? node.sort_no : 0,
+            status: 1
+        }, function(res){
+            layer.msg(res.msg || '');
+            if (res.success || res.code === 0) {
+                var keepId = id;
+                loadMeta(function(){
+                    $.getJSON('/TmIndicator/tree', {versionId: $('#versionId').val()}, function(tres){
+                        if (!(tres.success || tres.code===0)) { return; }
+                        treeData = tres.data || [];
+                        nodeMap = {};
+                        walk(treeData, function(n){ nodeMap[n.id] = n; });
+                        renderTree('l1');
+                        currentIndicatorId = keepId;
+                        currentNode = nodeMap[keepId] || null;
+                        fillIndicatorForm(currentNode);
+                        loadQuestions();
+                    });
+                });
+            }
+        }, 'json');
+    });
     $(document).on('click', '.btn-edit-q', function(){
         var id = $(this).data('id');
         $.getJSON('/TmIndicator/questionDetail', {id: id}, function(res){

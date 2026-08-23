@@ -68,24 +68,32 @@ class MemberSelfRegisterService
 
     /**
      * 按微信用户、班组与姓名创建或更新成员，并双向绑定 tm_wx_user。
-     * 自助登记角色固定为 member；若本批次已有答卷则禁止更换班组。
+     * 自助登记可选择角色（须为 tmRoleLabels 中的合法 code）；若本批次已有答卷则禁止更换班组。
      *
-     * @param int    $wxUserId 微信用户 ID
-     * @param int    $teamId   班组 ID
-     * @param string $name     成员姓名
-     * @param int    $batchId  批次 ID（>0 时校验是否已在他班作答）
+     * @param int         $wxUserId 微信用户 ID
+     * @param int         $teamId   班组 ID
+     * @param string      $name     成员姓名
+     * @param int         $batchId  批次 ID（>0 时校验是否已在他班作答）
+     * @param string|null $roleCode 角色 code；null 表示更新时不改角色，新建时默认 member
      * @return array 落库后的 tm_member 行
      * @throws \InvalidArgumentException 参数为空或姓名过长
      * @throws \RuntimeException         微信用户不存在或禁止换班
      */
-    public static function ensureMember($wxUserId, $teamId, $name, $batchId = 0)
+    public static function ensureMember($wxUserId, $teamId, $name, $batchId = 0, $roleCode = null)
     {
         $wxUserId = (int)$wxUserId;
         $teamId = (int)$teamId;
         $batchId = (int)$batchId;
         $name = trim((string)$name);
-        // 自助登记禁止客户端指定角色，避免提权为班组长/安全员等
-        $roleCode = 'member';
+        $labels = tmRoleLabels();
+        $setRole = false;
+        if ($roleCode !== null) {
+            $roleCode = trim((string)$roleCode);
+            if ($roleCode === '' || !isset($labels[$roleCode])) {
+                $roleCode = 'member';
+            }
+            $setRole = true;
+        }
         if ($wxUserId <= 0 || $teamId <= 0 || $name === '') {
             throw new \InvalidArgumentException('班组与姓名不能为空');
         }
@@ -121,14 +129,17 @@ class MemberSelfRegisterService
                         }
                     }
                 }
-                // 已有成员：更新班组/姓名，但不覆盖既有角色（避免班组长被降为普通成员）
-                Db::name('tm_member')->where('id', $member['id'])->update([
+                $upd = [
                     'team_id'    => $teamId,
                     'name'       => $name,
                     'status'     => 1,
                     'wx_user_id' => $wxUserId,
                     'updated_at' => $now,
-                ]);
+                ];
+                if ($setRole) {
+                    $upd['role_code'] = $roleCode;
+                }
+                Db::name('tm_member')->where('id', $member['id'])->update($upd);
                 $memberId = (int)$member['id'];
             } else {
                 $memberId = (int)Db::name('tm_member')->insertGetId([
@@ -136,7 +147,7 @@ class MemberSelfRegisterService
                     'name'       => $name,
                     'mobile'     => null,
                     'post_name'  => null,
-                    'role_code'  => $roleCode,
+                    'role_code'  => $setRole ? $roleCode : 'member',
                     'status'     => 1,
                     'wx_user_id' => $wxUserId,
                     'created_at' => $now,
@@ -278,6 +289,7 @@ class MemberSelfRegisterService
                     'type'     => 'org',
                     'name'     => (string)$o['name'],
                     'org_id'   => $oid,
+                    'org_type' => isset($o['org_type']) ? (int)$o['org_type'] : 0,
                     'children' => array_merge($childNodes, $teamNodes),
                 ];
             }

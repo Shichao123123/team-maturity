@@ -17,7 +17,6 @@ Page({
     current: null,
     progressText: '0/0',
     progressPct: 0,
-    saveTip: '',
   },
 
   onLoad(query) {
@@ -148,7 +147,6 @@ Page({
       questions,
       current: questions[idx],
       saving: true,
-      saveTip: '正在保存…',
     });
 
     const job = post('/TmMini/answer', {
@@ -164,7 +162,6 @@ Page({
         this.setData({
           answered: prog.answered != null ? prog.answered : this.data.answered,
           saving: false,
-          saveTip: '已保存',
         });
         this.refreshCurrent();
         if (autoNext) {
@@ -173,12 +170,6 @@ Page({
               this.goNextIfReady();
             }
           }, 120);
-        } else {
-          setTimeout(() => {
-            if (this.data.saveTip === '已保存') {
-              this.setData({ saveTip: '' });
-            }
-          }, 800);
         }
         return true;
       })
@@ -191,7 +182,6 @@ Page({
           questions,
           current: questions[idx],
           saving: false,
-          saveTip: '',
         });
         if (err.code === 202) {
           this.setData({ readonly: true });
@@ -221,10 +211,9 @@ Page({
       return;
     }
     if (this.data.index >= this.data.total - 1) {
-      this.setData({ saveTip: '' });
       return;
     }
-    this.setData({ index: this.data.index + 1, saveTip: '' });
+    this.setData({ index: this.data.index + 1 });
     this.refreshCurrent();
   },
 
@@ -234,7 +223,7 @@ Page({
       return;
     }
     if (this.data.index <= 0) return;
-    this.setData({ index: this.data.index - 1, saveTip: '' });
+    this.setData({ index: this.data.index - 1 });
     this.refreshCurrent();
   },
 

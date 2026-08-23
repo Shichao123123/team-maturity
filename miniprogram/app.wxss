@@ -210,6 +210,18 @@ input {
   min-height: 88rpx;
 }
 
+.field-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.field-arrow {
+  color: #8fa0b0;
+  font-size: 36rpx;
+  line-height: 1;
+}
+
 .field-input {
   width: 100%;
   height: 44rpx;

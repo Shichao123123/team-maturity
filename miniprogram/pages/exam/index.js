@@ -2,6 +2,14 @@ const { get, post, setToken } = require('../../utils/request');
 const { ensureLogin } = require('../../utils/auth');
 const config = require('../../config');
 
+const ROLE_OPTIONS = [
+  { code: 'leader', label: '班组长' },
+  { code: 'deputy', label: '组长' },
+  { code: 'safety', label: '安全员' },
+  { code: 'part_safety', label: '兼职安全员' },
+  { code: 'member', label: '普通成员' },
+];
+
 Page({
   data: {
     orgShortName: config.orgShortName,
@@ -12,11 +20,17 @@ Page({
     teamId: 0,
     teamLabel: '',
     teamOrgPath: '',
+    roleCodes: ROLE_OPTIONS.map((r) => r.code),
+    roleLabels: ROLE_OPTIONS.map((r) => r.label),
+    roleIndex: 4,
+    roleCode: 'member',
+    roleLabel: '普通成员',
     name: '',
     loading: true,
     submitting: false,
     err: '',
     showForm: false,
+    teamPickerOpen: false,
   },
 
   onLoad(query) {
@@ -97,12 +111,13 @@ Page({
       const orgs = Object.keys(node.childrenMap || {}).map((k) => node.childrenMap[k]);
       return orgs.map((o) => {
         const children = toArr(o).concat(o._teams || []);
-        return {
-          id: o.id,
-          type: 'org',
-          name: o.name,
-          children,
-        };
+                      return {
+                        id: o.id,
+                        type: 'org',
+                        name: o.name,
+                        org_type: 0,
+                        children,
+                      };
       });
     };
 
@@ -154,7 +169,20 @@ Page({
       teamLabel,
       teamOrgPath,
       name: data.member_name || this.data.name || '',
+      ...this.roleStateFromCode(data.role_code || this.data.roleCode || 'member'),
     });
+  },
+
+  roleStateFromCode(code) {
+    const codes = this.data.roleCodes || [];
+    let i = codes.indexOf(code);
+    if (i < 0) i = codes.indexOf('member');
+    if (i < 0) i = 0;
+    return {
+      roleIndex: i,
+      roleCode: codes[i] || 'member',
+      roleLabel: (this.data.roleLabels && this.data.roleLabels[i]) || '普通成员',
+    };
   },
 
   bootstrap(batchId, preferTeamId) {
@@ -253,6 +281,23 @@ Page({
     });
   },
 
+  onTeamPickerVisible(e) {
+    const visible = !!(e.detail && e.detail.visible);
+    this.setData({ teamPickerOpen: visible });
+  },
+
+  onRoleChange(e) {
+    const idx = parseInt(e.detail.value, 10);
+    const i = Number.isNaN(idx) ? 4 : idx;
+    const code = this.data.roleCodes[i] || 'member';
+    const label = this.data.roleLabels[i] || '普通成员';
+    this.setData({
+      roleIndex: i,
+      roleCode: code,
+      roleLabel: label,
+    });
+  },
+
   onNameInput(e) {
     this.setData({ name: e.detail.value || '' });
   },
@@ -261,10 +306,15 @@ Page({
     const batchId = this.data.batchId;
     const teamId = this.data.teamId;
     const name = (this.data.name || '').trim();
+    const roleCode = this.data.roleCode || 'member';
     const submitting = this.data.submitting;
     if (submitting) return;
     if (!teamId) {
       wx.showToast({ title: '请选择班组', icon: 'none' });
+      return;
+    }
+    if (!roleCode) {
+      wx.showToast({ title: '请选择角色', icon: 'none' });
       return;
     }
     if (!name) {
@@ -278,6 +328,7 @@ Page({
           batch_id: batchId,
           team_id: teamId,
           name,
+          role_code: roleCode,
         })
       )
       .then((body) => {

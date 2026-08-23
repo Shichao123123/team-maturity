@@ -9,6 +9,5 @@ Component({
   },
   data: {
     copyright: config.copyright,
-    orgSite: config.orgSite,
   },
 });

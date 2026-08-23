@@ -10,15 +10,7 @@
   line-height: 1.4;
 }
 
-.brand-footer-site {
-  margin-top: 6rpx;
-  font-size: 18rpx;
-  color: rgba(255, 255, 255, 0.35);
-  letter-spacing: 0.02em;
-}
-
 /* 浅底页面（答题内容区） */
-.brand-footer.light .brand-footer-copy,
-.brand-footer.light .brand-footer-site {
+.brand-footer.light .brand-footer-copy {
   color: #8fa0b0;
 }

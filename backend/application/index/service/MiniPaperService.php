@@ -134,6 +134,7 @@ class MiniPaperService
             Db::name('tm_paper')->where('id', (int)$paper['id'])->update([
                 'status'         => 0,
                 'personal_score' => null,
+                'order_json'     => null,
                 'submitted_at'   => null,
                 'updated_at'     => $now,
             ]);
@@ -657,6 +658,10 @@ class MiniPaperService
                 $items = [];
             }
         }
+
+        // 每人固定乱序：首次生成并写入 order_json，续答/重进按同一顺序
+        list($paper, $items) = self::ensurePaperOrder($paper, $items);
+
         $selected = Db::name('tm_paper_answer')
             ->where('paper_id', (int)$paper['id'])
             ->column('option_id', 'question_id');
@@ -670,11 +675,11 @@ class MiniPaperService
                 $answered++;
             }
             $opts = [];
-            foreach ($item['options'] as $opt) {
+            foreach ($item['options'] as $oi => $opt) {
                 $opts[] = [
                     'option_id' => (int)$opt['id'],
                     'content'   => $opt['content'],
-                    'sort_no'   => isset($opt['sort_no']) ? (int)$opt['sort_no'] : 0,
+                    'sort_no'   => $oi + 1,
                 ];
             }
             $questions[] = [
@@ -698,6 +703,159 @@ class MiniPaperService
             'answered' => $answered,
             'questions'=> $questions,
         ];
+    }
+
+    /**
+     * 确保答卷有乱序；无则生成并落库，有则按 order_json 重排 items。
+     *
+     * @param array $paper
+     * @param array $items snap items
+     * @return array [array paper, array items]
+     */
+    private static function ensurePaperOrder(array $paper, array $items)
+    {
+        if (empty($items)) {
+            return [$paper, $items];
+        }
+
+        $order = self::decodeOrderJson(isset($paper['order_json']) ? $paper['order_json'] : null);
+        if ($order === null) {
+            $order = self::buildShuffledOrder($items);
+            $json = json_encode($order, JSON_UNESCAPED_UNICODE);
+            Db::name('tm_paper')->where('id', (int)$paper['id'])->update([
+                'order_json' => $json,
+                'updated_at' => tmNow(),
+            ]);
+            $paper['order_json'] = $json;
+        }
+
+        return [$paper, self::applyPaperOrder($items, $order)];
+    }
+
+    /**
+     * @param string|null $json
+     * @return array|null {q:int[], o:{qid:int[]}}
+     */
+    private static function decodeOrderJson($json)
+    {
+        if ($json === null || $json === '') {
+            return null;
+        }
+        $data = json_decode($json, true);
+        if (!is_array($data) || empty($data['q']) || !is_array($data['q'])) {
+            return null;
+        }
+        if (!isset($data['o']) || !is_array($data['o'])) {
+            $data['o'] = [];
+        }
+        return $data;
+    }
+
+    /**
+     * @param array $items
+     * @return array
+     */
+    private static function buildShuffledOrder(array $items)
+    {
+        $qIds = [];
+        $optMap = [];
+        foreach ($items as $item) {
+            $qid = (int)$item['question']['id'];
+            $qIds[] = $qid;
+            $oids = [];
+            foreach ($item['options'] as $opt) {
+                $oids[] = (int)$opt['id'];
+            }
+            self::shuffleArray($oids);
+            $optMap[(string)$qid] = $oids;
+        }
+        self::shuffleArray($qIds);
+        return ['q' => $qIds, 'o' => $optMap];
+    }
+
+    /**
+     * Fisher–Yates 乱序（就地）。
+     *
+     * @param array $arr
+     * @return void
+     */
+    private static function shuffleArray(array &$arr)
+    {
+        $n = count($arr);
+        for ($i = $n - 1; $i > 0; $i--) {
+            $j = random_int(0, $i);
+            $tmp = $arr[$i];
+            $arr[$i] = $arr[$j];
+            $arr[$j] = $tmp;
+        }
+    }
+
+    /**
+     * 按 order_json 重排题目与选项；缺失 ID 追加到末尾，避免丢题。
+     *
+     * @param array $items
+     * @param array $order
+     * @return array
+     */
+    private static function applyPaperOrder(array $items, array $order)
+    {
+        $byQ = [];
+        foreach ($items as $item) {
+            $qid = (int)$item['question']['id'];
+            $byQ[$qid] = $item;
+        }
+
+        $ordered = [];
+        $seen = [];
+        foreach ($order['q'] as $qid) {
+            $qid = (int)$qid;
+            if (!isset($byQ[$qid]) || isset($seen[$qid])) {
+                continue;
+            }
+            $ordered[] = self::reorderItemOptions($byQ[$qid], isset($order['o'][(string)$qid]) ? $order['o'][(string)$qid] : (isset($order['o'][$qid]) ? $order['o'][$qid] : []));
+            $seen[$qid] = true;
+        }
+        foreach ($byQ as $qid => $item) {
+            if (isset($seen[$qid])) {
+                continue;
+            }
+            $ordered[] = self::reorderItemOptions($item, isset($order['o'][(string)$qid]) ? $order['o'][(string)$qid] : []);
+        }
+        return $ordered;
+    }
+
+    /**
+     * @param array $item
+     * @param array $optionIds
+     * @return array
+     */
+    private static function reorderItemOptions(array $item, array $optionIds)
+    {
+        if (empty($item['options']) || !is_array($item['options'])) {
+            return $item;
+        }
+        $byId = [];
+        foreach ($item['options'] as $opt) {
+            $byId[(int)$opt['id']] = $opt;
+        }
+        $opts = [];
+        $seen = [];
+        foreach ($optionIds as $oid) {
+            $oid = (int)$oid;
+            if (!isset($byId[$oid]) || isset($seen[$oid])) {
+                continue;
+            }
+            $opts[] = $byId[$oid];
+            $seen[$oid] = true;
+        }
+        foreach ($byId as $oid => $opt) {
+            if (isset($seen[$oid])) {
+                continue;
+            }
+            $opts[] = $opt;
+        }
+        $item['options'] = $opts;
+        return $item;
     }
 
     /**

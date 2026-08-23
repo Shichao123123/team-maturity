@@ -27,16 +27,6 @@
   transition: width 0.2s ease;
 }
 
-.save-tip {
-  margin-top: 10rpx;
-  font-size: 22rpx;
-  color: var(--teal);
-}
-
-.q-saving {
-  opacity: 0.92;
-}
-
 .opt-disabled {
   pointer-events: none;
 }

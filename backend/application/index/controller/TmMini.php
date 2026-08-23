@@ -72,7 +72,7 @@ class TmMini extends MiniBase
 
     /**
      * 确认现场身份并写入成员档案 API（主路径，POST）。
-     * 入参：batch_id, team_id, name（角色固定为普通成员，不接受客户端 role_code）。
+     * 入参：batch_id, team_id, name, role_code（可选，默认 member）。
      *
      * @return \think\response\Json 登记成功返回含 member_id 的新 JWT token
      */
@@ -85,6 +85,7 @@ class TmMini extends MiniBase
         $batchId = (int)$req->param('batch_id', 0);
         $teamId = (int)$req->param('team_id', 0);
         $name = $req->param('name', '', 'trim');
+        $roleCode = $req->param('role_code', 'member', 'trim');
 
         if ($name === '') {
             return $this->fail('请填写姓名');
@@ -149,7 +150,8 @@ class TmMini extends MiniBase
                 (int)$this->wxUser['id'],
                 $teamId,
                 $name,
-                $batchId
+                $batchId,
+                $roleCode
             );
         } catch (\Exception $e) {
             return $this->fail($e->getMessage());

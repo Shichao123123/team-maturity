@@ -17,12 +17,9 @@
         <view class="progress-bar">
           <view class="progress-fill" style="width: {{progressPct}}%;"></view>
         </view>
-        <view class="save-tip" wx:if="{{saveTip || saving}}">
-          {{saving ? '正在保存…' : saveTip}}
-        </view>
       </view>
 
-      <view class="card q-card {{saving ? 'q-saving' : ''}}">
+      <view class="card q-card">
         <view class="q-ind">{{current.indicator_name}}</view>
         <view class="q-title">{{current.sort_no}}. {{current.title}}</view>
         <view class="q-remark tip" wx:if="{{current.remark}}">{{current.remark}}</view>
@@ -62,7 +59,6 @@
       >
         {{answered < total ? '请答完所有题目（' + answered + '/' + total + '）' : '提交答卷'}}
       </button>
-      <view class="tip center">选中选项后自动保存，确认后请点「下一题」</view>
     </block>
 
     <brand-footer light="{{true}}" />

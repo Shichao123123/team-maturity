@@ -180,13 +180,13 @@ class TmIndicator extends Base
         }
         $versionId = (int)$req->param('version_id', 0);
         list($ok, $msg, $id) = IndicatorService::saveIndicator($versionId, [
-            'id'        => (int)$req->param('id', 0),
-            'parent_id' => (int)$req->param('parent_id', 0),
-            'name'      => $req->param('name', '', 'trim'),
-            'code'      => $req->param('code', '', 'trim'),
-            'weight'    => $req->param('weight', 0),
-            'sort_no'   => (int)$req->param('sort_no', 0),
-            'status'    => (int)$req->param('status', 1),
+            'id'          => (int)$req->param('id', 0),
+            'name'        => $req->param('name', '', 'trim'),
+            'description' => $req->param('description', '', 'trim'),
+            'code'        => $req->param('code', '', 'trim'),
+            'weight'      => $req->param('weight', 0),
+            'sort_no'     => (int)$req->param('sort_no', 0),
+            'status'      => (int)$req->param('status', 1),
         ]);
         if (!$ok) {
             return json(DefaultResponse(400, false, $msg));

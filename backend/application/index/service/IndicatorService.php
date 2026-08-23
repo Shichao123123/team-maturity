@@ -367,15 +367,16 @@ class IndicatorService
                 $parentOld = (int)$ind['parent_id'];
                 $newParent = isset($idMap[$parentOld]) ? $idMap[$parentOld] : 0;
                 $nid = (int)Db::name('tm_indicator')->insertGetId([
-                    'version_id' => $newId,
-                    'parent_id'  => $newParent,
-                    'level_no'   => (int)$ind['level_no'],
-                    'code'       => $ind['code'],
-                    'name'       => $ind['name'],
-                    'weight'     => $ind['weight'],
-                    'sort_no'    => (int)$ind['sort_no'],
-                    'status'     => (int)$ind['status'],
-                    'created_at' => $now,
+                    'version_id'  => $newId,
+                    'parent_id'   => $newParent,
+                    'level_no'    => (int)$ind['level_no'],
+                    'code'        => $ind['code'],
+                    'name'        => $ind['name'],
+                    'description' => isset($ind['description']) ? $ind['description'] : null,
+                    'weight'      => $ind['weight'],
+                    'sort_no'     => (int)$ind['sort_no'],
+                    'status'      => (int)$ind['status'],
+                    'created_at'  => $now,
                 ]);
                 $idMap[$oldId] = $nid;
             }
@@ -438,16 +439,72 @@ class IndicatorService
     }
 
     /**
-     * 新增或更新指标节点。
-     * 产品约定：一/二/三级指标结构固定（由复制版本带入），草稿仅在三级下维护题目。
+     * 更新已有指标节点信息（仅草稿；不可新增节点、不可改 parent_id / level_no）。
      *
      * @param int   $versionId 版本 ID
-     * @param array $data 指标字段：id?、parent_id、name、code?、weight、sort_no、status?
+     * @param array $data 指标字段：id（必填）、name、description?、code?、weight、sort_no、status?
      * @return array [bool ok, string msg, int id]
      */
     public static function saveIndicator($versionId, array $data)
     {
-        return [false, '指标树结构固定，不可新增或修改指标；请在三级指标下维护题目', 0];
+        list($ok, $msg) = self::assertDraft($versionId);
+        if (!$ok) {
+            return [$ok, $msg, 0];
+        }
+
+        $id = isset($data['id']) ? (int)$data['id'] : 0;
+        if ($id <= 0) {
+            return [false, '不可新增指标节点；请选择已有一/二/三级指标进行编辑', 0];
+        }
+
+        $row = Db::name('tm_indicator')
+            ->where('id', $id)
+            ->where('version_id', (int)$versionId)
+            ->find();
+        if (!$row) {
+            return [false, '指标不存在或不属于当前版本', 0];
+        }
+
+        $name = isset($data['name']) ? trim((string)$data['name']) : '';
+        if ($name === '') {
+            return [false, '请填写指标名称', 0];
+        }
+        if (mb_strlen($name) > 128) {
+            return [false, '指标名称过长', 0];
+        }
+
+        $description = isset($data['description']) ? trim((string)$data['description']) : '';
+        if (mb_strlen($description) > 1024) {
+            return [false, '指标描述过长', 0];
+        }
+
+        $code = isset($data['code']) ? trim((string)$data['code']) : '';
+        if ($code !== '' && mb_strlen($code) > 32) {
+            return [false, '指标编码过长', 0];
+        }
+
+        $weight = isset($data['weight']) ? (float)$data['weight'] : (float)$row['weight'];
+        if ($weight < 0 || $weight > 100) {
+            return [false, '权重须在 0～100 之间', 0];
+        }
+
+        $sortNo = isset($data['sort_no']) ? (int)$data['sort_no'] : (int)$row['sort_no'];
+        $status = isset($data['status']) ? (int)$data['status'] : (int)$row['status'];
+        if ($status !== 0 && $status !== 1) {
+            $status = 1;
+        }
+
+        Db::name('tm_indicator')->where('id', $id)->where('version_id', (int)$versionId)->update([
+            'name'        => $name,
+            'description' => $description === '' ? null : $description,
+            'code'        => $code === '' ? null : $code,
+            'weight'      => $weight,
+            'sort_no'     => $sortNo,
+            'status'      => $status,
+            'updated_at'  => tmNow(),
+        ]);
+
+        return [true, '指标已保存', $id];
     }
 
     /**
@@ -459,7 +516,7 @@ class IndicatorService
      */
     public static function deleteIndicator($versionId, $indicatorId)
     {
-        return [false, '指标树结构固定，不可删除指标；请在三级指标下维护题目'];
+        return [false, '指标树结构固定，不可删除指标；请编辑指标信息或在三级指标下维护题目'];
     }
 
     /**

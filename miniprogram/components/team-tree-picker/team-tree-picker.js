@@ -1,115 +1,128 @@
-Component({
-  properties: {
-    tree: {
-      type: Array,
-      value: [],
-    },
-    teamId: {
-      type: Number,
-      value: 0,
-    },
-    label: {
-      type: String,
-      value: '',
-    },
-    orgPath: {
-      type: String,
-      value: '',
-    },
-    placeholder: {
-      type: String,
-      value: '请选择班组',
-    },
-  },
-
-  data: {
-    visible: false,
-    expanded: {},
-    rows: [],
-  },
-
-  observers: {
-    'tree, expanded': function () {
-      this.refreshRows();
-    },
-  },
-
-  methods: {
-    noop() {},
-
-    open() {
-      const tree = this.properties.tree || [];
-      const expanded = this.defaultExpanded(tree);
-      this.setData({ visible: true, expanded }, () => this.refreshRows());
-    },
-
-    close() {
-      this.setData({ visible: false });
-    },
-
-    defaultExpanded(nodes) {
-      const map = {};
-      const walk = (list, depth) => {
-        (list || []).forEach((n) => {
-          if (n.type === 'org' && n.children && n.children.length) {
-            // 默认展开前两级，方便找班组
-            if (depth < 2) {
-              map[n.id] = true;
-            }
-            walk(n.children, depth + 1);
-          }
-        });
-      };
-      walk(nodes, 0);
-      return map;
-    },
-
-    refreshRows() {
-      const tree = this.properties.tree || [];
-      const expanded = this.data.expanded || {};
-      this.setData({ rows: this.flatten(tree, 0, expanded) });
-    },
-
-    flatten(nodes, depth, expanded) {
-      const rows = [];
-      (nodes || []).forEach((n) => {
-        const hasChildren =
-          n.type === 'org' && Array.isArray(n.children) && n.children.length > 0;
-        rows.push({
-          id: n.id,
-          type: n.type,
-          name: n.name,
-          depth,
-          team_id: n.team_id || 0,
-          org_path: n.org_path || '',
-          hasChildren,
-          expanded: !!expanded[n.id],
-        });
-        if (hasChildren && expanded[n.id]) {
-          rows.push.apply(rows, this.flatten(n.children, depth + 1, expanded));
-        }
-      });
-      return rows;
-    },
-
-    onRowTap(e) {
-      const item = e.currentTarget.dataset.item;
-      if (!item) return;
-      if (item.type === 'org') {
-        if (!item.hasChildren) return;
-        const expanded = Object.assign({}, this.data.expanded);
-        expanded[item.id] = !expanded[item.id];
-        this.setData({ expanded }, () => this.refreshRows());
-        return;
-      }
-      if (item.type === 'team' && item.team_id) {
-        this.triggerEvent('change', {
-          team_id: item.team_id,
-          team_name: item.name,
-          org_path: item.org_path || '',
-        });
-        this.setData({ visible: false });
-      }
-    },
-  },
-});
+Component({
+  properties: {
+    tree: {
+      type: Array,
+      value: [],
+    },
+    teamId: {
+      type: Number,
+      value: 0,
+    },
+    label: {
+      type: String,
+      value: '',
+    },
+    orgPath: {
+      type: String,
+      value: '',
+    },
+    placeholder: {
+      type: String,
+      value: '请选择班组',
+    },
+  },
+
+  data: {
+    visible: false,
+    /** 当前层级节点列表 */
+    options: [],
+    /** 面包屑：[{name, children}] */
+    crumbs: [],
+    stepTitle: '选择公司',
+  },
+
+  methods: {
+    noop() {},
+
+    open() {
+      const tree = this.properties.tree || [];
+      this.setData({
+        visible: true,
+        crumbs: [],
+        options: tree,
+        stepTitle: this.titleForNodes(tree),
+      });
+      this.triggerEvent('visibilitychange', { visible: true });
+    },
+
+    close() {
+      if (!this.data.visible) return;
+      this.setData({ visible: false });
+      this.triggerEvent('visibilitychange', { visible: false });
+    },
+
+    /**
+     * 根据当前层节点类型给步骤标题。
+     */
+    titleForNodes(nodes) {
+      const list = nodes || [];
+      if (!list.length) return '选择';
+      const hasOrg = list.some((n) => n.type === 'org');
+      const hasTeam = list.some((n) => n.type === 'team');
+      if (hasOrg && !hasTeam) {
+        const types = list
+          .map((n) => Number(n.org_type || 0))
+          .filter((t) => t > 0);
+        const t = types.length ? types[0] : 0;
+        if (t === 1) return '选择公司';
+        if (t === 2) return '选择厂区';
+        if (t === 3) return '选择部门';
+        return '选择组织';
+      }
+      if (hasTeam && !hasOrg) return '选择班组';
+      return '请选择';
+    },
+
+    onBack() {
+      const crumbs = (this.data.crumbs || []).slice();
+      if (!crumbs.length) {
+        this.close();
+        return;
+      }
+      crumbs.pop();
+      const options = crumbs.length
+        ? crumbs[crumbs.length - 1].children
+        : this.properties.tree || [];
+      this.setData({
+        crumbs,
+        options,
+        stepTitle: this.titleForNodes(options),
+      });
+    },
+
+    onPick(e) {
+      const item = e.currentTarget.dataset.item;
+      if (!item) return;
+
+      if (item.type === 'team' && item.team_id) {
+        this.triggerEvent('change', {
+          team_id: item.team_id,
+          team_name: item.name,
+          org_path: item.org_path || '',
+        });
+        this.close();
+        return;
+      }
+
+      if (item.type === 'org') {
+        const children = item.children || [];
+        if (!children.length) {
+          wx.showToast({ title: '该组织下暂无班组', icon: 'none' });
+          return;
+        }
+        const crumbs = (this.data.crumbs || []).concat([
+          {
+            name: item.name,
+            children,
+          },
+        ]);
+        this.setData({
+          crumbs,
+          options: children,
+          stepTitle: this.titleForNodes(children),
+        });
+      }
+    },
+  },
+});
+
