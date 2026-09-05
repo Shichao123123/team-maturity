@@ -324,11 +324,11 @@ layui.use(['jquery','form','echarts','layer'], function(){
             tooltip: {
                 trigger: 'axis',
                 confine: true,
-                backgroundColor: 'rgba(255,255,255,0.96)',
-                borderColor: '#e2e8f0',
+                backgroundColor: 'rgba(3,36,64,0.97)',
+                borderColor: '#1688b5',
                 borderWidth: 1,
-                textStyle: { color: '#334155', fontSize: 12 },
-                extraCssText: 'max-width:420px;box-shadow:0 8px 24px rgba(15,45,90,.12);',
+                textStyle: { color: '#dceeff', fontSize: 12 },
+                extraCssText: 'max-width:420px;box-shadow:0 8px 24px rgba(0,8,28,.42);',
                 formatter: function(params){
                     if (!params || !params.length) return '';
                     var idx = params[0].dataIndex;
@@ -358,13 +358,13 @@ layui.use(['jquery','form','echarts','layer'], function(){
                 data: axisKeys,
                 boundaryGap: true,
                 axisTick: { alignWithLabel: true },
-                axisLine: { lineStyle: { color: '#cbd5e1' } },
+                axisLine: { lineStyle: { color: '#246486' } },
                 axisLabel: {
                     interval: 0,
                     rotate: 0,
                     hideOverlap: false,
                     fontSize: 12,
-                    color: '#64748b',
+                    color: '#a9c9df',
                     margin: 10
                 }
             },
@@ -373,11 +373,11 @@ layui.use(['jquery','form','echarts','layer'], function(){
                 name: '得分',
                 min: 0,
                 max: 100,
-                nameTextStyle: { fontSize: 12, color: '#64748b', padding: [0, 0, 0, 8] },
+                nameTextStyle: { fontSize: 12, color: '#a9c9df', padding: [0, 0, 0, 8] },
                 axisLine: { show: false },
                 axisTick: { show: false },
-                axisLabel: { fontSize: 12, color: '#64748b' },
-                splitLine: { lineStyle: { color: '#eef2f7', type: 'dashed' } }
+                axisLabel: { fontSize: 12, color: '#a9c9df' },
+                splitLine: { lineStyle: { color: '#12405e', type: 'dashed' } }
             },
             series: series
         };

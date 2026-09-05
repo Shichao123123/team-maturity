@@ -5,6 +5,8 @@ use app\index\service\NationalDashboardService;
 use app\index\service\NationalOverviewService;
 use app\index\service\ExcelHelper;
 use app\index\service\DocxHelper;
+use app\index\service\CompanyDetailService;
+use app\index\service\PdfHelper;
 use think\Request;
 
 /**
@@ -12,6 +14,16 @@ use think\Request;
  */
 class TmNational extends Base
 {
+    protected function checkPower()
+    {
+        $scope=(int)($this->currentAdmin['org_id'] ?? 0);
+        if ($scope>0) {
+            $actions=['company','companydata','exportcompany','exportquestions'];
+            return in_array(strtolower($this->request->action()),$actions,true)
+                && (int)$this->request->param('org_id',0)===$scope;
+        }
+        return parent::checkPower();
+    }
     /**
      * 解析公共筛选参数。
      *
@@ -58,7 +70,7 @@ class TmNational extends Base
      */
     public function overview()
     {
-        $data = NationalOverviewService::build($this->filters());
+        $data = NationalOverviewService::build($this->filters(), false, true);
         return json(DefaultResponse(0, true, 'ok', $data));
     }
 
@@ -110,6 +122,7 @@ class TmNational extends Base
         $orgId = (int)Request::instance()->param('org_id', 0);
         $opts = NationalDashboardService::filterOptions();
         $this->assign('org_id', $orgId);
+        $this->assign('scoped_account', !empty($this->currentAdmin['org_id']) ? 1 : 0);
         $this->assign('levels', $opts['levels']);
         return $this->fetch();
     }
@@ -125,10 +138,63 @@ class TmNational extends Base
         if ($orgId <= 0) {
             return json(DefaultResponse(400, false, '请指定企业'));
         }
-        list($ok, $msg, $data) = NationalDashboardService::companyDetail($orgId, $this->filters());
+        list($ok, $msg, $data) = CompanyDetailService::build($orgId, $this->filters());
         if (!$ok) {
             return json(DefaultResponse(400, false, $msg));
         }
         return json(DefaultResponse(0, true, 'ok', $data));
+    }
+
+    public function exportQuestions()
+    {
+        list($ok,$msg,$d)=CompanyDetailService::build((int)$this->request->param('org_id',0),$this->filters());
+        if (!$ok) abort(400,$msg);
+        $rows=[];
+        foreach ($d['questions'] as $q) {
+            $title=$q['title'];
+            if (preg_match('/^[\s]*[=+@-]/u',$title)) $title="'".$title;
+            $rows[]=[$title,$q['count'],$q['team_count'],$d['is_demo']?'演示':'真实测评'];
+        }
+        ExcelHelper::download('企业高频问题.csv',['问题项','失分出现次数','涉及班组数','数据来源'],$rows);
+    }
+
+    public function exportCompany()
+    {
+        list($ok,$msg,$d)=CompanyDetailService::build((int)$this->request->param('org_id',0),$this->filters());
+        if (!$ok) abort(400,$msg);
+        $raw=trim((string)$this->request->param('team_ids',''));
+        $teams=$d['teams'];
+        if ($raw!=='') {
+            $ids=array_map('intval',explode(',',$raw));
+            $teams=array_values(array_filter($teams,function($t)use($ids){return in_array((int)$t['team_id'],$ids,true);}));
+            if (!$teams || count($teams)!==count(array_unique($ids))) abort(400,'选择的班组不属于当前企业或筛选范围');
+        }
+        $pdf=$this->companyReportPdf($d,$teams);
+        PdfHelper::download($pdf,$d['org']['name'].'企业诊断报告.pdf');
+    }
+
+    protected function companyReportPdf(array $d, array $teams)
+    {
+        $title=$d['org']['name'].'企业诊断报告';
+        $pdf=PdfHelper::create($title,$d['is_demo']?'演示数据报告 · 不作为真实测评结论':$d['period']);
+        PdfHelper::writeParagraph($pdf,$d['feature_desc']);
+        PdfHelper::writeTable($pdf,['综合分','成熟度','班组数','期内已测评','完成率'],[[$d['summary']['score_text'],$d['summary']['level_name'],$d['team_total'],$d['completed_count'],$d['completion_rate'].'%']]);
+        PdfHelper::writeSection($pdf,'企业二级指标短板 TOP5');
+        foreach ($d['weak_top5'] as $w) PdfHelper::writeParagraph($pdf,$w['indicator_name'].'：失分率 '.$w['loss_rate'].'%');
+        PdfHelper::writeSection($pdf,'高频原始问题');
+        foreach ($d['questions'] as $q) PdfHelper::writeParagraph($pdf,$q['title'].'（'.$q['count'].' 次，'.$q['team_count'].' 个班组）');
+        foreach ($teams as $t) {
+            $pdf->AddPage(); PdfHelper::writeSection($pdf,$t['team_name']);
+            PdfHelper::writeTable($pdf,['综合分','成熟度','班组长均分','成员均分'],[[$t['team_score'],$t['level_name'],$t['leader_score'] ?? '—',$t['member_score'] ?? '—']]);
+            PdfHelper::writeSection($pdf,'一级指标得分率');
+            foreach ($t['indicator_rates'] as $r) PdfHelper::writeParagraph($pdf,$r['name'].'：'.$r['score'].'%');
+            PdfHelper::writeSection($pdf,'暴露问题');
+            foreach ($t['problems'] as $p) PdfHelper::writeParagraph($pdf,$p);
+            PdfHelper::writeSection($pdf,'改进建议');
+            foreach ($t['measures'] as $m) PdfHelper::writeParagraph($pdf,$m['title'].'：'.$m['content']);
+            PdfHelper::writeSection($pdf,'历史测评');
+            foreach ($t['history'] as $h) PdfHelper::writeParagraph($pdf,$h['batch_name'].' / '.$h['scored_at'].' / '.$h['team_score'].'分');
+        }
+        return $pdf;
     }
 }

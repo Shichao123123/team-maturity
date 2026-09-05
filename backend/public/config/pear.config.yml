@@ -21,9 +21,9 @@ tab:
     href: "/TmNational/index"
     title: "首页"
 theme:
-  defaultColor: "2"
+  defaultColor: "1"
   defaultMenu: "dark-theme"
-  defaultHeader: "light-theme"
+  defaultHeader: "dark-theme"
   allowCustom: true
   banner: false
 colors:

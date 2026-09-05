@@ -127,15 +127,15 @@ layui.use(['jquery','form','table','echarts','layer'], function(){
             }
             var top = chartList.slice(0, 15).reverse();
             chart.setOption({
-                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor:'rgba(3,36,64,.97)', borderColor:'#1688b5', textStyle:{color:'#dceeff'} },
                 grid: { left: 120, right: 30, top: 20, bottom: 30 },
-                xAxis: { type: 'value', name: '得分', min: 0, max: 100 },
-                yAxis: { type: 'category', data: top.map(function(r){ return r.team_name; }) },
+                xAxis: { type: 'value', name: '得分', min: 0, max: 100, nameTextStyle:{color:'#a9c9df'}, axisLabel:{color:'#a9c9df'}, axisLine:{lineStyle:{color:'#246486'}}, splitLine:{lineStyle:{color:'#12405e',type:'dashed'}} },
+                yAxis: { type: 'category', data: top.map(function(r){ return r.team_name; }), axisLabel:{color:'#c6e1f2'}, axisLine:{lineStyle:{color:'#246486'}} },
                 series: [{
                     type: 'bar',
                     data: top.map(function(r){ return r.team_score; }),
-                    itemStyle: { color: '#1677ff' },
-                    label: { show: true, position: 'right' }
+                    itemStyle: { color: '#1aaeea' },
+                    label: { show: true, position: 'right', color:'#dff5ff' }
                 }]
             }, true);
         }

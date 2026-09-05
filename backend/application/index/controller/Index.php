@@ -17,6 +17,10 @@ class Index extends Base
      */
     public function index()
     {
+        if (!empty($this->currentAdmin['org_id'])) {
+            $this->redirect('/TmNational/company?org_id='.(int)$this->currentAdmin['org_id']);
+            return;
+        }
         return $this->fetch('index/index');
     }
 
@@ -27,6 +31,10 @@ class Index extends Base
      */
     public function welcome()
     {
+        if (!empty($this->currentAdmin['org_id'])) {
+            $this->redirect('/TmNational/company?org_id='.(int)$this->currentAdmin['org_id']);
+            return;
+        }
         $roleId = isset($this->currentAdmin['role_id']) ? (int)$this->currentAdmin['role_id'] : 0;
         if ($roleId > 0 && (new PowerModel())->roleCanAccessPath($roleId, '/TmNational/index')) {
             $this->redirect('/TmNational/index');
@@ -48,6 +56,7 @@ class Index extends Base
         $req = Request::instance();
         $batchId = (int)$req->param('batch_id', 0);
         $orgId = (int)$req->param('org_id', 0);
+        if (!empty($this->currentAdmin['org_id'])) $orgId=(int)$this->currentAdmin['org_id'];
         $data = DashboardService::levelDist($batchId, $orgId, 1, 1);
         return json(DefaultResponse(0, true, 'ok', [
             'team_total'      => $data['team_total'],
@@ -72,6 +81,7 @@ class Index extends Base
     public function menu()
     {
         $admin = $this->currentAdmin;
+        if (!empty($admin['org_id'])) return json([['id'=>34,'title'=>'企业详情','icon'=>'layui-icon-chart-screen','type'=>1,'href'=>'/TmNational/company?org_id='.(int)$admin['org_id']]]);
         $model = new PowerModel();
         $list = $model->getMenuByRoleId($admin['role_id']);
         return json($list);

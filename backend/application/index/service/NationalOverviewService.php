@@ -7,17 +7,20 @@ use think\Db;
 /** 首页所有图表、表格和导出共享同一算分日期与企业筛选范围。 */
 class NationalOverviewService
 {
-    public static function build(array $filters, $includeRaw = false)
+    public static function build(array $filters, $includeRaw = false, $includeDemo = false)
     {
         $companies = NationalDashboardService::companyAggregates($filters);
         // 演示企业存放在组织表中，但不创建答卷/算分记录；只在全国首页展示。
         // 真实测评服务通过 is_demo=0 排除它们，因此不会污染真实结果。
         $demoTeamsTotal = 0; $demoPapersTotal = 0; $demoBatchesTotal = 0;
-        $demoQ = Db::name('tm_org')->where('org_type', 1)->where('status', 1)->where('is_demo', 1)->whereNull('deleted_at');
-        if (!empty($filters['industry'])) $demoQ->where('industry', $filters['industry']);
-        if (!empty($filters['province'])) $demoQ->where('province', $filters['province']);
-        if (!empty($filters['keyword'])) $demoQ->where('name', 'like', '%' . $filters['keyword'] . '%');
-        $demoRows = $demoQ->order('sort_no asc,id asc')->select();
+        $demoRows = [];
+        if ($includeDemo) {
+            $demoQ = Db::name('tm_org')->where('org_type', 1)->where('status', 1)->where('is_demo', 1)->whereNull('deleted_at');
+            if (!empty($filters['industry'])) $demoQ->where('industry', $filters['industry']);
+            if (!empty($filters['province'])) $demoQ->where('province', $filters['province']);
+            if (!empty($filters['keyword'])) $demoQ->where('name', 'like', '%' . $filters['keyword'] . '%');
+            $demoRows = $demoQ->order('sort_no asc,id asc')->select();
+        }
         foreach ($demoRows ?: [] as $demo) {
             $demoDate = isset($demo['demo_scored_at']) ? $demo['demo_scored_at'] : null;
             if (!empty($filters['date_from']) && $demoDate && $demoDate < $filters['date_from'].' 00:00:00') continue;
@@ -51,6 +54,7 @@ class NationalOverviewService
         $owners = [];
         $orgModel = new OrgModel();
         foreach ($companies as $index => &$company) {
+            if (!empty($company['is_demo'])) continue;
             $ids = $orgModel->collectDescendantIds($company['org_id']);
             $teams = Db::name('tm_team')->where('org_id', 'in', $ids)->whereNull('deleted_at')->column('id');
             foreach ($teams as $tid) $owners[(int)$tid][] = $index;
@@ -126,14 +130,16 @@ class NationalOverviewService
         foreach (DashboardService::levelsMeta() as $lv) $levels[$lv['level_code']]=['level_code'=>$lv['level_code'],'level_name'=>$lv['level_name'],'count'=>0,'percent'=>0,'percent_text'=>'0%'];
         $sum=0; $scored=0; $map=[];
         foreach ($companies as $index => &$c) {
-            $c['measured_team_cnt']=count(isset($companyTeams[$index])?$companyTeams[$index]:[]);
-            $c['sample_cnt']=count(isset($companyPapers[$index])?$companyPapers[$index]:[]);
-            $rates=[];
-            foreach (isset($companyInd[$index])?$companyInd[$index]:[] as $i) if ($i['full']>0) $rates[]=['name'=>$i['name'],'score'=>round(100*$i['got']/$i['full'],1)];
-            usort($rates,function($a,$b){return $b['score'] <=> $a['score'];});
-            $c['indicator_rates']=$rates;
-            $c['strengths']=array_column(array_slice($rates,0,3),'name');
-            $c['weaknesses']=array_column(array_slice(array_reverse($rates),0,3),'name');
+            if (empty($c['is_demo'])) {
+                $c['measured_team_cnt']=count(isset($companyTeams[$index])?$companyTeams[$index]:[]);
+                $c['sample_cnt']=count(isset($companyPapers[$index])?$companyPapers[$index]:[]);
+                $rates=[];
+                foreach (isset($companyInd[$index])?$companyInd[$index]:[] as $i) if ($i['full']>0) $rates[]=['name'=>$i['name'],'score'=>round(100*$i['got']/$i['full'],1)];
+                usort($rates,function($a,$b){return $b['score'] <=> $a['score'];});
+                $c['indicator_rates']=$rates;
+                $c['strengths']=array_column(array_slice($rates,0,3),'name');
+                $c['weaknesses']=array_column(array_slice(array_reverse($rates),0,3),'name');
+            }
             if ($c['score']!==null) { $sum+=$c['score']; $scored++; if (isset($levels[$c['level_code']])) $levels[$c['level_code']]['count']++; }
             if ($c['lng']!==null && $c['lat']!==null) $map[]=array_merge($c,['value'=>[$c['lng'],$c['lat'],$c['score']],'has_score'=>$c['score']!==null]);
         }
@@ -142,7 +148,7 @@ class NationalOverviewService
         unset($lv);
         $result=['kpi'=>['company_cnt'=>count($companies),'scored_cnt'=>$scored,'team_cnt'=>count($teams)+$demoTeamsTotal,'paper_cnt'=>count($papers)+$demoPapersTotal,'eval_cnt'=>count($batches)+$demoBatchesTotal,'avg_score_text'=>$scored?number_format($sum/$scored,1,'.',''):'—'],
             'companies'=>$companies,'map_points'=>$map,'levels'=>array_values($levels),'l1_radar'=>$radar,'weak_top10'=>array_slice($weak,0,10),
-            'tip'=>'演示企业仅用于首页展示，未写入答卷和算分结果；真实测评统计、结果查询与统计分析已排除演示数据。'];
+            'tip'=>''];
         if ($includeRaw) $result['raw']=$rows;
         return $result;
     }

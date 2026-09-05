@@ -1,0 +1,151 @@
+/* 深蓝运营大屏外壳：让后台导航与首页、企业详情形成连续画面。 */
+html,
+body.pear-admin,
+.pear-admin .layui-layout {
+    background: #00142d;
+}
+
+.pear-admin .layui-header,
+.pear-admin .layui-header.light-theme,
+.pear-admin .layui-header.dark-theme {
+    height: 50px;
+    background:
+        linear-gradient(90deg, rgba(0, 189, 255, .08), transparent 28%, transparent 72%, rgba(0, 189, 255, .08)),
+        linear-gradient(180deg, #052b50, #001a35) !important;
+    border-bottom: 1px solid #087eb2 !important;
+    box-shadow: 0 2px 12px rgba(0, 9, 28, .42) !important;
+}
+
+.pear-admin .layui-header::after {
+    content: '';
+    position: absolute;
+    left: 14%;
+    right: 14%;
+    bottom: -1px;
+    height: 1px;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, #21dfff, transparent);
+    box-shadow: 0 0 9px rgba(33, 223, 255, .65);
+}
+
+.pear-admin .layui-header .layui-nav,
+.pear-admin .layui-header .layui-nav-item,
+.pear-admin .layui-header .layui-nav-item > a {
+    height: 50px;
+    line-height: 50px;
+}
+
+.pear-admin .layui-header .layui-nav .layui-nav-item > a,
+.pear-admin .layui-header.light-theme .layui-nav .layui-nav-item > a {
+    color: #cce9ff !important;
+}
+
+.pear-admin .layui-header .layui-nav .layui-nav-item > a:hover {
+    color: #66e8ff !important;
+    background: rgba(16, 137, 203, .18);
+}
+
+.pear-admin .layui-header .layui-nav-child {
+    top: 54px;
+    background: #052541;
+    border-color: #087ba9;
+    box-shadow: 0 8px 22px rgba(0, 8, 25, .5);
+}
+
+.pear-admin .layui-header .layui-nav-child a {
+    color: #d5ecff !important;
+}
+
+.pear-admin .layui-header .layui-nav-child a:hover {
+    color: #fff !important;
+    background: #08608d;
+}
+
+.pear-admin .layui-side .layui-logo {
+    height: 50px;
+    line-height: 50px;
+    background: linear-gradient(180deg, #063054, #021c34);
+    border-bottom-color: #087eb2;
+}
+
+.pear-admin .layui-side-scroll {
+    height: calc(100% - 50px) !important;
+}
+
+.pear-admin .layui-body {
+    top: 50px;
+    background: #00142d;
+}
+
+.pear-admin .pear-tab .layui-tab-title {
+    height: 38px;
+    border: 0;
+    border-bottom: 1px solid #0a537b;
+    background: linear-gradient(180deg, #042844, #021a31);
+    box-shadow: inset 0 -1px rgba(27, 223, 255, .08);
+}
+
+.pear-admin .pear-tab .layui-tab-title li {
+    height: 38px;
+    line-height: 38px;
+    color: #8eb5d0;
+    border-right: 1px solid #104664;
+    background: transparent;
+}
+
+.pear-admin .pear-tab .layui-tab-title li:hover,
+.pear-admin .pear-tab .layui-tab-title .layui-this {
+    color: #e6f8ff;
+    background: linear-gradient(180deg, rgba(11, 99, 151, .48), rgba(5, 58, 92, .38));
+}
+
+.pear-admin .pear-tab .layui-tab-title .pear-tab-active {
+    width: 7px;
+    height: 7px;
+    margin-right: 9px;
+    background: #597d94;
+}
+
+.pear-admin .pear-tab .layui-tab-title .layui-this .pear-tab-active {
+    background: #35e5a0;
+    box-shadow: 0 0 8px rgba(53, 229, 160, .7);
+}
+
+.pear-admin .pear-tab .layui-tab-title .layui-tab-close:hover {
+    color: #fff;
+    background: #0a6693;
+}
+
+.pear-admin .pear-tab .layui-tab-control > li {
+    top: 0;
+    height: 38px;
+    line-height: 38px;
+    color: #a7d1ea;
+    background: #03213b;
+    border-color: #0a537b;
+}
+
+.pear-admin .pear-tab .layui-tab-content {
+    height: calc(100% - 39px) !important;
+    background: #00142d;
+}
+
+.pear-admin .pear-tab-loading {
+    top: 39px;
+    height: calc(100% - 39px);
+    background: #00142d;
+}
+
+@media (max-width: 768px) {
+    .pear-admin .layui-header,
+    .pear-admin .layui-header .layui-nav,
+    .pear-admin .layui-header .layui-nav-item,
+    .pear-admin .layui-header .layui-nav-item > a {
+        height: 46px;
+        line-height: 46px;
+    }
+
+    .pear-admin .layui-body {
+        top: 46px;
+    }
+}

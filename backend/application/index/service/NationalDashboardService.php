@@ -63,7 +63,6 @@ class NationalDashboardService
         $industries = Db::name('tm_org')
             ->where('org_type', 1)
             ->where('status', 1)
-            ->where('is_demo', 0)
             ->whereNull('deleted_at')
             ->where('industry', '<>', '')
             ->whereNotNull('industry')
@@ -72,7 +71,6 @@ class NationalDashboardService
         $provinces = Db::name('tm_org')
             ->where('org_type', 1)
             ->where('status', 1)
-            ->where('is_demo', 0)
             ->whereNull('deleted_at')
             ->where('province', '<>', '')
             ->whereNotNull('province')
@@ -273,6 +271,9 @@ class NationalDashboardService
         if (!$org) {
             return [false, '企业不存在', null];
         }
+        if (!empty($org['is_demo'])) {
+            return self::demoCompanyDetail($org);
+        }
         if ((int)$org['org_type'] !== 1) {
             // 允许非公司节点下钻，但仍按该节点聚合
         }
@@ -380,6 +381,48 @@ class NationalDashboardService
             'team_total' => count($teamIds),
             'l1_radar_company'  => $companyRadar,
             'l1_radar_national' => $nationalRadar,
+        ]];
+    }
+
+    /** 数据库演示企业详情；只读取 tm_org 演示字段，不读取或生成真实答卷。 */
+    private static function demoCompanyDetail(array $org)
+    {
+        $score = $org['demo_score'] === null ? null : (float)$org['demo_score'];
+        $teamTotal = (int)$org['demo_team_cnt'];
+        $sampleTotal = (int)$org['demo_sample_cnt'];
+        $rates = json_decode((string)$org['demo_l1_json'], true);
+        if (!is_array($rates)) $rates = [];
+        $indicators = []; $values = [];
+        foreach ($rates as $rate) {
+            if (!isset($rate['name'], $rate['score'])) continue;
+            $indicators[] = (string)$rate['name']; $values[] = (float)$rate['score'];
+        }
+        $teams = [];
+        for ($i=1; $i<=$teamTotal; $i++) {
+            $teamScore = $score === null ? null : round(max(45, min(98, $score + (($i % 5)-2)*1.7)), 1);
+            $lv = $teamScore === null ? null : LevelJudgeService::judge($teamScore);
+            $teams[] = [
+                'team_id'=>-$i, 'team_name'=>'演示班组'.str_pad($i, 2, '0', STR_PAD_LEFT),
+                'team_score'=>$teamScore, 'level_code'=>$lv ? $lv['level_code'] : '',
+                'level_name'=>$lv ? $lv['level_name'] : '未测评', 'submit_cnt'=>$teamTotal ? (int)round($sampleTotal/$teamTotal) : 0,
+                'batch_id'=>0, 'batch_name'=>'首页演示测评', 'scored_at'=>$org['demo_scored_at'],
+                'weak_top'=>json_decode((string)$org['demo_weaknesses_json'], true) ?: [], 'rank_no'=>$i,
+            ];
+        }
+        usort($teams, function($a,$b){ return $b['team_score'] <=> $a['team_score']; });
+        foreach ($teams as $i => &$team) $team['rank_no']=$i+1;
+        unset($team);
+        $levelCounts=[];
+        foreach (DashboardService::levelsMeta() as $lv) $levelCounts[$lv['level_code']]=['level_code'=>$lv['level_code'],'level_name'=>$lv['level_name'],'count'=>0];
+        foreach ($teams as $team) if (isset($levelCounts[$team['level_code']])) $levelCounts[$team['level_code']]['count']++;
+        $judged = $score === null ? null : LevelJudgeService::judge($score);
+        return [true, 'ok', [
+            'org'=>['org_id'=>(int)$org['id'],'name'=>$org['name'],'industry'=>$org['industry'],'province'=>$org['province'],'city'=>$org['city']],
+            'summary'=>['score'=>$score,'score_text'=>$score===null?'—':number_format($score,1,'.',''),'level_code'=>$org['demo_level_code'],'level_name'=>$org['demo_level_name'],'scored_team_cnt'=>$teamTotal,'eval_cnt'=>(int)$org['demo_eval_cnt'],'paper_cnt'=>$sampleTotal,'is_demo'=>1],
+            'feature_desc'=>'',
+            'levels'=>array_values($levelCounts), 'teams'=>$teams, 'team_total'=>$teamTotal,
+            'l1_radar_company'=>['indicators'=>$indicators,'values'=>$values],
+            'l1_radar_national'=>self::l1RadarScores(null, []),
         ]];
     }
 

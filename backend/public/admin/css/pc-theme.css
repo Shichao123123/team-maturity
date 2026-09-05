@@ -1,0 +1,325 @@
+/* PC 管理端公共深蓝主题。全国首页使用 dashboard-screen 保留专属大屏样式。 */
+:root {
+    color-scheme: dark;
+    --pc-bg: #00142d;
+    --pc-bg-deep: #000d20;
+    --pc-panel: #032541;
+    --pc-panel-2: #052f50;
+    --pc-line: #12577d;
+    --pc-line-bright: #08a9dc;
+    --pc-text: #dceeff;
+    --pc-muted: #8caec8;
+    --pc-cyan: #22dfff;
+    --pc-blue: #168eea;
+}
+
+html,
+body:not(.dashboard-screen) {
+    color-scheme: dark;
+    color: var(--pc-text);
+    scrollbar-color: #1379a6 #02172d;
+    --arc-bg: var(--pc-bg);
+    --arc-panel: var(--pc-panel);
+    --arc-line: var(--pc-line);
+    --arc-text: var(--pc-text);
+    --arc-muted: var(--pc-muted);
+    --arc-accent: var(--pc-cyan);
+    --arc-shadow: 0 8px 24px rgba(0, 7, 23, .24);
+}
+
+body:not(.dashboard-screen):not(.pear-admin) {
+    min-height: 100vh;
+    background-color: var(--pc-bg) !important;
+    background-image:
+        linear-gradient(rgba(24, 118, 169, .055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(24, 118, 169, .055) 1px, transparent 1px),
+        radial-gradient(850px 420px at 10% -10%, rgba(0, 172, 255, .14), transparent 58%) !important;
+    background-size: 30px 30px, 30px 30px, auto !important;
+}
+
+body:not(.dashboard-screen) ::-webkit-scrollbar { width: 8px; height: 8px; }
+body:not(.dashboard-screen) ::-webkit-scrollbar-track { background: #02172d; }
+body:not(.dashboard-screen) ::-webkit-scrollbar-thumb { background: #11678e; border-radius: 6px; }
+body:not(.dashboard-screen) ::-webkit-scrollbar-thumb:hover { background: #149ac7; }
+
+body:not(.dashboard-screen) .layui-card,
+body:not(.dashboard-screen) .kpi-card,
+body:not(.dashboard-screen) .archive-tree-panel,
+body:not(.dashboard-screen) .archive-main-panel,
+body:not(.dashboard-screen) .filter-bar,
+body:not(.dashboard-screen) .panel,
+body:not(.dashboard-screen) .chart-main,
+body:not(.dashboard-screen) .legend-panel,
+body:not(.dashboard-screen) .team-pick,
+body:not(.dashboard-screen) .batch-axis {
+    color: var(--pc-text) !important;
+    background: linear-gradient(135deg, rgba(5, 45, 79, .97), rgba(2, 27, 51, .97)) !important;
+    border-color: var(--pc-line) !important;
+    box-shadow: inset 0 0 18px rgba(0, 104, 163, .1), 0 4px 16px rgba(0, 8, 25, .18) !important;
+}
+
+body:not(.dashboard-screen) .archive-tree-head {
+    color: var(--pc-text) !important;
+    background: linear-gradient(180deg, #073b62, #042b49) !important;
+    border-color: var(--pc-line) !important;
+}
+
+body:not(.dashboard-screen) .archive-tree-title { color: #edf9ff !important; text-shadow: 0 0 9px rgba(34, 223, 255, .24); }
+body:not(.dashboard-screen) .archive-tree-sub { color: #91b5cd !important; }
+body:not(.dashboard-screen) .archive-tree-body { background: linear-gradient(180deg, #032440, #021d35) !important; }
+body:not(.dashboard-screen) .atree-children { border-color: #175679 !important; }
+
+body:not(.dashboard-screen) .archive-tree-panel .anode {
+    color: #bdd9ea !important;
+    border-color: transparent !important;
+}
+
+body:not(.dashboard-screen) .archive-tree-panel .anode:hover {
+    color: #effaff !important;
+    background: #07456a !important;
+    border-color: #126f98 !important;
+}
+
+body:not(.dashboard-screen) .archive-tree-panel .anode.active,
+body:not(.dashboard-screen) .archive-tree-panel .anode.is-team.active {
+    color: #fff !important;
+    background: linear-gradient(90deg, #09618c, #064366) !important;
+    border-color: #18bce8 !important;
+    box-shadow: inset 3px 0 #2be4ff, 0 0 12px rgba(24, 188, 232, .12) !important;
+}
+
+body:not(.dashboard-screen) .archive-tree-panel .anode .node-ico,
+body:not(.dashboard-screen) .archive-tree-panel .anode.is-team .node-ico,
+body:not(.dashboard-screen) .archive-tree-panel .anode.active .node-ico {
+    color: #75e9ff !important;
+    background: #073b5e !important;
+    border: 1px solid #126b91;
+}
+
+body:not(.dashboard-screen) .archive-tree-panel .anode.active .node-ico {
+    color: #fff !important;
+    background: #0982ae !important;
+    box-shadow: 0 0 8px rgba(34, 223, 255, .35);
+}
+
+body:not(.dashboard-screen) .archive-tree-panel .twist { color: #77b7d8 !important; }
+body:not(.dashboard-screen) .archive-current .chip {
+    color: #55e7ff !important;
+    background: rgba(14, 159, 202, .16) !important;
+    border: 1px solid #137da4;
+}
+
+body:not(.dashboard-screen) .team-meta,
+body:not(.dashboard-screen) .result-box,
+body:not(.dashboard-screen) .weak-measure {
+    color: #c9e3f2 !important;
+    background: #052f50 !important;
+    border-color: var(--pc-line) !important;
+}
+
+body:not(.dashboard-screen) .result-box .label,
+body:not(.dashboard-screen) .result-box .sub,
+body:not(.dashboard-screen) .paper-summary,
+body:not(.dashboard-screen) .answer-meta { color: #91b5cd !important; }
+body:not(.dashboard-screen) .result-box .value,
+body:not(.dashboard-screen) .weak-name,
+body:not(.dashboard-screen) .answer-q { color: #eaf8ff !important; }
+
+body:not(.dashboard-screen) .layui-card-header,
+body:not(.dashboard-screen) .archive-main-head,
+body:not(.dashboard-screen) .legend-panel-hd,
+body:not(.dashboard-screen) .batch-axis {
+    color: var(--pc-text) !important;
+    border-color: var(--pc-line) !important;
+}
+
+body:not(.dashboard-screen) .kpi-card .label { color: #9fc5dd !important; }
+body:not(.dashboard-screen) .kpi-card .value { color: #69eaff !important; text-shadow: 0 0 12px rgba(30, 203, 255, .25); }
+body:not(.dashboard-screen) .level-table,
+body:not(.dashboard-screen) .level-table th,
+body:not(.dashboard-screen) .level-table td { color: #cae4f5 !important; background: #032440 !important; border-color: var(--pc-line) !important; }
+body:not(.dashboard-screen) .level-table th { color: #dff5ff !important; background: #0876a6 !important; }
+body:not(.dashboard-screen) .level-table tr:hover td { background: #07547c !important; }
+
+body:not(.dashboard-screen) .panel-title,
+body:not(.dashboard-screen) .archive-page-title,
+body:not(.dashboard-screen) .layui-card-header,
+body:not(.dashboard-screen) h1,
+body:not(.dashboard-screen) h2,
+body:not(.dashboard-screen) h3 {
+    color: #edf8ff !important;
+}
+
+body:not(.dashboard-screen) .panel-tip,
+body:not(.dashboard-screen) .archive-page-sub,
+body:not(.dashboard-screen) .team-pick-tip,
+body:not(.dashboard-screen) .legend-panel-hd span,
+body:not(.dashboard-screen) .layui-text,
+body:not(.dashboard-screen) .layui-word-aux {
+    color: var(--pc-muted) !important;
+}
+
+body:not(.dashboard-screen) .page-head p,
+body:not(.dashboard-screen) .page-subtitle,
+body:not(.dashboard-screen) .empty-tip,
+body:not(.dashboard-screen) .empty-text,
+body:not(.dashboard-screen) .layui-table-page .layui-laypage-count {
+    color: var(--pc-muted) !important;
+}
+
+body:not(.dashboard-screen) .layui-table a:not(.layui-btn),
+body:not(.dashboard-screen) .layui-form-label a,
+body:not(.dashboard-screen) .link-text {
+    color: #35d9ff !important;
+}
+
+body:not(.dashboard-screen) .layui-input,
+body:not(.dashboard-screen) .layui-textarea,
+body:not(.dashboard-screen) .layui-select,
+body:not(.dashboard-screen) select,
+body:not(.dashboard-screen) input[type=date],
+body:not(.dashboard-screen) input[type=search] {
+    color-scheme: dark;
+    color: #e2f3ff !important;
+    background: linear-gradient(#063659, #032440) !important;
+    border-color: #167da7 !important;
+    box-shadow: inset 0 0 8px rgba(0, 95, 151, .2);
+}
+
+body:not(.dashboard-screen) .layui-input:hover,
+body:not(.dashboard-screen) .layui-input:focus,
+body:not(.dashboard-screen) .layui-textarea:focus,
+body:not(.dashboard-screen) select:focus {
+    border-color: var(--pc-cyan) !important;
+    box-shadow: 0 0 0 1px rgba(34, 223, 255, .18), inset 0 0 8px rgba(0, 118, 180, .28);
+}
+
+body:not(.dashboard-screen) input::placeholder,
+body:not(.dashboard-screen) textarea::placeholder { color: #668ba5 !important; }
+body:not(.dashboard-screen) select option,
+body:not(.dashboard-screen) select optgroup { color: var(--pc-text); background: var(--pc-panel-2); }
+
+body:not(.dashboard-screen) .layui-form-select dl,
+body:not(.dashboard-screen) .layui-dropdown,
+body:not(.dashboard-screen) .layui-menu {
+    color: var(--pc-text);
+    background: var(--pc-panel-2) !important;
+    border-color: #167da7 !important;
+    box-shadow: 0 8px 22px rgba(0, 7, 24, .48) !important;
+}
+
+body:not(.dashboard-screen) .layui-form-select dl dd,
+body:not(.dashboard-screen) .layui-menu li { color: #d9efff; background: var(--pc-panel-2); }
+body:not(.dashboard-screen) .layui-form-select dl dd:hover,
+body:not(.dashboard-screen) .layui-form-select dl dd.layui-this,
+body:not(.dashboard-screen) .layui-menu li:hover { color: #fff !important; background: #0878a9 !important; }
+body:not(.dashboard-screen) .layui-form-select dl dd.layui-disabled { color: #63859e !important; background: #05243d !important; }
+
+body:not(.dashboard-screen) .pear-btn,
+body:not(.dashboard-screen) .layui-btn,
+body:not(.dashboard-screen) .archive-tree-actions .pear-btn {
+    color: #eaf8ff !important;
+    background: linear-gradient(180deg, #0e72bb, #075389) !important;
+    border: 1px solid #159bd1 !important;
+    box-shadow: inset 0 1px rgba(180, 236, 255, .12);
+}
+
+body:not(.dashboard-screen) .pear-btn:hover,
+body:not(.dashboard-screen) .layui-btn:hover,
+body:not(.dashboard-screen) .archive-tree-actions .pear-btn:hover {
+    color: #fff !important;
+    border-color: var(--pc-cyan) !important;
+    background: linear-gradient(180deg, #139be8, #0869aa) !important;
+}
+
+body:not(.dashboard-screen) .pear-btn-primary,
+body:not(.dashboard-screen) .layui-btn-normal { background: linear-gradient(180deg, #119df1, #0873c0) !important; }
+body:not(.dashboard-screen) .pear-btn-success { background: linear-gradient(180deg, #1aa980, #11765e) !important; border-color: #29c99b !important; }
+body:not(.dashboard-screen) .layui-btn-danger,
+body:not(.dashboard-screen) .pear-btn-danger { background: linear-gradient(180deg, #d95561, #a93243) !important; border-color: #ee6b75 !important; }
+body:not(.dashboard-screen) button:disabled,
+body:not(.dashboard-screen) .layui-btn-disabled { opacity: .48; cursor: not-allowed; }
+
+body:not(.dashboard-screen) .layui-table-view,
+body:not(.dashboard-screen) .layui-table-box,
+body:not(.dashboard-screen) .layui-table-header,
+body:not(.dashboard-screen) .layui-table-body,
+body:not(.dashboard-screen) .layui-table-main,
+body:not(.dashboard-screen) .layui-table,
+body:not(.dashboard-screen) .layui-table tbody tr {
+    color: #cce5f7 !important;
+    background: #032440 !important;
+    border-color: var(--pc-line) !important;
+}
+
+body:not(.dashboard-screen) .layui-table thead tr,
+body:not(.dashboard-screen) .layui-table th,
+body:not(.dashboard-screen) .layui-table-header {
+    color: #bceaff !important;
+    background: #073b60 !important;
+}
+
+body:not(.dashboard-screen) .layui-table td,
+body:not(.dashboard-screen) .layui-table th,
+body:not(.dashboard-screen) .layui-table-view,
+body:not(.dashboard-screen) .layui-table-header,
+body:not(.dashboard-screen) .layui-table-fixed-r,
+body:not(.dashboard-screen) .layui-table-fixed-l { border-color: var(--pc-line) !important; }
+body:not(.dashboard-screen) .layui-table tbody tr:nth-child(even) { background: #042b49 !important; }
+body:not(.dashboard-screen) .layui-table-hover,
+body:not(.dashboard-screen) .layui-table-click,
+body:not(.dashboard-screen) .layui-table tbody tr:hover { background: #07547c !important; }
+body:not(.dashboard-screen) .layui-table-page { color: var(--pc-muted); background: #02213b; border-color: var(--pc-line); }
+body:not(.dashboard-screen) .layui-table-tool,
+body:not(.dashboard-screen) .layui-table-total { color: var(--pc-text); background: #042d4b; border-color: var(--pc-line); }
+
+body:not(.dashboard-screen) .layui-laypage a,
+body:not(.dashboard-screen) .layui-laypage span,
+body:not(.dashboard-screen) .layui-laypage input,
+body:not(.dashboard-screen) .layui-laypage button,
+body:not(.dashboard-screen) .layui-laypage select {
+    color: #bcd9ed !important;
+    background: #052c49 !important;
+    border-color: var(--pc-line) !important;
+}
+body:not(.dashboard-screen) .layui-laypage .layui-laypage-curr .layui-laypage-em { background: #0b8fca !important; }
+
+body:not(.dashboard-screen) .layui-form-checkbox span,
+body:not(.dashboard-screen) .layui-form-radio,
+body:not(.dashboard-screen) .layui-form-label { color: #c6dfef !important; }
+body:not(.dashboard-screen) .layui-form-checked span,
+body:not(.dashboard-screen) .layui-form-checked:hover span { background: #0c86bc !important; }
+body:not(.dashboard-screen) .layui-form-checked i,
+body:not(.dashboard-screen) .layui-form-radioed > i { color: var(--pc-cyan) !important; }
+
+body:not(.dashboard-screen) .layui-layer {
+    color: var(--pc-text);
+    background: #032440 !important;
+    border: 1px solid #1184b2;
+    box-shadow: 0 12px 38px rgba(0, 5, 19, .58) !important;
+}
+body:not(.dashboard-screen) .layui-layer-title { color: #e9f8ff !important; background: linear-gradient(90deg, #073b64, #032641) !important; border-color: var(--pc-line) !important; }
+body:not(.dashboard-screen) .layui-layer-content,
+body:not(.dashboard-screen) .layui-layer-btn { color: var(--pc-text); background: #032440 !important; border-color: var(--pc-line) !important; }
+body:not(.dashboard-screen) .layui-layer-btn a { color: #eaf8ff; background: #075d98; border-color: #158fc1; }
+
+body:not(.dashboard-screen) .legend-item,
+body:not(.dashboard-screen) .batch-axis-item { color: #bed9eb !important; }
+body:not(.dashboard-screen) .legend-item:hover { background: #075078 !important; }
+body:not(.dashboard-screen) .batch-axis-item .idx { color: #bdeaff !important; background: #075078 !important; }
+body:not(.dashboard-screen) .btn-clear-teams { color: var(--pc-cyan) !important; }
+
+.pear-admin .layui-side,
+.pear-admin .layui-side-scroll { background: linear-gradient(180deg, #052d4d, #021a31 60%, #011527) !important; }
+.pear-admin .layui-side .layui-nav { background: transparent !important; }
+.pear-admin .layui-side .layui-nav-item a { color: #b9d5e8 !important; }
+.pear-admin .layui-side .layui-nav-item a:hover { color: #fff !important; background: rgba(11, 111, 160, .42) !important; }
+.pear-admin .layui-side .layui-nav-tree .layui-this > a,
+.pear-admin .layui-side .layui-nav-tree .layui-this > a:hover { color: #fff !important; background: linear-gradient(90deg, #0873aa, #0c99be) !important; }
+.pear-admin .layui-side .layui-nav-bar { background: var(--pc-cyan) !important; box-shadow: 0 0 8px var(--pc-cyan); }
+
+@media (max-width: 760px) {
+    body:not(.dashboard-screen) .layui-card-body { padding: 10px; }
+    body:not(.dashboard-screen) .filter-bar,
+    body:not(.dashboard-screen) .panel { border-radius: 5px !important; }
+}

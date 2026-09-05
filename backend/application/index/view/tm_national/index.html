@@ -37,9 +37,10 @@
         .filter-bar .layui-select { background:#0b243b; color:#d9f4ff; border-color:rgba(69,178,221,.3); }
         .filter-bar .layui-input::placeholder { color:#62879c; }
         .filter-bar .layui-form-select dl { background:#0b243b; border-color:#1d5975; }
-        .filter-bar .layui-form-select dl dd { color:#b9e4f2; }
+        .filter-bar .layui-form-select dl dd { color:#d9efff;background:#052f50; }
         .filter-bar .layui-form-select dl dd:hover,
-        .filter-bar .layui-form-select dl dd.layui-this { background:#126084; color:#fff; }
+        .filter-bar .layui-form-select dl dd.layui-this { background:#0879ac; color:#fff; }
+        .filter-bar .layui-form-select dl dd.layui-disabled { background:#06243d;color:#6489a3!important; }
         .filter-bar .pear-btn-primary { background:linear-gradient(135deg,#087fa8,#0ac9c2); border:0; box-shadow:0 0 16px rgba(0,210,210,.25); }
         .kpi-row { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:12px; }
         .kpi-card {
@@ -183,14 +184,31 @@
         .company-panel { grid-column:1 / -1; grid-row:6; min-height:0; }
         .company-tools { display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px; }
         .company-tools button { cursor:pointer;color:#e3f4ff;background:#076cb5;border:1px solid #00baff;padding:6px 12px;border-radius:3px; }
-        .company-tools select { background:#082b48;color:#d8ecff;border:1px solid #1685ae;padding:5px; }
+        .company-tools select { color-scheme:dark;background:#082b48;color:#e3f4ff;border:1px solid #1685ae;padding:5px; }
+        .company-tools select option,.filter-bar select option { background:#052f50;color:#dff3ff; }
+        .company-tools select option:checked,.filter-bar select option:checked { background:#0879ac;color:#fff; }
         .company-scroll { overflow:auto;max-height:230px;scrollbar-width:thin; }
         .company-grid { border-collapse:collapse;width:100%;font-size:12px;color:#c9def5; }
         .company-grid th,.company-grid td { border:1px solid #143f64;padding:7px 8px;text-align:left; }
         .company-grid th { position:sticky;top:0;background:#0b3155;white-space:nowrap; }
         .company-grid a { color:#00d8ff; }
-        .level-cards { display:flex;gap:12px;flex-wrap:wrap;color:#cfe5ff;margin:3px 0 8px;font-size:12px; }
+        .level-cards { display:none; }
         .compare-modal { padding:16px;overflow:auto;background:#05233e;color:#dceeff; }
+        .layui-layer.national-city-layer { overflow:hidden;border:1px solid #00bde9!important;border-radius:5px!important;background:#031d36!important;box-shadow:0 0 30px rgba(0,174,255,.34),inset 0 0 22px rgba(0,112,190,.16)!important; }
+        .national-city-layer .layui-layer-title { height:48px;line-height:48px;padding:0 48px 0 18px;border-bottom:1px solid #087bac!important;background:linear-gradient(90deg,#073b68,#022342)!important;color:#e9f8ff!important;font-size:16px;font-weight:600;text-shadow:0 0 8px rgba(35,211,255,.48); }
+        .national-city-layer .layui-layer-content { background:#031d36!important;color:#dceeff; }
+        .national-city-layer .layui-layer-setwin .layui-layer-close1 { filter:brightness(0) invert(1);opacity:.82; }
+        .city-modal { min-height:100%;padding:14px;background:radial-gradient(circle at 90% 0,rgba(0,173,255,.12),transparent 42%),#031d36; }
+        .city-summary { display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px;padding:8px 11px;border:1px solid #125579;background:#052b4b;color:#a9cae2;font-size:12px; }
+        .city-summary strong { color:#effaff;font-size:13px; }
+        .city-summary .tag { flex-shrink:0;padding:2px 8px;border:1px solid currentColor;border-radius:3px;background:rgba(0,18,38,.44);font-weight:600;white-space:nowrap; }
+        .city-enterprises { display:grid;gap:8px; }
+        .city-enterprise { display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 16px;padding:11px 13px;border:1px solid #11577d;border-left:3px solid var(--level-color,#607d94);border-radius:3px;background:linear-gradient(110deg,#073355,#042440);color:#dceeff!important;transition:border-color .16s,transform .16s,background .16s; }
+        .city-enterprise:hover { transform:translateX(3px);border-color:#19d9ff;background:linear-gradient(110deg,#09436d,#053151); }
+        .city-enterprise strong { min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#41e4ff;font-size:13px; }
+        .city-enterprise .score { color:#fff;font:600 18px 'Bahnschrift',Arial,sans-serif; }
+        .city-enterprise small { color:#91b6d0;font-size:11px; }
+        .city-enterprise .level { color:var(--level-color,#91b6d0);font-weight:600;text-align:right; }
         @media(min-width:1100px) and (min-height:600px) {
             .wb { grid-template-rows:50px 40px 78px minmax(0,1fr) minmax(0,1.2fr) minmax(130px,.8fr); }
             .company-panel { display:flex;flex-direction:column; }.company-scroll { min-height:0;flex:1;max-height:none; }
@@ -245,7 +263,7 @@
         .company-grid a { color:#36e5ff; }
     </style>
 </head>
-<body>
+<body class="dashboard-screen">
 <div class="wb">
     <div class="page-head">
         <div>
@@ -306,13 +324,11 @@
     <div class="main-row">
         <div class="panel">
             <div class="panel-title">全国企业成熟度地图</div>
-            <p class="panel-tip" id="mapTip">点击企业圆点进入企业详情；颜色对应成熟度等级</p>
             <div id="mapChart"></div>
             <div class="legend-row" id="mapLegend"></div>
         </div>
         <div class="panel">
             <div class="panel-title">企业成熟度等级分布</div>
-            <p class="panel-tip">已测评企业的四级占比</p>
             <div id="pieChart"></div>
             <div class="level-cards" id="levelCards"></div>
         </div>
@@ -321,12 +337,10 @@
     <div class="second-row">
         <div class="panel">
             <div class="panel-title">一级指标均分雷达（全国）</div>
-            <p class="panel-tip">按筛选范围内答卷汇总的一级指标得分率</p>
             <div id="radarChart"></div>
         </div>
         <div class="panel weak-panel">
             <div class="panel-title">行业二级指标短板 TOP10</div>
-            <p class="panel-tip">按失分率排序，点击柱子查看对应高频原始问题项</p>
             <div class="weak-chart-scroll"><div id="weakChart"></div></div>
             <div class="weak-drill" id="weakDrill">点击任意指标查看问题项</div>
         </div>
@@ -343,7 +357,6 @@
     </div>
 </div>
 
-<script src="/static/js/national-demo.js"></script>
 <script src="/component/layui/layui.js"></script>
 <script src="/component/pear/pear.js"></script>
 <script>
@@ -359,29 +372,6 @@ layui.use(['jquery','form','echarts','layer','laydate'], function(){
     var weakChart = echarts.init(document.getElementById('weakChart'));
     var geoReady = false;
     var lastData = null;
-    var demoMode=true;
-    var realOptions={industry:$('select[name="industry"]').html(),province:$('select[name="province"]').html()};
-    function syncDemoOptions(){
-        ['industry','province'].forEach(function(key){
-            var select=$('select[name="'+key+'"]');
-            select.html(realOptions[key]);
-            if(demoMode){var seen={};select.find('option').each(function(){seen[this.value]=true;});window.nationalDemoData({}).companies.forEach(function(c){if(!seen[c[key]]){select.append($('<option>').val(c[key]).text(c[key]));seen[c[key]]=true;}});}
-            select.val('');
-        });
-        form.render('select');
-    }
-    syncDemoOptions();
-    $('.company-tools').prepend('<button type="button" id="demoToggle">切换真实数据</button><strong id="demoBadge" style="color:#ffcd60">演示数据 · 不计入真实测评</strong>');
-    $('.page-head > div').append('<span id="demoHeader" style="color:#ffcd60;font-size:12px">演示模式 · 虚构数据</span>');
-    $('#demoToggle').on('click',function(){demoMode=!demoMode;syncDemoOptions();$('#demoToggle').text(demoMode?'切换真实数据':'切换演示数据');$('#demoBadge,#demoHeader').toggle(demoMode);load();});
-    $(document).on('click','.company-panel a',function(e){
-        if(!demoMode)return;
-        e.preventDefault();
-        var match=(this.href||'').match(/org_id=(-?\d+)/),id=match?Number(match[1]):0;
-        var c=(lastData && lastData.companies||[]).filter(function(x){return x.org_id===id;})[0];
-        if(!c)return;
-        layer.open({type:1,title:'演示企业详情 · '+escapeHtml(c.name),area:['560px','520px'],content:'<div class="compare-modal"><p style="color:#ffcd60">此为浏览器演示数据，不会写入真实测评结果。</p><h3>'+escapeHtml(c.name)+'</h3><p>地区：'+escapeHtml(c.province+' '+c.city)+'　行业：'+escapeHtml(c.industry)+'</p><p>综合分：<strong style="color:#6ee7ff;font-size:28px">'+c.score_text+'</strong>　成熟度：'+escapeHtml(c.level_name)+'</p><p>测评班组：'+c.measured_team_cnt+' 个　有效样本：'+c.sample_cnt+' 份</p><h4>相对优势指标</h4><p>'+escapeHtml(c.strengths.join('、'))+'</p><h4>相对短板指标</h4><p>'+escapeHtml(c.weaknesses.join('、'))+'</p></div>'});
-    });
     var levelColors = { passive:'#ff554b', dependent:'#ffbb32', independent:'#20b2ff', essential:'#36e594' };
     var icons = ['M5 21V7l9-4v18M14 9h5v12M8 8v1m3-2v1M8 12v1m3-2v1M8 16v1m3-2v1M3 21h18', 'M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M2 21v-3a5 5 0 0 1 12 0v3M17 5a3 3 0 0 1 0 6m1 4a4 4 0 0 1 4 4v2', 'M5 3h14v18H5zM8 7h8M8 11h8M8 15h5', 'M4 21V13h3v8M11 21V8h3v13M18 21V3h3v18', 'M3 17l5-5 5 3 8-10M16 5h5v5'];
     $('.kpi-card').each(function(i){ $(this).prepend('<span class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="' + icons[i] + '"/></svg></span>'); });
@@ -416,6 +406,7 @@ layui.use(['jquery','form','echarts','layer','laydate'], function(){
     }
 
     function renderMap(points){
+        var levelOrder={passive:0,dependent:1,independent:2,essential:3};
         var groups = {};
         (points || []).forEach(function(p){
             var key = p.city ? p.province+'|'+p.city : p.value[0]+'|'+p.value[1];
@@ -425,7 +416,14 @@ layui.use(['jquery','form','echarts','layer','laydate'], function(){
         points = Object.keys(groups).map(function(key){
             var members=groups[key], p=$.extend({},members[0]);
             p.members=members;
-            if(members.length>1){p.name=(p.city || p.province || '同坐标')+' · '+members.length+'家企业';p.org_id=0;}
+            if(members.length>1){
+                var assessed=members.filter(function(m){return Object.prototype.hasOwnProperty.call(levelOrder,m.level_code);});
+                var lowest=assessed.sort(function(a,b){return levelOrder[a.level_code]-levelOrder[b.level_code] || (a.score||0)-(b.score||0);})[0] || members[0];
+                p.name=(p.city || p.province || '同坐标')+' · '+members.length+'家企业';p.org_id=0;
+                p.level_code=lowest.level_code || '';p.level_name=lowest.level_name || '未测评';
+                p.score=lowest.score;p.has_score=assessed.length>0;p.lowest_level_name=p.level_name;
+                p.value=[p.value[0],p.value[1],p.score==null?0:p.score];
+            }
             return p;
         });
         var data = (points || []).map(function(p){
@@ -439,7 +437,9 @@ layui.use(['jquery','form','echarts','layer','laydate'], function(){
                 level_name: p.level_name,
                 eval_cnt: p.eval_cnt,
                 industry: p.industry,
-                itemStyle: { color: p.members.length>1 ? '#258bbe' : (levelColors[p.level_code] || '#607d94') },
+                level_code:p.level_code,
+                lowest_level_name:p.lowest_level_name,
+                itemStyle: { color:levelColors[p.level_code] || '#607d94',borderColor:'#d9fbff',borderWidth:p.members.length>1?2:0,shadowBlur:p.members.length>1?16:7,shadowColor:levelColors[p.level_code] || '#607d94' },
                 has_score: p.has_score
             };
         });
@@ -449,7 +449,7 @@ layui.use(['jquery','form','echarts','layer','laydate'], function(){
                 formatter: function(p){
                     if (!p.data) return '';
                     var d = p.data;
-                    if(d.members && d.members.length>1) return escapeHtml(d.name)+'<br/>点击展开企业列表';
+                    if(d.members && d.members.length>1) return '<b>'+escapeHtml(d.name)+'</b><br/>点位颜色：最低成熟度 '+escapeHtml(d.lowest_level_name || '未测评')+'<br/><span style="color:#8fc9e8">点击查看企业列表</span>';
                     var score = d.score == null ? '未测评' : d.score;
                     return '<b>' + escapeHtml(d.name) + '</b><br/>得分：' + escapeHtml(score) +
                         '<br/>等级：' + escapeHtml(d.level_name || '—') +
@@ -494,15 +494,30 @@ layui.use(['jquery','form','echarts','layer','laydate'], function(){
         var pieData = (levels || []).map(function(lv){
             return { name: lv.level_name, value: lv.count, itemStyle:{color:levelColors[lv.level_code] || '#607d94'} };
         });
+        var levelMeta = {};
+        (levels || []).forEach(function(lv){ levelMeta[lv.level_name] = lv; });
         pieChart.setOption({
             tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
             color: ['#20e3b2', '#38bdf8', '#f6c85f', '#ff637d', '#607d94'],
-            legend: { orient:'vertical', right:0, top:'middle', itemWidth:10, itemHeight:10, textStyle:{color:'#c8ddf5',fontSize:11} },
+            legend: {
+                orient:'vertical', right:4, top:'middle', itemWidth:10, itemHeight:10,
+                itemGap:12, selectedMode:false,
+                formatter:function(name){
+                    var lv=levelMeta[name] || {};
+                    return '{name|'+name+'}\n{value|'+(lv.count || 0)+' 家  ·  '+(lv.percent_text || '0%')+'}';
+                },
+                textStyle:{
+                    color:'#c8ddf5',fontSize:11,lineHeight:16,
+                    rich:{name:{color:'#d9edff',fontSize:11},value:{color:'#69d8ff',fontSize:10,lineHeight:15}}
+                }
+            },
             series: [{
                 type: 'pie',
-                radius: ['44%', '76%'],
-                center: ['32%', '50%'],
-                label: { position:'inside',formatter:function(p){return p.value ? p.percent + '%' : '';},color:'#fff',fontSize:11 },
+                radius: ['44%', '78%'],
+                center: ['30%', '52%'],
+                avoidLabelOverlap:true,
+                label: { position:'inside',formatter:function(p){return p.value ? p.percent.toFixed(1) + '%' : '';},color:'#fff',fontSize:11,fontWeight:600 },
+                labelLine:{show:false},
                 data: pieData
             }]
         }, true);
@@ -579,8 +594,7 @@ layui.use(['jquery','form','echarts','layer','laydate'], function(){
     var loadSequence=0;
     function load(){
         var sequence=++loadSequence;
-        $('#exportReport,#exportRaw').prop('disabled',demoMode).css('opacity',demoMode ? 0.45 : 1);
-        if(demoMode){present(window.nationalDemoData(filters()),sequence);return;}
+        $('#exportReport,#exportRaw').prop('disabled',false).css('opacity',1);
         var loadIdx = layer.load(2);
         $.getJSON('/TmNational/overview', filters()).done(function(res){
             layer.close(loadIdx);
@@ -624,9 +638,16 @@ layui.use(['jquery','form','echarts','layer','laydate'], function(){
     });
 
     mapChart.on('click', function(params){
-        if(demoMode){layer.msg('演示点位仅供展示；可在企业表中勾选企业进行对比');return;}
         if(params.data && params.data.members && params.data.members.length>1){
-            layer.open({type:1,title:'同城市企业',area:['480px','360px'],content:'<div class="compare-modal">'+params.data.members.map(function(c){return '<p><a style="color:#00d8ff" href="/TmNational/company?org_id='+c.org_id+'">'+escapeHtml(c.name)+'</a> · '+escapeHtml(c.level_name)+' · '+c.score_text+'分 · '+c.measured_team_cnt+'个测评班组</p>';}).join('')+'</div>'});return;
+            var order={passive:0,dependent:1,independent:2,essential:3},members=params.data.members.slice().sort(function(a,b){
+                var ar=Object.prototype.hasOwnProperty.call(order,a.level_code)?order[a.level_code]:9,br=Object.prototype.hasOwnProperty.call(order,b.level_code)?order[b.level_code]:9;
+                return ar-br || (a.score==null?999:a.score)-(b.score==null?999:b.score);
+            });
+            var city=(members[0].city || members[0].province || '同坐标');
+            var html='<div class="city-modal"><div class="city-summary"><span><strong>'+escapeHtml(city)+'</strong> 共 '+members.length+' 家企业，按成熟度从低到高排列</span><span class="tag" style="color:'+(levelColors[params.data.level_code]||'#94a3b8')+'">最低：'+escapeHtml(params.data.lowest_level_name||'未测评')+'</span></div><div class="city-enterprises">';
+            html+=members.map(function(c){var color=levelColors[c.level_code]||'#7892a7';return '<a class="city-enterprise" style="--level-color:'+color+'" href="/TmNational/company?org_id='+c.org_id+'"><strong>'+escapeHtml(c.name)+'</strong><span class="score">'+escapeHtml(c.score_text)+'<small> 分</small></span><small>'+escapeHtml(c.industry||'未填写行业')+' · '+c.measured_team_cnt+' 个测评班组</small><span class="level">'+escapeHtml(c.level_name||'未测评')+' ›</span></a>';}).join('');
+            html+='</div></div>';
+            layer.open({type:1,skin:'national-city-layer',title:city+'企业',area:[Math.min(620,window.innerWidth-24)+'px',Math.min(520,window.innerHeight-80)+'px'],shade:.58,shadeClose:true,content:html});return;
         }
         if (params && params.data && params.data.org_id) {
             location.href = '/TmNational/company?org_id=' + params.data.org_id;
@@ -686,8 +707,8 @@ layui.use(['jquery','form','echarts','layer','laydate'], function(){
             },end:function(){window.removeEventListener('resize',resizeCompare);if(observer)observer.disconnect();charts.forEach(function(c){c.dispose();});}
         });
     });
-    $('#exportReport').on('click',function(){if(!demoMode)location.href='/TmNational/exportReport?'+$.param(filters());});
-    $('#exportRaw').on('click',function(){if(!demoMode)location.href='/TmNational/exportRaw?'+$.param(filters());});
+    $('#exportReport').on('click',function(){location.href='/TmNational/exportReport?'+$.param(filters());});
+    $('#exportRaw').on('click',function(){location.href='/TmNational/exportRaw?'+$.param(filters());});
     form.on('select(autoFilter)', load);
     $('#btnReload').on('click', load);
     var kwTimer = null;

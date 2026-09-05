@@ -7,7 +7,7 @@
  *   ... seed-analytics-data.php --reset   # 仅清理上次本脚本写入的数据
  *
  * 标记约定（便于幂等清理）：
- *   - 组织/班组名以「【演示】」开头
+ *   - 组织/班组名以「」开头
  *   - 批次名以「【演示数据】」开头
  *   - 成员手机号以 1398 开头（脚本专用号段）
  */
@@ -32,7 +32,7 @@ use think\Db;
 $argvList = isset($argv) ? $argv : [];
 $resetOnly = in_array('--reset', $argvList, true);
 
-const SEED_ORG_PREFIX = '【演示】';
+const SEED_ORG_PREFIX = '';
 const SEED_BATCH_PREFIX = '【演示数据】';
 const SEED_MOBILE_PREFIX = '1398';
 
@@ -437,12 +437,12 @@ try {
         [4, '乙班', 72.0, 2.2],
         [5, '一班', 81.0, 1.4],
         [5, '二班', 93.5, 0.4],
-        ['org5', '【演示】常减压丙班', 70.0, 2.5],
-        ['org5', '【演示】常减压丁班', 86.0, 1.1],
-        ['org6', '【演示】催化乙班', 64.0, 3.0],
-        ['org6', '【演示】催化夜班', 89.0, 0.8],
-        ['org7', '【演示】储运二班', 76.0, 1.9],
-        ['org7', '【演示】储运三班', 95.0, 0.3],
+        ['org5', '常减压丙班', 70.0, 2.5],
+        ['org5', '常减压丁班', 86.0, 1.1],
+        ['org6', '催化乙班', 64.0, 3.0],
+        ['org6', '催化夜班', 89.0, 0.8],
+        ['org7', '储运二班', 76.0, 1.9],
+        ['org7', '储运三班', 95.0, 0.3],
     ];
 
     $mobileSeq = (int)date('ymd') * 10;
@@ -461,7 +461,7 @@ try {
         } else {
             $orgId = $ws[(int)$orgKey];
             $orgName = Db::name('tm_org')->where('id', $orgId)->value('name');
-            $short = preg_replace('/^【演示】/', '', (string)$orgName);
+            $short = preg_replace('/^/', '', (string)$orgName);
             $name = SEED_ORG_PREFIX . $short . $suffix;
         }
         $teamId = ensureTeam($orgId, $name);

@@ -52,6 +52,8 @@ class Base extends Controller
             'companydata' => '/TmNational/index',
             'exportraw'   => '/TmNational/index',
             'exportreport' => '/TmNational/index',
+            'exportcompany' => '/TmNational/index',
+            'exportquestions' => '/TmNational/index',
         ],
     ];
 

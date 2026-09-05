@@ -174,20 +174,20 @@ layui.use(['jquery','form','echarts','table','layer'], function(){
                 chart.setOption({
                     tooltip: {
                         trigger:'item', formatter:'{b}<br/>{c}（{d}%）',
-                        backgroundColor:'rgba(255,255,255,.96)', borderColor:'#e2e8f0', borderWidth:1,
-                        textStyle:{ color:'#334155' }
+                        backgroundColor:'rgba(3,36,64,.97)', borderColor:'#1688b5', borderWidth:1,
+                        textStyle:{ color:'#dceeff' }
                     },
                     series: [{
                         type:'pie', radius:['50%','74%'], center:['50%','52%'],
-                        itemStyle:{ borderColor:'#fff', borderWidth:2 },
-                        label:{ formatter:'{b}\n{d}%', color:'#475569', fontSize:12, lineHeight:18 },
+                        itemStyle:{ borderColor:'#032440', borderWidth:2 },
+                        label:{ formatter:'{b}\n{d}%', color:'#cae7f7', fontSize:12, lineHeight:18 },
                         data: items.map(function(it,i){
                             return { name:it.level_name, value:it.count, itemStyle:{ color: colors[i%colors.length] } };
                         })
                     }],
                     graphic: [{
                         type:'text', left:'center', top:'46%',
-                        style:{ text:String(total), fill:'#0f172a', fontSize:28, fontWeight:700, textAlign:'center' }
+                        style:{ text:String(total), fill:'#eaf8ff', fontSize:28, fontWeight:700, textAlign:'center' }
                     }, {
                         type:'text', left:'center', top:'56%',
                         style:{ text:'班组', fill:'#94a3b8', fontSize:12, textAlign:'center' }

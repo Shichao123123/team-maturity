@@ -5,19 +5,21 @@
     {include file="common/css" /}
     <style>
         :root {
-            --arc-bg: #eef2f7;
-            --arc-panel: #ffffff;
-            --arc-line: #d9e2ec;
-            --arc-text: #1e293b;
-            --arc-muted: #64748b;
-            --arc-accent: #1677ff;
-            --arc-accent-soft: rgba(22,119,255,.10);
-            --arc-team: #0f766e;
-            --arc-team-soft: rgba(15,118,110,.10);
-            --arc-shadow: 0 8px 24px rgba(15,45,90,.06);
+            --arc-bg: #00142d;
+            --arc-panel: #032541;
+            --arc-line: #12577d;
+            --arc-text: #e7f6ff;
+            --arc-muted: #8caec8;
+            --arc-accent: #22dfff;
+            --arc-accent-soft: rgba(34,223,255,.14);
+            --arc-team: #45e7b5;
+            --arc-team-soft: rgba(69,231,181,.13);
+            --arc-shadow: 0 8px 24px rgba(0,7,23,.3);
         }
         body.pear-container { background:
-            radial-gradient(900px 420px at 0% -10%, rgba(22,119,255,.08), transparent 55%),
+            linear-gradient(rgba(24,118,169,.055) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(24,118,169,.055) 1px, transparent 1px),
+            radial-gradient(900px 420px at 0% -10%, rgba(0,172,255,.15), transparent 55%),
             var(--arc-bg) !important; }
         .archive-layout {
             display:flex; gap:16px; align-items:stretch;
@@ -25,13 +27,13 @@
         }
         .archive-tree-panel {
             width:300px; flex:0 0 300px; background:var(--arc-panel);
-            border:1px solid var(--arc-line); border-radius:14px;
+            border:1px solid var(--arc-line); border-radius:6px;
             box-shadow: var(--arc-shadow); display:flex; flex-direction:column;
             overflow:hidden;
         }
         .archive-tree-head {
-            padding:14px 14px 10px; border-bottom:1px solid #edf2f7;
-            background:linear-gradient(180deg,#f8fbff 0%,#fff 100%);
+            padding:14px 14px 10px; border-bottom:1px solid var(--arc-line);
+            background:linear-gradient(180deg,#073b62 0%,#042b49 100%);
         }
         .archive-tree-title {
             font-weight:700; color:var(--arc-text); margin:0 0 2px; font-size:15px;
@@ -41,18 +43,18 @@
         .archive-tree-actions { display:flex; gap:6px; }
         .archive-tree-actions .pear-btn {
             border-radius:999px !important; padding:0 12px !important; height:28px; line-height:28px;
-            border:1px solid var(--arc-line) !important; background:#fff !important; color:#475569 !important;
+            border:1px solid #159bd1 !important; background:linear-gradient(180deg,#0e72bb,#075389) !important; color:#eaf8ff !important;
         }
-        .archive-tree-actions .pear-btn:hover { border-color:#b7d3ff !important; color:var(--arc-accent) !important; }
-        .archive-tree-body { padding:10px 10px 14px; overflow:auto; flex:1; }
+        .archive-tree-actions .pear-btn:hover { border-color:var(--arc-accent) !important; color:#fff !important; }
+        .archive-tree-body { padding:10px 10px 14px; overflow:auto; flex:1; background:linear-gradient(180deg,#032440,#021d35); }
         .archive-main-panel {
             flex:1; min-width:0; background:var(--arc-panel);
-            border:1px solid var(--arc-line); border-radius:14px;
+            border:1px solid var(--arc-line); border-radius:6px;
             box-shadow: var(--arc-shadow); padding:16px 18px 18px;
         }
         .archive-main-head {
             display:flex; align-items:center; justify-content:space-between; gap:12px;
-            margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid #edf2f7;
+            margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid var(--arc-line);
         }
         .archive-current {
             display:inline-flex; align-items:center; gap:8px;
@@ -66,52 +68,52 @@
         .archive-toolbar .layui-form-item { margin-bottom:12px; }
         .archive-toolbar .layui-input,
         .archive-toolbar .layui-form-select .layui-input {
-            border-radius:10px !important; border-color:#d7e0ea !important;
+            border-radius:4px !important; border-color:#167da7 !important;
         }
         .atree, .atree ul { list-style:none; margin:0; padding:0; }
-        .atree-children { padding-left:12px; margin-left:10px; border-left:1px dashed #dbe4ee; }
+        .atree-children { padding-left:12px; margin-left:10px; border-left:1px dashed #175679; }
         .atree li { margin:2px 0; }
         .anode {
             display:flex; align-items:center; gap:6px; padding:7px 10px; border-radius:10px;
-            cursor:pointer; color:#334155; font-size:13px; line-height:1.35;
+            cursor:pointer; color:#bdd9ea; font-size:13px; line-height:1.35;
             border:1px solid transparent; transition: background .15s ease, border-color .15s ease, color .15s ease;
         }
-        .anode:hover { background:#f5f9ff; border-color:#e4eefc; }
+        .anode:hover { background:#07456a; border-color:#126f98; color:#fff; }
         .anode.active {
-            background:var(--arc-accent-soft); border-color:#c9defe; color:var(--arc-accent); font-weight:600;
-            box-shadow: inset 3px 0 0 var(--arc-accent);
+            background:linear-gradient(90deg,#09618c,#064366); border-color:#18bce8; color:#fff; font-weight:600;
+            box-shadow:inset 3px 0 0 var(--arc-accent),0 0 12px rgba(24,188,232,.12);
         }
         .anode.is-team.active {
-            background:var(--arc-team-soft); border-color:#b7e0db; color:var(--arc-team);
+            background:linear-gradient(90deg,#08715f,#06483f); border-color:#38cfaa; color:#eafff8;
             box-shadow: inset 3px 0 0 var(--arc-team);
         }
         .anode .node-ico {
             width:22px; height:22px; border-radius:7px; flex:0 0 22px;
             display:inline-flex; align-items:center; justify-content:center;
-            background:#eef2f7; color:#64748b; font-size:12px;
+            background:#073b5e; color:#75e9ff; border:1px solid #126b91; font-size:12px;
         }
-        .anode.is-team .node-ico { background:#e6f4f2; color:var(--arc-team); }
-        .anode.active .node-ico { background:#fff; color:inherit; }
+        .anode.is-team .node-ico { background:#07483f; color:var(--arc-team); border-color:#16866e; }
+        .anode.active .node-ico { background:#0982ae; color:#fff; box-shadow:0 0 8px rgba(34,223,255,.35); }
         .anode .node-text { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .atree .twist {
-            width:16px; flex:0 0 16px; color:#94a3b8; user-select:none; text-align:center; font-size:11px;
+            width:16px; flex:0 0 16px; color:#77b7d8; user-select:none; text-align:center; font-size:11px;
         }
         .atree .twist.empty { visibility:hidden; }
-        .paper-summary { color:#64748b; font-size:12px; line-height:1.5; }
-        .paper-summary .score { color:#1677ff; font-weight:600; }
-        .paper-summary .level { color:#0f766e; font-weight:600; }
+        .paper-summary { color:#91b5cd; font-size:12px; line-height:1.5; }
+        .paper-summary .score { color:#42e8ff; font-weight:600; }
+        .paper-summary .level { color:#45e7b5; font-weight:600; }
         .result-hero {
             display:grid; grid-template-columns:1fr 1fr; gap:12px;
             margin-bottom:14px;
         }
         .result-box {
-            background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 14px;
+            background:#052f50; border:1px solid var(--arc-line); border-radius:5px; padding:12px 14px;
         }
-        .result-box .label { color:#64748b; font-size:12px; margin-bottom:4px; }
-        .result-box .value { font-size:22px; font-weight:700; color:#1e293b; }
-        .result-box .sub { color:#475569; font-size:12px; margin-top:4px; }
-        .answer-q { font-weight:600; color:#1e293b; }
-        .answer-meta { color:#64748b; font-size:12px; }
+        .result-box .label { color:#91b5cd; font-size:12px; margin-bottom:4px; }
+        .result-box .value { font-size:22px; font-weight:700; color:#eaf8ff; }
+        .result-box .sub { color:#9bbdd2; font-size:12px; margin-top:4px; }
+        .answer-q { font-weight:600; color:#eaf8ff; }
+        .answer-meta { color:#91b5cd; font-size:12px; }
         @media (max-width:720px){ .result-hero { grid-template-columns:1fr; } }
     </style>
 </head>

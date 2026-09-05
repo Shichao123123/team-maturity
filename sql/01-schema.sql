@@ -23,6 +23,17 @@ CREATE TABLE `tm_org` (
   `parent_id`   BIGINT       NOT NULL DEFAULT 0 COMMENT '父节点，0=根',
   `name`        VARCHAR(128) NOT NULL COMMENT '组织名称',
   `org_type`    TINYINT      NOT NULL DEFAULT 1 COMMENT '类型标签(不限制层级)：1公司/集团 2厂/分厂 3工段/部门 0其他',
+  `is_demo`     TINYINT      NOT NULL DEFAULT 0 COMMENT '1首页演示企业；不参与真实测评统计',
+  `demo_score`  DECIMAL(5,2) NULL DEFAULT NULL COMMENT '首页演示综合分',
+  `demo_level_code` VARCHAR(32) NULL DEFAULT NULL COMMENT '首页演示成熟度编码',
+  `demo_level_name` VARCHAR(32) NULL DEFAULT NULL COMMENT '首页演示成熟度名称',
+  `demo_team_cnt` INT NOT NULL DEFAULT 0 COMMENT '首页演示班组数',
+  `demo_sample_cnt` INT NOT NULL DEFAULT 0 COMMENT '首页演示样本数',
+  `demo_eval_cnt` INT NOT NULL DEFAULT 0 COMMENT '首页演示测评次数',
+  `demo_scored_at` DATETIME NULL DEFAULT NULL COMMENT '首页演示算分时间',
+  `demo_l1_json` TEXT NULL COMMENT '首页演示一级指标得分率',
+  `demo_strengths_json` TEXT NULL COMMENT '首页演示优势指标',
+  `demo_weaknesses_json` TEXT NULL COMMENT '首页演示短板指标',
   `sort_no`     INT          NOT NULL DEFAULT 0,
   `status`      TINYINT      NOT NULL DEFAULT 1 COMMENT '1启用 0停用',
   `created_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -30,7 +41,8 @@ CREATE TABLE `tm_org` (
   `deleted_at`  DATETIME     NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_parent` (`parent_id`),
-  KEY `idx_type_status` (`org_type`, `status`)
+  KEY `idx_type_status` (`org_type`, `status`),
+  KEY `idx_demo` (`is_demo`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='组织架构树';
 
 DROP TABLE IF EXISTS `tm_team`;

@@ -4,62 +4,79 @@
     {include file="common/meta" /}
     {include file="common/css" /}
     <style>
-        body.pear-container { background: #f2f5fa !important; }
-        .mock-wrap { max-width: 960px; margin: 0 auto; }
+        body.pear-container { padding: 18px 22px 28px; }
+        .mock-wrap { max-width: 1080px; margin: 0 auto; }
         .card {
-            background: #fff;
-            border-radius: 10px;
-            border: 1px solid #e8eef6;
-            box-shadow: 0 1px 3px rgba(15,45,90,.05);
-            padding: 22px 24px;
-            margin-bottom: 14px;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg, rgba(5,49,84,.98), rgba(2,27,51,.98));
+            border-radius: 6px;
+            border: 1px solid #126b94;
+            box-shadow: inset 0 0 24px rgba(0,156,221,.08), 0 10px 28px rgba(0,8,28,.3);
+            padding: 22px 26px;
+            margin-bottom: 16px;
         }
-        .card h2 { margin: 0 0 8px; font-size: 20px; color: #1f2d3d; }
-        .sub { color: #64748b; font-size: 13px; line-height: 1.6; margin-bottom: 16px; }
+        .card::before { content:""; position:absolute; left:0; top:0; width:100%; height:2px; background:linear-gradient(90deg,#18dfff,rgba(24,223,255,.08) 65%,transparent); }
+        .card h2 { position:relative; margin:0 0 9px; padding-left:13px; font-size:19px; color:#edf9ff; text-shadow:0 0 10px rgba(49,214,255,.2); }
+        .card h2::before { content:""; position:absolute; left:0; top:2px; width:4px; height:20px; border-radius:2px; background:#27ddff; box-shadow:0 0 9px #27ddff; }
+        .sub { color:#94b9d1; font-size:13px; line-height:1.7; margin-bottom:17px; }
         .start-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
         .start-row .layui-form-select { min-width: 280px; }
         .progress-bar {
             display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 12px; color: #475569; font-size: 13px;
+            margin-bottom: 14px; padding-bottom:12px; color:#a8c8dd; font-size:13px;
+            border-bottom:1px solid #124e70;
         }
+        .progress-bar strong { color:#effaff; font-size:15px; }
+        #answeredCnt { color:#31e4ff; font-weight:700; }
         .q-item {
-            border: 1px solid #e8eef6;
-            border-radius: 10px;
-            padding: 16px 18px;
+            border:1px solid #11587d;
+            border-radius:5px;
+            padding:17px 20px;
             margin-bottom: 12px;
-            background: #fff;
+            background:linear-gradient(120deg,rgba(5,45,77,.88),rgba(3,34,61,.92));
+            box-shadow:inset 0 0 15px rgba(0,127,190,.05);
         }
-        .q-item.done { border-color: #93c5fd; background: #f8fbff; }
-        .q-meta { color: #64748b; font-size: 12px; margin-bottom: 6px; }
-        .q-ind { color: #0f766e; font-weight: 600; font-size: 13px; margin-bottom: 6px; line-height: 1.45; }
-        .q-title { font-size: 15px; color: #1e293b; font-weight: 600; margin-bottom: 12px; line-height: 1.55; }
-        .opt-line { display: block; padding: 8px 10px; margin: 4px 0; border-radius: 6px; cursor: pointer; }
-        .opt-line:hover { background: #f1f5f9; }
-        .opt-line input { margin-right: 8px; }
+        .q-item.done { border-color:#12bee8; background:linear-gradient(120deg,rgba(5,61,96,.95),rgba(3,39,68,.95)); box-shadow:inset 3px 0 #22dfff,inset 0 0 18px rgba(0,176,222,.1); }
+        .q-meta { color:#759bb5; font-size:12px; margin-bottom:6px; }
+        .q-ind { color:#31e4d1; font-weight:600; font-size:13px; margin-bottom:6px; line-height:1.45; }
+        .q-title { font-size:15px; color:#edf8ff; font-weight:600; margin-bottom:13px; line-height:1.65; }
+        .opt-line { display:block; padding:9px 11px; margin:4px 0; border:1px solid transparent; border-radius:4px; color:#c9e1f0; cursor:pointer; transition:.16s ease; }
+        .opt-line:hover { color:#fff; background:#084b70; border-color:#137da5; }
+        .opt-line.selected { color:#fff; background:linear-gradient(90deg,#09618a,#075074); border-color:#1bc5eb; box-shadow:inset 3px 0 #2be4ff; }
+        .opt-line input { appearance:none; width:14px; height:14px; margin:0 9px -2px 0; border:2px solid #658ba4; border-radius:50%; background:#021b32; box-shadow:inset 0 0 0 3px #021b32; }
+        .opt-line input:checked { border-color:#2be4ff; background:#2be4ff; box-shadow:inset 0 0 0 3px #073a5a,0 0 8px rgba(43,228,255,.7); }
         .sticky-actions {
-            position: sticky; bottom: 0; background: rgba(242,245,250,.95);
-            padding: 12px 0; display: flex; gap: 10px; justify-content: flex-end;
-            border-top: 1px solid #e2e8f0; margin-top: 8px;
+            position:sticky; z-index:3; bottom:0; margin:10px -26px -22px;
+            padding:12px 26px; display:flex; gap:10px; justify-content:flex-end;
+            background:rgba(2,25,48,.96); border-top:1px solid #12658e;
+            box-shadow:0 -8px 20px rgba(0,10,30,.22); backdrop-filter:blur(8px);
         }
         .score-hero {
             display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px;
         }
-        .score-num { font-size: 48px; font-weight: 700; color: #1677ff; line-height: 1.1; }
+        .result-label { color:#8fb5cd; font-size:13px; }
+        .result-summary { line-height:1.9; color:#c8e1f0; font-size:14px; }
+        .score-num { font-size:48px; font-weight:700; color:#42e8ff; line-height:1.1; text-shadow:0 0 18px rgba(34,220,255,.35); }
         .level-tag {
             display: inline-block; margin-top: 8px;
-            background: #e6f4ff; color: #0958d9;
-            padding: 4px 12px; border-radius: 999px; font-weight: 600;
+            background:rgba(25,190,224,.15); color:#5ceaff; border:1px solid #159bc2;
+            padding:4px 12px; border-radius:3px; font-weight:600;
         }
-        .feature { color: #475569; font-size: 13px; line-height: 1.65; margin-top: 10px; }
+        .feature { color:#a8c8da; font-size:13px; line-height:1.65; margin-top:10px; }
         .weak-item {
-            border-top: 1px solid #edf2f7; padding: 12px 0;
+            border-top:1px solid #124d6d; padding:12px 0;
         }
         .weak-item:first-child { border-top: 0; }
-        .weak-name { font-weight: 600; color: #0f172a; margin-bottom: 4px; }
-        .weak-score { color: #64748b; font-size: 12px; margin-bottom: 6px; }
-        .weak-measure { color: #334155; font-size: 13px; line-height: 1.55; background: #f8fafc; padding: 10px 12px; border-radius: 6px; }
+        .weak-name { font-weight:600; color:#e9f8ff; margin-bottom:5px; }
+        .weak-score { color:#8eb4cc; font-size:12px; margin-bottom:6px; }
+        .weak-measure { color:#c9e3f2; font-size:13px; line-height:1.6; background:#052f50; border:1px solid #11587c; padding:10px 12px; border-radius:4px; }
+        .empty-result { color:#86a9c0; padding:8px 0; }
         .hidden { display: none !important; }
         @media (max-width: 800px) {
+            body.pear-container { padding:12px; }
+            .card { padding:18px 16px; }
+            .sticky-actions { margin:10px -16px -18px; padding:11px 16px; }
             .score-hero { grid-template-columns: 1fr; }
         }
     </style>
@@ -107,15 +124,15 @@
             <h2>模拟结果</h2>
             <div class="score-hero" style="margin-top:12px;">
                 <div>
-                    <div style="color:#64748b;font-size:13px;">个人得分</div>
+                    <div class="result-label">个人得分</div>
                     <div class="score-num" id="resScore">0</div>
-                    <div style="color:#94a3b8;font-size:13px;margin-top:4px;">满分 <span id="resFull">100</span></div>
+                    <div class="result-label" style="margin-top:4px;">满分 <span id="resFull">100</span></div>
                     <div class="level-tag" id="resLevel">—</div>
                     <div class="feature" id="resFeature"></div>
                 </div>
                 <div>
-                    <div style="color:#64748b;font-size:13px;margin-bottom:8px;">作答概况</div>
-                    <div style="line-height:1.9;color:#334155;font-size:14px;">
+                    <div class="result-label" style="margin-bottom:8px;">作答概况</div>
+                    <div class="result-summary">
                         <div>题数：<span id="resQcnt">0</span></div>
                         <div>已答：<span id="resAnswered">0</span></div>
                         <div>薄弱指标：<span id="resWeakCnt">0</span></div>
@@ -183,6 +200,8 @@ layui.use(['form','jquery','layer'], function(){
             var name = this.name; // q_123
             var qid = parseInt(name.replace('q_',''), 10);
             state.answers[qid] = parseInt(this.value, 10);
+            $(this).closest('.q-item').find('.opt-line').removeClass('selected');
+            $(this).closest('.opt-line').addClass('selected');
             refreshProgress();
         });
         refreshProgress();
@@ -280,7 +299,7 @@ layui.use(['form','jquery','layer'], function(){
                 + '<div class="weak-measure">'+escapeHtml(w.measure||'暂无')+'</div>'
                 + '</div>';
         });
-        if (!html) html = '<div style="color:#94a3b8;padding:8px 0;">全部满分，暂无薄弱指标。</div>';
+        if (!html) html = '<div class="empty-result">全部满分，暂无薄弱指标。</div>';
         $('#weakList').html(html);
     }
 
