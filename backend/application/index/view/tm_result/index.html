@@ -65,7 +65,9 @@
                 </div>
                 <div class="layui-inline">
                     <button type="button" class="pear-btn pear-btn-md" id="btnExportTeamPdf">导出汇总PDF</button>
+                    <button type="button" class="pear-btn pear-btn-md" id="btnExportTeamDocx">导出汇总Word</button>
                     <button type="button" class="pear-btn pear-btn-md pear-btn-normal" id="btnExportRankPdf">导出排行PDF</button>
+                    <button type="button" class="pear-btn pear-btn-md pear-btn-normal" id="btnExportRankDocx">导出排行Word</button>
                     <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnPapers">全部答卷</button>
                 </div>
             </div>
@@ -82,8 +84,9 @@
 
 <script type="text/html" id="teamDetailTpl">
     <div style="padding:14px 18px 18px;" id="teamDetailBody">
-        <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;">
             <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnExportTeamDetailPdf">导出班组PDF</button>
+            <button type="button" class="pear-btn pear-btn-md" id="btnExportTeamDetailDocx">导出班组Word</button>
         </div>
         <div class="result-hero" id="teamHero"></div>
         <div class="tip" id="teamFeature"></div>
@@ -120,7 +123,10 @@
     <div style="padding:14px 16px 18px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;">
             <div class="tip" id="paperDetailMeta" style="flex:1;min-width:0;margin:0;"></div>
-            <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnExportPaperPdf">导出PDF</button>
+            <div style="display:flex;gap:8px;flex-shrink:0;">
+                <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnExportPaperPdf">导出PDF</button>
+                <button type="button" class="pear-btn pear-btn-md" id="btnExportPaperDocx">导出Word</button>
+            </div>
         </div>
         <div class="result-hero" id="paperResultHero"></div>
         <div class="tip" style="font-weight:600;color:#1e293b;margin-top:4px;" id="answerSectionTitle">逐题作答结果</div>
@@ -233,6 +239,9 @@ layui.use(['table','form','jquery','layer'], function(){
                 success: function(layero){
                     layero.find('#btnExportTeamDetailPdf').on('click', function(){
                         window.location.href = '/TmResult/exportTeamDetailPdf?batch_id=' + batchId + '&team_id=' + teamId;
+                    });
+                    layero.find('#btnExportTeamDetailDocx').on('click', function(){
+                        window.location.href = '/TmResult/exportTeamDetailDocx?batch_id=' + batchId + '&team_id=' + teamId;
                     });
                     var hero = '';
                     hero += '<div class="result-box"><div class="label">班组得分</div><div class="value">' + fmtScore(s.team_score) + '</div>';
@@ -378,6 +387,9 @@ layui.use(['table','form','jquery','layer'], function(){
                     layero.find('#btnExportPaperPdf').on('click', function(){
                         window.location.href = '/TmResult/exportPaperPdf?paper_id=' + paperId;
                     });
+                    layero.find('#btnExportPaperDocx').on('click', function(){
+                        window.location.href = '/TmResult/exportPaperDocx?paper_id=' + paperId;
+                    });
                     layero.find('#paperDetailMeta').html(
                         '<div><b>' + (p.batch_name||'') + '</b> · ' + (p.team_name||'') +
                         ' · ' + (p.status_text||'') +
@@ -442,10 +454,20 @@ layui.use(['table','form','jquery','layer'], function(){
         if (!bid) { layer.msg('请先选择批次'); return; }
         window.location.href = '/TmResult/exportTeamPdf?batch_id=' + bid;
     });
+    $('#btnExportTeamDocx').on('click', function(){
+        var bid = currentBatchId();
+        if (!bid) { layer.msg('请先选择批次'); return; }
+        window.location.href = '/TmResult/exportTeamDocx?batch_id=' + bid;
+    });
     $('#btnExportRankPdf').on('click', function(){
         var bid = currentBatchId();
         if (!bid) { layer.msg('请先选择批次'); return; }
         window.location.href = '/TmResult/exportRankPdf?batch_id=' + bid;
+    });
+    $('#btnExportRankDocx').on('click', function(){
+        var bid = currentBatchId();
+        if (!bid) { layer.msg('请先选择批次'); return; }
+        window.location.href = '/TmResult/exportRankDocx?batch_id=' + bid;
     });
 });
 </script>

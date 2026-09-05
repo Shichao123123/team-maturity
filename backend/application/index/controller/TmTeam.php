@@ -171,6 +171,47 @@ class TmTeam extends Base
     }
 
     /**
+     * 导出班组某批次详情 Word。
+     *
+     * @return void|\think\response\Json
+     */
+    public function exportTeamDetailDocx()
+    {
+        $req = Request::instance();
+        $batchId = (int)$req->param('batch_id', 0);
+        $teamId = (int)$req->param('team_id', 0);
+        list($ok, $msg) = ResultService::exportTeamDetailDocx($batchId, $teamId);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+    }
+
+    /**
+     * 导出个人答卷 Word（校验归属该班组）。
+     *
+     * @return void|\think\response\Json
+     */
+    public function exportPaperDocx()
+    {
+        $req = Request::instance();
+        $paperId = (int)$req->param('paper_id', 0);
+        $teamId = (int)$req->param('team_id', 0);
+        if ($paperId <= 0) {
+            return json(DefaultResponse(400, false, '参数错误'));
+        }
+        if ($teamId > 0) {
+            $paperTeamId = (int)Db::name('tm_paper')->where('id', $paperId)->value('team_id');
+            if ($paperTeamId !== $teamId) {
+                return json(DefaultResponse(403, false, '答卷不属于该班组'));
+            }
+        }
+        list($ok, $msg) = ResultService::exportPaperDocx($paperId);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+    }
+
+    /**
      * 新增班组 API。
      *
      * @return \think\response\Json 成功时返回新记录 id

@@ -87,6 +87,7 @@ INSERT INTO `tm_power` (`id`, `parent_id`, `name`, `code`, `url`, `icon`, `sort_
 (31, 30,'成熟度看板',   'dashboard:dist','/TmDashboard/index','', 1, 1, 1),
 (32, 30,'成长趋势',     'dashboard:trend','/TmDashboard/trend','', 2, 1, 1),
 (33, 30,'班组排行榜',   'dashboard:rank','/TmDashboard/rank','', 3, 1, 1),
+(34, 0, '首页', 'dashboard:national','/TmNational/index','layui-icon-chart-screen', 0, 1, 1),
 (40, 0, '系统管理',     'sys',          '',                  'layui-icon-set', 5, 1, 1),
 (41, 40,'管理员账号',   'admin:list',   '/TmAdmin/index',    '', 1, 1, 1),
 (42, 40,'角色权限',     'role:list',    '/TmRole/index',     '', 2, 1, 1),
@@ -96,4 +97,3 @@ INSERT INTO `tm_power` (`id`, `parent_id`, `name`, `code`, `url`, `icon`, `sort_
 -- 超管拥有全部菜单
 INSERT INTO `tm_role_power` (`role_id`, `power_id`)
 SELECT 1, `id` FROM `tm_power`;
-

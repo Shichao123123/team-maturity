@@ -31,16 +31,27 @@ class Base extends Controller
      */
     protected $actionPowerMap = [
         'TmDashboard' => [
-            'index'              => '/TmDashboard/index',
-            'leveldist'          => '/TmDashboard/index',
-            'exportleveldistpdf' => '/TmDashboard/index',
-            'trend'              => '/TmDashboard/trend',
-            'trenddata'          => '/TmDashboard/trend',
-            'exporttrendpdf'     => '/TmDashboard/trend',
-            'rank'               => '/TmDashboard/rank',
-            'rankdata'           => '/TmDashboard/rank',
-            'exportrank'         => '/TmDashboard/rank',
-            'exportrankpdf'      => '/TmDashboard/rank',
+            'index'               => '/TmDashboard/index',
+            'leveldist'           => '/TmDashboard/index',
+            'exportleveldistpdf'  => '/TmDashboard/index',
+            'exportleveldistdocx' => '/TmDashboard/index',
+            'trend'               => '/TmDashboard/trend',
+            'trenddata'           => '/TmDashboard/trend',
+            'exporttrendpdf'      => '/TmDashboard/trend',
+            'exporttrenddocx'     => '/TmDashboard/trend',
+            'rank'                => '/TmDashboard/rank',
+            'rankdata'            => '/TmDashboard/rank',
+            'exportrank'          => '/TmDashboard/rank',
+            'exportrankpdf'       => '/TmDashboard/rank',
+            'exportrankdocx'      => '/TmDashboard/rank',
+        ],
+        'TmNational' => [
+            'index'       => '/TmNational/index',
+            'overview'    => '/TmNational/index',
+            'company'     => '/TmNational/index',
+            'companydata' => '/TmNational/index',
+            'exportraw'   => '/TmNational/index',
+            'exportreport' => '/TmNational/index',
         ],
     ];
 

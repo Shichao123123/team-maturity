@@ -164,6 +164,7 @@
         <div class="layui-inline">
             <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnReload">刷新趋势</button>
             <button type="button" class="pear-btn pear-btn-md pear-btn-normal" id="btnExportPdf">导出PDF</button>
+            <button type="button" class="pear-btn pear-btn-md" id="btnExportDocx">导出Word</button>
         </div>
         <div class="team-pick" id="teamPick">
             <div class="team-pick-tip">
@@ -454,6 +455,14 @@ layui.use(['jquery','form','echarts','layer'], function(){
             $('input[name="team_ids"]:checked').each(function(){ teamIds.push($(this).val()); });
         }
         window.location.href = '/TmDashboard/exportTrendPdf?' + $.param({ org_id: orgId, team_ids: teamIds });
+    });
+    $('#btnExportDocx').on('click', function(){
+        var orgId = (form.val('filterForm') || {}).org_id || '';
+        var teamIds = [];
+        if (parseInt(orgId, 10) > 0) {
+            $('input[name="team_ids"]:checked').each(function(){ teamIds.push($(this).val()); });
+        }
+        window.location.href = '/TmDashboard/exportTrendDocx?' + $.param({ org_id: orgId, team_ids: teamIds });
     });
     filterTeamsByOrg();
     load();

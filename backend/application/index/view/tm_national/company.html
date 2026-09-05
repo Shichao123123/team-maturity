@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+    {include file="common/meta" /}
+    {include file="common/css" /}
+    <style>
+        body {
+            margin:0;
+            background:
+                radial-gradient(900px 420px at 8% -10%, rgba(22,119,255,.10), transparent 55%),
+                #f2f5fa;
+        }
+        .wb { padding:16px; }
+        .page-head { margin-bottom:14px; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+        .page-head h1 { margin:0 0 4px; font-size:20px; font-weight:700; color:#0f172a; }
+        .page-head p { margin:0; color:#64748b; font-size:13px; }
+        .filter-bar {
+            background:#fff; border:1px solid #e8eef6; border-radius:10px;
+            padding:12px 14px; margin-bottom:14px;
+        }
+        .hero {
+            display:grid; grid-template-columns:1.4fr repeat(4,1fr); gap:12px; margin-bottom:14px;
+        }
+        .hero-main, .hero-box {
+            background:#fff; border:1px solid #e8eef6; border-radius:12px; padding:16px 18px;
+        }
+        .hero-main .name { font-size:18px; font-weight:700; color:#0f172a; margin-bottom:6px; }
+        .hero-main .meta { color:#64748b; font-size:13px; margin-bottom:10px; }
+        .hero-main .feature { color:#334155; font-size:13px; line-height:1.6; background:#f8fafc; padding:10px 12px; border-radius:8px; }
+        .hero-box .label { color:#64748b; font-size:12px; margin-bottom:8px; }
+        .hero-box .value { color:#0f172a; font-size:26px; font-weight:700; }
+        .hero-box .sub { color:#94a3b8; font-size:12px; margin-top:6px; }
+        .main-row { display:grid; grid-template-columns:1fr 1.1fr; gap:14px; margin-bottom:14px; }
+        .panel {
+            background:#fff; border-radius:12px; border:1px solid #e8eef6; padding:16px 18px;
+        }
+        .panel-title { font-size:15px; font-weight:600; margin:0 0 6px; color:#0f172a; }
+        .panel-tip { color:#94a3b8; font-size:12px; margin:0 0 10px; }
+        #pieChart, #radarChart { width:100%; height:360px; }
+        @media (max-width:1100px){
+            .hero { grid-template-columns:1fr 1fr; }
+            .main-row { grid-template-columns:1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="wb">
+    <div class="page-head">
+        <div>
+            <h1 id="pageTitle">企业详情</h1>
+            <p>单企业内部统计：班组等级分布 · 一级指标对比全国 · 班组排行</p>
+        </div>
+        <div>
+            <a class="pear-btn pear-btn-md" href="/TmNational/index">返回全国大盘</a>
+        </div>
+    </div>
+
+    <form class="layui-form filter-bar" lay-filter="filterForm" onsubmit="return false;">
+        <div class="layui-inline">
+            <input type="text" name="date_from" id="dateFrom" placeholder="算分起" class="layui-input" style="width:120px;" autocomplete="off">
+        </div>
+        <div class="layui-inline">
+            <input type="text" name="date_to" id="dateTo" placeholder="算分止" class="layui-input" style="width:120px;" autocomplete="off">
+        </div>
+        <div class="layui-inline">
+            <select name="level_code" lay-filter="autoFilter">
+                <option value="">全部等级</option>
+                {volist name="levels" id="lv"}
+                <option value="{$lv.level_code}">{$lv.level_name}</option>
+                {/volist}
+            </select>
+        </div>
+        <div class="layui-inline">
+            <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnReload">刷新</button>
+        </div>
+    </form>
+
+    <div class="hero">
+        <div class="hero-main">
+            <div class="name" id="orgName">-</div>
+            <div class="meta" id="orgMeta">-</div>
+            <div class="feature" id="orgFeature">暂无等级特征说明</div>
+        </div>
+        <div class="hero-box"><div class="label">综合得分</div><div class="value" id="kpiScore">-</div><div class="sub" id="kpiLevel">-</div></div>
+        <div class="hero-box"><div class="label">下属班组</div><div class="value" id="kpiTeams">-</div><div class="sub" id="kpiScoredTeams">-</div></div>
+        <div class="hero-box"><div class="label">测评次数</div><div class="value" id="kpiEval">-</div><div class="sub">批次去重</div></div>
+        <div class="hero-box"><div class="label">答卷人次</div><div class="value" id="kpiPaper">-</div><div class="sub">已提交合计</div></div>
+    </div>
+
+    <div class="main-row">
+        <div class="panel">
+            <div class="panel-title">班组成熟度等级分布</div>
+            <p class="panel-tip">企业下属班组最近一次算分结果</p>
+            <div id="pieChart"></div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">一级指标对比（企业 vs 全国）</div>
+            <p class="panel-tip">得分率 0~100</p>
+            <div id="radarChart"></div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-title">班组排行</div>
+        <p class="panel-tip">默认按得分降序；可导出单班组报告请到「结果查询 / 班组管理」</p>
+        <table id="teamTable" lay-filter="teamTable"></table>
+    </div>
+</div>
+
+<script>
+window.__ORG_ID__ = {$org_id|default=0};
+</script>
+<script src="/component/layui/layui.js"></script>
+<script src="/component/pear/pear.js"></script>
+<script>
+layui.use(['jquery','form','echarts','table','layer','laydate'], function(){
+    var $ = layui.jquery, form = layui.form, echarts = layui.echarts, table = layui.table, layer = layui.layer, laydate = layui.laydate;
+    var orgId = parseInt(window.__ORG_ID__ || 0, 10) || 0;
+
+    laydate.render({ elem: '#dateFrom', type: 'date' });
+    laydate.render({ elem: '#dateTo', type: 'date' });
+
+    var pieChart = echarts.init(document.getElementById('pieChart'));
+    var radarChart = echarts.init(document.getElementById('radarChart'));
+
+    function filters(){
+        var f = form.val('filterForm') || {};
+        return {
+            org_id: orgId,
+            date_from: f.date_from || '',
+            date_to: f.date_to || '',
+            level_code: f.level_code || ''
+        };
+    }
+
+    function renderPie(levels){
+        pieChart.setOption({
+            tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+            color: ['#52c41a', '#1677ff', '#faad14', '#ff4d4f'],
+            legend: { bottom: 0 },
+            series: [{
+                type: 'pie',
+                radius: ['40%', '65%'],
+                data: (levels || []).map(function(lv){ return { name: lv.level_name, value: lv.count }; })
+            }]
+        }, true);
+    }
+
+    function renderRadar(company, national){
+        var inds = (company && company.indicators) || (national && national.indicators) || [];
+        if (!inds.length) {
+            radarChart.clear();
+            radarChart.setOption({
+                title: { text: '暂无指标对比数据', left: 'center', top: 'middle', textStyle: { color: '#94a3b8', fontSize: 14, fontWeight: 'normal' } }
+            });
+            return;
+        }
+        radarChart.setOption({
+            tooltip: {},
+            legend: { bottom: 0, data: ['本企业', '全国均分'] },
+            radar: {
+                indicator: inds.map(function(n){ return { name: n, max: 100 }; }),
+                radius: '58%'
+            },
+            series: [{
+                type: 'radar',
+                data: [
+                    {
+                        name: '本企业',
+                        value: (company && company.values) || [],
+                        areaStyle: { opacity: 0.15 },
+                        lineStyle: { color: '#1677ff' },
+                        itemStyle: { color: '#1677ff' }
+                    },
+                    {
+                        name: '全国均分',
+                        value: (national && national.values) || [],
+                        areaStyle: { opacity: 0.08 },
+                        lineStyle: { color: '#13c2c2' },
+                        itemStyle: { color: '#13c2c2' }
+                    }
+                ]
+            }]
+        }, true);
+    }
+
+    function load(){
+        if (!orgId) {
+            layer.msg('缺少企业参数');
+            return;
+        }
+        var idx = layer.load(2);
+        $.getJSON('/TmNational/companyData', filters()).done(function(res){
+            layer.close(idx);
+            if (!res || !res.success) {
+                layer.msg((res && res.msg) || '加载失败');
+                return;
+            }
+            var d = res.data || {};
+            var org = d.org || {};
+            var s = d.summary || {};
+            $('#pageTitle').text((org.name || '企业') + ' · 详情');
+            $('#orgName').text(org.name || '-');
+            $('#orgMeta').text(
+                [org.industry || '未填行业', (org.province || '') + (org.city ? (' · ' + org.city) : '') || '未填地区']
+                    .filter(Boolean).join(' ｜ ')
+            );
+            $('#orgFeature').text(d.feature_desc || '暂无等级特征说明（未测评或未配置阈值特征）');
+            $('#kpiScore').text(s.score_text || '—');
+            $('#kpiLevel').text(s.level_name || '未测评');
+            $('#kpiTeams').text(d.team_total != null ? d.team_total : '-');
+            $('#kpiScoredTeams').text('已算分 ' + (s.scored_team_cnt != null ? s.scored_team_cnt : 0));
+            $('#kpiEval').text(s.eval_cnt != null ? s.eval_cnt : '-');
+            $('#kpiPaper').text(s.paper_cnt != null ? s.paper_cnt : '-');
+
+            renderPie(d.levels || []);
+            renderRadar(d.l1_radar_company, d.l1_radar_national);
+
+            table.reload('teamTable', { data: d.teams || [], page: { curr: 1 } });
+        }).fail(function(){
+            layer.close(idx);
+            layer.msg('加载失败');
+        });
+    }
+
+    table.render({
+        elem: '#teamTable',
+        id: 'teamTable',
+        data: [],
+        page: true,
+        limit: 10,
+        cols: [[
+            {field:'rank_no', title:'排名', width:70, align:'center', templet: function(d){ return d.rank_no == null ? '—' : d.rank_no; }},
+            {field:'team_name', title:'班组', minWidth:140},
+            {field:'team_score', title:'得分', width:90, align:'center', templet: function(d){ return d.team_score == null ? '—' : d.team_score; }},
+            {field:'level_name', title:'成熟度等级', width:120},
+            {field:'submit_cnt', title:'提交人数', width:100, align:'center'},
+            {field:'batch_name', title:'最近批次', minWidth:140},
+            {field:'weak_top', title:'薄弱指标', minWidth:180, templet: function(d){
+                return (d.weak_top && d.weak_top.length) ? d.weak_top.join('、') : '—';
+            }},
+            {field:'scored_at', title:'算分时间', width:160}
+        ]]
+    });
+
+    form.on('select(autoFilter)', load);
+    $('#btnReload').on('click', load);
+    load();
+    window.addEventListener('resize', function(){ pieChart.resize(); radarChart.resize(); });
+});
+</script>
+</body>
+</html>

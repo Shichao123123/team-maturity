@@ -245,7 +245,10 @@
     <div style="padding:14px 16px 18px;" id="paperDetailBody">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;">
             <div class="layui-text" id="paperDetailMeta" style="flex:1;min-width:0;"></div>
-            <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnExportPaperPdf">导出PDF</button>
+            <div style="display:flex;gap:8px;flex-shrink:0;">
+                <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnExportPaperPdf">导出PDF</button>
+                <button type="button" class="pear-btn pear-btn-md" id="btnExportPaperDocx">导出Word</button>
+            </div>
         </div>
         <div class="result-hero" id="paperResultHero"></div>
         <div class="paper-summary" style="margin:4px 0 10px;font-weight:600;color:#1e293b;" id="answerSectionTitle">逐题作答结果</div>
@@ -486,6 +489,9 @@ layui.use(['table','form','jquery','layer'], function(){
                     try { layer.full(index); } catch (e) {}
                     layero.find('#btnExportPaperPdf').on('click', function(){
                         window.location.href = '/TmMember/exportPaperPdf?paper_id=' + paperId + '&member_id=' + (memberId || 0);
+                    });
+                    layero.find('#btnExportPaperDocx').on('click', function(){
+                        window.location.href = '/TmMember/exportPaperDocx?paper_id=' + paperId + '&member_id=' + (memberId || 0);
                     });
                     $('#paperDetailMeta').html(
                         '<div><b>' + (p.batch_name || '') + '</b> · ' + (p.team_name || '') +

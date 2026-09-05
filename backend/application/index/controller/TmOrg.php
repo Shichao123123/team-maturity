@@ -78,6 +78,11 @@ class TmOrg extends Base
             'parent_id' => (int)$req->param('parent_id', 0),
             'name'      => $req->param('name', '', 'trim'),
             'org_type'  => (int)$req->param('org_type', 1),
+            'industry'  => $req->param('industry', '', 'trim'),
+            'province'  => $req->param('province', '', 'trim'),
+            'city'      => $req->param('city', '', 'trim'),
+            'lng'       => $req->param('lng', '', 'trim'),
+            'lat'       => $req->param('lat', '', 'trim'),
             'sort_no'   => (int)$req->param('sort_no', 0),
             'status'    => (int)$req->param('status', 1),
         ];
@@ -87,6 +92,8 @@ class TmOrg extends Base
         if (!in_array($data['org_type'], [0, 1, 2, 3], true)) {
             $data['org_type'] = 0;
         }
+        $data['lng'] = ($data['lng'] === '') ? null : round((float)$data['lng'], 6);
+        $data['lat'] = ($data['lat'] === '') ? null : round((float)$data['lat'], 6);
         $id = (new OrgModel())->addRow($data);
         return json(DefaultResponse(0, true, '新增成功', ['id' => $id]));
     }
@@ -111,6 +118,11 @@ class TmOrg extends Base
             'parent_id' => (int)$req->param('parent_id', 0),
             'name'      => $req->param('name', '', 'trim'),
             'org_type'  => (int)$req->param('org_type', 1),
+            'industry'  => $req->param('industry', '', 'trim'),
+            'province'  => $req->param('province', '', 'trim'),
+            'city'      => $req->param('city', '', 'trim'),
+            'lng'       => $req->param('lng', '', 'trim'),
+            'lat'       => $req->param('lat', '', 'trim'),
             'sort_no'   => (int)$req->param('sort_no', 0),
             'status'    => (int)$req->param('status', 1),
         ];
@@ -123,6 +135,8 @@ class TmOrg extends Base
         if ($data['parent_id'] === $id) {
             return json(DefaultResponse(400, false, '上级不能是自己'));
         }
+        $data['lng'] = ($data['lng'] === '') ? null : round((float)$data['lng'], 6);
+        $data['lat'] = ($data['lat'] === '') ? null : round((float)$data['lat'], 6);
         $model->editRow($id, $data);
         return json(DefaultResponse(0, true, '保存成功'));
     }

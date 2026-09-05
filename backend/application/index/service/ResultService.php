@@ -374,7 +374,77 @@ class ResultService
     }
 
     /**
-     * 导出批次下班组汇总 PDF。
+     * 从班组列表提取可绘图排行数据。
+     *
+     * @param array $list
+     * @return array
+     */
+    private static function rankChartList(array $list)
+    {
+        $out = [];
+        foreach ($list as $r) {
+            if (!isset($r['team_score']) || $r['team_score'] === null || $r['team_score'] === '') {
+                continue;
+            }
+            if (isset($r['rank_no']) && $r['rank_no'] === null) {
+                continue;
+            }
+            $out[] = [
+                'team_name'  => isset($r['team_name']) ? $r['team_name'] : '',
+                'team_score' => (float)$r['team_score'],
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * 薄弱指标得分率柱图数据（0~100）。
+     *
+     * @param array $weak
+     * @return array
+     */
+    private static function weakChartList(array $weak)
+    {
+        $out = [];
+        foreach ($weak as $w) {
+            $full = isset($w['full_score']) ? (float)$w['full_score'] : 0;
+            $avg = isset($w['avg_score']) ? (float)$w['avg_score'] : 0;
+            $pct = $full > 0 ? round(100 * $avg / $full, 1) : 0;
+            $name = isset($w['indicator_name']) ? $w['indicator_name'] : ('指标#' . (isset($w['indicator_id']) ? $w['indicator_id'] : ''));
+            $out[] = ['team_name' => $name, 'team_score' => $pct];
+        }
+        return $out;
+    }
+
+    /**
+     * 个人答卷：按指标汇总得分率柱图数据。
+     *
+     * @param array $answers
+     * @return array
+     */
+    private static function paperIndicatorChartList(array $answers)
+    {
+        $map = [];
+        foreach ($answers as $a) {
+            $name = !empty($a['indicator_name']) ? $a['indicator_name'] : '未分类';
+            if (!isset($map[$name])) {
+                $map[$name] = ['got' => 0.0, 'full' => 0.0];
+            }
+            $map[$name]['full'] += isset($a['weight']) ? (float)$a['weight'] : 0;
+            if (!empty($a['is_answered'])) {
+                $map[$name]['got'] += isset($a['item_score']) ? (float)$a['item_score'] : 0;
+            }
+        }
+        $out = [];
+        foreach ($map as $name => $v) {
+            $pct = $v['full'] > 0 ? round(100 * $v['got'] / $v['full'], 1) : 0;
+            $out[] = ['team_name' => $name, 'team_score' => $pct];
+        }
+        return $out;
+    }
+
+    /**
+     * 导出批次下班组汇总 PDF（含排行柱图）。
      *
      * @param int $batchId
      * @return array [bool ok, string msg]
@@ -386,6 +456,15 @@ class ResultService
             return [false, $msg];
         }
         $batch = $data['batch'];
+        $chartPath = null;
+        try {
+            $chartList = self::rankChartList($data['list']);
+            if ($chartList) {
+                $chartPath = PdfChartHelper::renderRankBars($chartList, 15);
+            }
+        } catch (\Exception $e) {
+            $chartPath = null;
+        }
         $pdf = PdfHelper::create('班组测评结果汇总', $batch['name']);
         PdfHelper::writeMeta($pdf, [
             ['label' => '批次', 'value' => $batch['name']],
@@ -393,6 +472,10 @@ class ResultService
             ['label' => '批次状态', 'value' => $batch['status_text'] . ' / 算分：' . $batch['score_status_text']],
             ['label' => '班组数', 'value' => (string)$data['count']],
         ]);
+        if ($chartPath) {
+            PdfHelper::writeSection($pdf, '班组得分图表');
+            PdfHelper::writeImage($pdf, $chartPath, 186);
+        }
         PdfHelper::writeSection($pdf, '班组结果列表');
         $rows = [];
         foreach ($data['list'] as $r) {
@@ -412,12 +495,67 @@ class ResultService
             $rows,
             [8, 22, 10, 10, 12, 18, 20]
         );
+        PdfHelper::cleanupImages($chartPath);
         PdfHelper::download($pdf, '班组结果_' . PdfHelper::safeFilename($batch['name']) . '.pdf');
         return [true, 'ok'];
     }
 
     /**
-     * 导出批次班组排行 PDF。
+     * 导出批次下班组汇总 Word（含排行柱图）。
+     *
+     * @param int $batchId
+     * @return array [bool ok, string msg]
+     */
+    public static function exportTeamDocx($batchId)
+    {
+        list($ok, $msg, $data) = self::teamList($batchId);
+        if (!$ok) {
+            return [false, $msg];
+        }
+        $batch = $data['batch'];
+        $chartPath = null;
+        try {
+            $chartList = self::rankChartList($data['list']);
+            if ($chartList) {
+                $chartPath = PdfChartHelper::renderRankBars($chartList, 15);
+            }
+        } catch (\Exception $e) {
+            $chartPath = null;
+        }
+        $doc = DocxHelper::create('班组测评结果汇总', $batch['name']);
+        $doc->writeMeta([
+            ['label' => '批次', 'value' => $batch['name']],
+            ['label' => '测评时段', 'value' => ($batch['start_time'] ?: '') . ' ~ ' . ($batch['end_time'] ?: '')],
+            ['label' => '批次状态', 'value' => $batch['status_text'] . ' / 算分：' . $batch['score_status_text']],
+            ['label' => '班组数', 'value' => (string)$data['count']],
+        ]);
+        if ($chartPath) {
+            $doc->writeSection('班组得分图表');
+            $doc->writeImage($chartPath, 5486400, '班组得分排行');
+        }
+        $doc->writeSection('班组结果列表');
+        $rows = [];
+        foreach ($data['list'] as $r) {
+            $rows[] = [
+                $r['rank_no'] === null ? '—' : $r['rank_no'],
+                $r['team_name'],
+                $r['submitted_cnt'],
+                $r['answering_cnt'],
+                PdfHelper::fmtScore($r['team_score']),
+                $r['level_name'] ?: '—',
+                $r['scored_at'] ?: '—',
+            ];
+        }
+        $doc->writeTable(
+            ['排名', '班组', '已提交', '答题中', '得分', '成熟度等级', '算分时间'],
+            $rows
+        );
+        $doc->download('班组结果_' . DocxHelper::safeFilename($batch['name']) . '.docx');
+        return [true, 'ok'];
+    }
+
+    /**
+     * 导出批次班组排行 PDF（含柱图）。
      *
      * @param int $batchId
      * @return array [bool ok, string msg]
@@ -430,6 +568,7 @@ class ResultService
         }
         $batch = $data['batch'];
         $rows = [];
+        $chartList = [];
         foreach ($data['list'] as $r) {
             if ($r['rank_no'] === null) {
                 continue;
@@ -441,9 +580,19 @@ class ResultService
                 $r['level_name'] ?: '—',
                 $r['submitted_cnt'],
             ];
+            $chartList[] = [
+                'team_name'  => $r['team_name'],
+                'team_score' => (float)$r['team_score'],
+            ];
         }
         if (!$rows) {
             return [false, '暂无可导出的排行数据'];
+        }
+        $chartPath = null;
+        try {
+            $chartPath = PdfChartHelper::renderRankBars($chartList, 15);
+        } catch (\Exception $e) {
+            $chartPath = null;
         }
         $pdf = PdfHelper::create('班组测评排行榜', $batch['name']);
         PdfHelper::writeMeta($pdf, [
@@ -451,6 +600,10 @@ class ResultService
             ['label' => '测评时段', 'value' => ($batch['start_time'] ?: '') . ' ~ ' . ($batch['end_time'] ?: '')],
             ['label' => '上榜班组数', 'value' => (string)count($rows)],
         ]);
+        if ($chartPath) {
+            PdfHelper::writeSection($pdf, '排行图表');
+            PdfHelper::writeImage($pdf, $chartPath, 186);
+        }
         PdfHelper::writeSection($pdf, '排行明细');
         PdfHelper::writeTable(
             $pdf,
@@ -458,12 +611,72 @@ class ResultService
             $rows,
             [10, 30, 15, 25, 20]
         );
+        PdfHelper::cleanupImages($chartPath);
         PdfHelper::download($pdf, '班组排行_' . PdfHelper::safeFilename($batch['name']) . '.pdf');
         return [true, 'ok'];
     }
 
     /**
-     * 导出单班组详情 PDF（薄弱指标 + 成员答卷摘要）。
+     * 导出批次班组排行 Word（含柱图）。
+     *
+     * @param int $batchId
+     * @return array [bool ok, string msg]
+     */
+    public static function exportRankDocx($batchId)
+    {
+        list($ok, $msg, $data) = self::teamList($batchId);
+        if (!$ok) {
+            return [false, $msg];
+        }
+        $batch = $data['batch'];
+        $rows = [];
+        $chartList = [];
+        foreach ($data['list'] as $r) {
+            if ($r['rank_no'] === null) {
+                continue;
+            }
+            $rows[] = [
+                $r['rank_no'],
+                $r['team_name'],
+                PdfHelper::fmtScore($r['team_score']),
+                $r['level_name'] ?: '—',
+                $r['submitted_cnt'],
+            ];
+            $chartList[] = [
+                'team_name'  => $r['team_name'],
+                'team_score' => (float)$r['team_score'],
+            ];
+        }
+        if (!$rows) {
+            return [false, '暂无可导出的排行数据'];
+        }
+        $chartPath = null;
+        try {
+            $chartPath = PdfChartHelper::renderRankBars($chartList, 15);
+        } catch (\Exception $e) {
+            $chartPath = null;
+        }
+        $doc = DocxHelper::create('班组测评排行榜', $batch['name']);
+        $doc->writeMeta([
+            ['label' => '批次', 'value' => $batch['name']],
+            ['label' => '测评时段', 'value' => ($batch['start_time'] ?: '') . ' ~ ' . ($batch['end_time'] ?: '')],
+            ['label' => '上榜班组数', 'value' => (string)count($rows)],
+        ]);
+        if ($chartPath) {
+            $doc->writeSection('排行图表');
+            $doc->writeImage($chartPath, 5486400, '班组得分排行');
+        }
+        $doc->writeSection('排行明细');
+        $doc->writeTable(
+            ['排名', '班组', '班组得分', '成熟度等级', '提交人数'],
+            $rows
+        );
+        $doc->download('班组排行_' . DocxHelper::safeFilename($batch['name']) . '.docx');
+        return [true, 'ok'];
+    }
+
+    /**
+     * 导出单班组详情 PDF（薄弱指标图 + 成员答卷摘要）。
      *
      * @param int $batchId
      * @param int $teamId
@@ -479,6 +692,20 @@ class ResultService
         $team = $data['team'];
         $s = $data['summary'] ?: [];
         $titleTeam = $team['team_name'];
+        $weak = isset($data['weak_indicators']) ? $data['weak_indicators'] : [];
+        $chartPath = null;
+        try {
+            $chartList = self::weakChartList($weak);
+            if ($chartList) {
+                $chartPath = PdfChartHelper::renderRankBars($chartList, 12, '薄弱指标得分率');
+            } elseif (isset($s['team_score']) && $s['team_score'] !== null && $s['team_score'] !== '') {
+                $chartPath = PdfChartHelper::renderRankBars([
+                    ['team_name' => $titleTeam, 'team_score' => (float)$s['team_score']],
+                ], 1, '班组得分');
+            }
+        } catch (\Exception $e) {
+            $chartPath = null;
+        }
         $pdf = PdfHelper::create('班组测评详情', $batch['name'] . ' · ' . $titleTeam);
         PdfHelper::writeMeta($pdf, [
             ['label' => '批次', 'value' => $batch['name']],
@@ -494,9 +721,12 @@ class ResultService
             PdfHelper::writeSection($pdf, '等级特征');
             PdfHelper::writeParagraph($pdf, $data['feature_desc']);
         }
+        if ($chartPath) {
+            PdfHelper::writeSection($pdf, $weak ? '薄弱指标得分率' : '班组得分');
+            PdfHelper::writeImage($pdf, $chartPath, 186);
+        }
 
         PdfHelper::writeSection($pdf, '薄弱指标与赋能措施');
-        $weak = isset($data['weak_indicators']) ? $data['weak_indicators'] : [];
         if (!$weak) {
             PdfHelper::writeParagraph($pdf, '暂无薄弱指标（未算分或均已达标）');
         } else {
@@ -537,6 +767,7 @@ class ResultService
             $prows,
             [12, 12, 10, 10, 16, 8, 32]
         );
+        PdfHelper::cleanupImages($chartPath);
         PdfHelper::download(
             $pdf,
             '班组详情_' . PdfHelper::safeFilename($batch['name'] . '_' . $titleTeam) . '.pdf'
@@ -545,7 +776,94 @@ class ResultService
     }
 
     /**
-     * 导出个人答卷 PDF（含逐题作答）。
+     * 导出单班组详情 Word（含薄弱指标图）。
+     *
+     * @param int $batchId
+     * @param int $teamId
+     * @return array [bool ok, string msg]
+     */
+    public static function exportTeamDetailDocx($batchId, $teamId)
+    {
+        list($ok, $msg, $data) = self::teamDetail($batchId, $teamId);
+        if (!$ok) {
+            return [false, $msg];
+        }
+        $batch = $data['batch'];
+        $team = $data['team'];
+        $s = $data['summary'] ?: [];
+        $titleTeam = $team['team_name'];
+        $weak = isset($data['weak_indicators']) ? $data['weak_indicators'] : [];
+        $chartPath = null;
+        try {
+            $chartList = self::weakChartList($weak);
+            if ($chartList) {
+                $chartPath = PdfChartHelper::renderRankBars($chartList, 12, '薄弱指标得分率');
+            } elseif (isset($s['team_score']) && $s['team_score'] !== null && $s['team_score'] !== '') {
+                $chartPath = PdfChartHelper::renderRankBars([
+                    ['team_name' => $titleTeam, 'team_score' => (float)$s['team_score']],
+                ], 1, '班组得分');
+            }
+        } catch (\Exception $e) {
+            $chartPath = null;
+        }
+        $doc = DocxHelper::create('班组测评详情', $batch['name'] . ' · ' . $titleTeam);
+        $doc->writeMeta([
+            ['label' => '批次', 'value' => $batch['name']],
+            ['label' => '班组', 'value' => $titleTeam],
+            ['label' => '班组得分', 'value' => PdfHelper::fmtScore(isset($s['team_score']) ? $s['team_score'] : null)],
+            ['label' => '成熟度等级', 'value' => !empty($s['level_name']) ? $s['level_name'] : '尚未算分'],
+            ['label' => '排名', 'value' => !empty($s['rank_no']) ? ('第 ' . $s['rank_no'] . ' 名') : '—'],
+            ['label' => '提交情况', 'value' => '已提交 ' . (isset($s['submitted_cnt']) ? $s['submitted_cnt'] : 0)
+                . ' 人，答题中 ' . (isset($s['answering_cnt']) ? $s['answering_cnt'] : 0) . ' 人'],
+            ['label' => '算分时间', 'value' => !empty($s['scored_at']) ? $s['scored_at'] : '—'],
+        ]);
+        if (!empty($data['feature_desc'])) {
+            $doc->writeSection('等级特征');
+            $doc->writeParagraph($data['feature_desc']);
+        }
+        if ($chartPath) {
+            $doc->writeSection($weak ? '薄弱指标得分率' : '班组得分');
+            $doc->writeImage($chartPath, 5486400, '薄弱指标得分率');
+        }
+        $doc->writeSection('薄弱指标与赋能措施');
+        if (!$weak) {
+            $doc->writeParagraph('暂无薄弱指标（未算分或均已达标）');
+        } else {
+            $wrows = [];
+            foreach ($weak as $i => $w) {
+                $wrows[] = [
+                    $i + 1,
+                    isset($w['indicator_name']) ? $w['indicator_name'] : ('指标#' . $w['indicator_id']),
+                    PdfHelper::fmtScore(isset($w['avg_score']) ? $w['avg_score'] : null)
+                        . ' / ' . PdfHelper::fmtScore(isset($w['full_score']) ? $w['full_score'] : null),
+                    isset($w['measure']) ? $w['measure'] : '暂无',
+                ];
+            }
+            $doc->writeTable(['序号', '指标', '均分/满分', '赋能措施'], $wrows);
+        }
+        $doc->writeSection('成员答卷摘要');
+        $prows = [];
+        foreach ($data['papers'] as $p) {
+            $prows[] = [
+                $p['member_name'] ?: '—',
+                $p['role_name'] ?: '—',
+                $p['status_text'] ?: '—',
+                PdfHelper::fmtScore($p['personal_score']),
+                $p['personal_level_name'] ?: '—',
+                isset($p['answered_cnt']) ? $p['answered_cnt'] : 0,
+                $p['submitted_at'] ?: '—',
+            ];
+        }
+        $doc->writeTable(
+            ['姓名', '角色', '状态', '个人分', '个人判级', '已答', '提交时间'],
+            $prows
+        );
+        $doc->download('班组详情_' . DocxHelper::safeFilename($batch['name'] . '_' . $titleTeam) . '.docx');
+        return [true, 'ok'];
+    }
+
+    /**
+     * 导出个人答卷 PDF（含指标得分率图 + 逐题作答）。
      *
      * @param int $paperId
      * @return array [bool ok, string msg]
@@ -559,6 +877,26 @@ class ResultService
         $p = $detail['paper'];
         $answers = isset($detail['answers']) ? $detail['answers'] : [];
         $sub = ($p['batch_name'] ?: '') . ' · ' . ($p['team_name'] ?: '') . ' · ' . ($p['member_name'] ?: '');
+        $chartPath = null;
+        try {
+            $indList = self::paperIndicatorChartList($answers);
+            if ($indList) {
+                $chartPath = PdfChartHelper::renderRankBars($indList, 15, '指标得分率');
+            } else {
+                $cmp = [];
+                if ($p['personal_score'] !== null && $p['personal_score'] !== '') {
+                    $cmp[] = ['team_name' => '个人得分', 'team_score' => (float)$p['personal_score']];
+                }
+                if ($p['team_score'] !== null && $p['team_score'] !== '') {
+                    $cmp[] = ['team_name' => '班组得分', 'team_score' => (float)$p['team_score']];
+                }
+                if ($cmp) {
+                    $chartPath = PdfChartHelper::renderRankBars($cmp, 2, '得分对比');
+                }
+            }
+        } catch (\Exception $e) {
+            $chartPath = null;
+        }
         $pdf = PdfHelper::create('个人测评答卷', $sub);
         PdfHelper::writeMeta($pdf, [
             ['label' => '批次', 'value' => $p['batch_name']],
@@ -576,6 +914,10 @@ class ResultService
         if (!empty($p['personal_feature'])) {
             PdfHelper::writeSection($pdf, '等级特征');
             PdfHelper::writeParagraph($pdf, $p['personal_feature']);
+        }
+        if ($chartPath) {
+            PdfHelper::writeSection($pdf, '指标得分率');
+            PdfHelper::writeImage($pdf, $chartPath, 186);
         }
 
         PdfHelper::writeSection($pdf, '逐题作答结果');
@@ -599,9 +941,89 @@ class ResultService
             $arows,
             [8, 16, 34, 22, 10, 10]
         );
+        PdfHelper::cleanupImages($chartPath);
         PdfHelper::download(
             $pdf,
             '个人答卷_' . PdfHelper::safeFilename(($p['member_name'] ?: 'member') . '_' . ($p['batch_name'] ?: 'batch')) . '.pdf'
+        );
+        return [true, 'ok'];
+    }
+
+    /**
+     * 导出个人答卷 Word（含指标得分率图）。
+     *
+     * @param int $paperId
+     * @return array [bool ok, string msg]
+     */
+    public static function exportPaperDocx($paperId)
+    {
+        list($ok, $msg, $detail) = self::paperDetail($paperId);
+        if (!$ok) {
+            return [false, $msg];
+        }
+        $p = $detail['paper'];
+        $answers = isset($detail['answers']) ? $detail['answers'] : [];
+        $sub = ($p['batch_name'] ?: '') . ' · ' . ($p['team_name'] ?: '') . ' · ' . ($p['member_name'] ?: '');
+        $chartPath = null;
+        try {
+            $indList = self::paperIndicatorChartList($answers);
+            if ($indList) {
+                $chartPath = PdfChartHelper::renderRankBars($indList, 15, '指标得分率');
+            } else {
+                $cmp = [];
+                if ($p['personal_score'] !== null && $p['personal_score'] !== '') {
+                    $cmp[] = ['team_name' => '个人得分', 'team_score' => (float)$p['personal_score']];
+                }
+                if ($p['team_score'] !== null && $p['team_score'] !== '') {
+                    $cmp[] = ['team_name' => '班组得分', 'team_score' => (float)$p['team_score']];
+                }
+                if ($cmp) {
+                    $chartPath = PdfChartHelper::renderRankBars($cmp, 2, '得分对比');
+                }
+            }
+        } catch (\Exception $e) {
+            $chartPath = null;
+        }
+        $doc = DocxHelper::create('个人测评答卷', $sub);
+        $doc->writeMeta([
+            ['label' => '批次', 'value' => $p['batch_name']],
+            ['label' => '班组', 'value' => $p['team_name']],
+            ['label' => '成员', 'value' => $p['member_name']],
+            ['label' => '答卷状态', 'value' => $p['status_text']],
+            ['label' => '提交时间', 'value' => $p['submitted_at'] ?: '—'],
+            ['label' => '个人得分', 'value' => PdfHelper::fmtScore($p['personal_score'])
+                . ($p['personal_level_name'] ? ('（' . $p['personal_level_name'] . '）') : '')],
+            ['label' => '班组得分', 'value' => PdfHelper::fmtScore($p['team_score'])
+                . ($p['team_level_name'] ? ('（' . $p['team_level_name'] . '）') : '')],
+            ['label' => '答题进度', 'value' => '已答 ' . (int)$detail['answered_cnt']
+                . ' / 共 ' . (int)$detail['question_cnt'] . ' 题'],
+        ]);
+        if (!empty($p['personal_feature'])) {
+            $doc->writeSection('等级特征');
+            $doc->writeParagraph($p['personal_feature']);
+        }
+        if ($chartPath) {
+            $doc->writeSection('指标得分率');
+            $doc->writeImage($chartPath, 5486400, '指标得分率');
+        }
+        $doc->writeSection('逐题作答结果');
+        $arows = [];
+        foreach ($answers as $a) {
+            $answered = !empty($a['is_answered']);
+            $arows[] = [
+                isset($a['sort_no']) ? $a['sort_no'] : '',
+                isset($a['indicator_name']) ? $a['indicator_name'] : '—',
+                isset($a['question_title']) ? $a['question_title'] : ('题目#' . $a['question_id']),
+                $answered
+                    ? (isset($a['option_content']) ? $a['option_content'] : '—')
+                    : '未作答',
+                $answered ? PdfHelper::fmtScore($a['item_score']) : '—',
+                PdfHelper::fmtScore($a['weight']),
+            ];
+        }
+        $doc->writeTable(['题号', '指标', '题目', '所选答案', '得分', '满分'], $arows);
+        $doc->download(
+            '个人答卷_' . DocxHelper::safeFilename(($p['member_name'] ?: 'member') . '_' . ($p['batch_name'] ?: 'batch')) . '.docx'
         );
         return [true, 'ok'];
     }

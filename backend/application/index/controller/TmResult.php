@@ -216,4 +216,62 @@ class TmResult extends Base
             return json(DefaultResponse(400, false, $msg));
         }
     }
+
+    /**
+     * 导出批次班组汇总 Word。
+     *
+     * @return void|\think\response\Json
+     */
+    public function exportTeamDocx()
+    {
+        $batchId = (int)Request::instance()->param('batch_id', 0);
+        list($ok, $msg) = ResultService::exportTeamDocx($batchId);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+    }
+
+    /**
+     * 导出批次班组排行 Word。
+     *
+     * @return void|\think\response\Json
+     */
+    public function exportRankDocx()
+    {
+        $batchId = (int)Request::instance()->param('batch_id', 0);
+        list($ok, $msg) = ResultService::exportRankDocx($batchId);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+    }
+
+    /**
+     * 导出班组详情 Word。
+     *
+     * @return void|\think\response\Json
+     */
+    public function exportTeamDetailDocx()
+    {
+        $req = Request::instance();
+        $batchId = (int)$req->param('batch_id', 0);
+        $teamId = (int)$req->param('team_id', 0);
+        list($ok, $msg) = ResultService::exportTeamDetailDocx($batchId, $teamId);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+    }
+
+    /**
+     * 导出个人答卷 Word。
+     *
+     * @return void|\think\response\Json
+     */
+    public function exportPaperDocx()
+    {
+        $paperId = (int)Request::instance()->param('paper_id', 0);
+        list($ok, $msg) = ResultService::exportPaperDocx($paperId);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+    }
 }

@@ -105,7 +105,35 @@
                     <option value="3">工段/部门</option>
                     <option value="0">其他</option>
                 </select>
-                <div class="layui-word-aux" style="margin-top:6px;">类型仅作标识，不限制必须几层；两层或三层均可。</div>
+                <div class="layui-word-aux" style="margin-top:6px;">类型「公司/集团」会出现在全国运营看板；地图需填经纬度或省份。</div>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">行业</label>
+            <div class="layui-input-block">
+                <input type="text" name="industry" placeholder="如：钢铁 / 有色 / 焦化 / 石油化工" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">省份</label>
+            <div class="layui-input-block">
+                <input type="text" name="province" placeholder="如：山东省" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">城市</label>
+            <div class="layui-input-block">
+                <input type="text" name="city" placeholder="如：东营市" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">经度</label>
+            <div class="layui-input-inline" style="width:140px;">
+                <input type="text" name="lng" placeholder="如 118.67" class="layui-input">
+            </div>
+            <label class="layui-form-label" style="width:50px;">纬度</label>
+            <div class="layui-input-inline" style="width:140px;">
+                <input type="text" name="lat" placeholder="如 37.43" class="layui-input">
             </div>
         </div>
         <div class="layui-form-item">
@@ -153,10 +181,12 @@ layui.use(['table','form','jquery','layer','treetable'], function(){
             skin: 'line',
             page: false,
             cols: [[
-                {field:'name', title:'组织名称', minWidth:220},
-                {field:'org_type', title:'类型', width:110, templet: function(d){ return typeMap[d.org_type] || d.org_type; }},
-                {field:'sort_no', title:'排序', width:80},
-                {field:'status', title:'状态', width:80, templet: function(d){ return d.status==1?'启用':'停用'; }},
+                {field:'name', title:'组织名称', minWidth:200},
+                {field:'org_type', title:'类型', width:100, templet: function(d){ return typeMap[d.org_type] || d.org_type; }},
+                {field:'industry', title:'行业', width:100},
+                {field:'province', title:'省份', width:100},
+                {field:'sort_no', title:'排序', width:70},
+                {field:'status', title:'状态', width:70, templet: function(d){ return d.status==1?'启用':'停用'; }},
                 {title:'操作', toolbar:'#bar', width:140}
             ]]
         });
@@ -172,7 +202,7 @@ layui.use(['table','form','jquery','layer','treetable'], function(){
 
     function openForm(row){
         layer.open({
-            type: 1, title: row && row.id ? '编辑组织' : '新增组织', area: ['480px','460px'],
+            type: 1, title: row && row.id ? '编辑组织' : '新增组织', area: ['560px','640px'],
             content: $('#editTpl').html(),
             success: function(layero){
                 form.render(null, 'editForm');

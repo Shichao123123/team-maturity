@@ -219,6 +219,7 @@
                 </select>
             </form>
             <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnExportTeamDetailPdf">导出班组PDF</button>
+            <button type="button" class="pear-btn pear-btn-md" id="btnExportTeamDetailDocx">导出班组Word</button>
         </div>
         <div id="batchEmpty" class="empty-hint" style="display:none;">该班组尚未参与任何测评批次</div>
         <div id="resultPanel">
@@ -242,7 +243,10 @@
     <div style="padding:14px 16px 18px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;">
             <div class="tip" id="paperDetailMeta" style="flex:1;min-width:0;margin:0;"></div>
-            <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnExportPaperPdf">导出PDF</button>
+            <div style="display:flex;gap:8px;flex-shrink:0;">
+                <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnExportPaperPdf">导出PDF</button>
+                <button type="button" class="pear-btn pear-btn-md" id="btnExportPaperDocx">导出Word</button>
+            </div>
         </div>
         <div class="result-hero" id="paperResultHero"></div>
         <div class="tip" style="font-weight:600;color:#1e293b;margin-top:4px;" id="answerSectionTitle">逐题作答结果</div>
@@ -423,6 +427,7 @@ layui.use(['table','form','jquery','layer'], function(){
                         layero.find('#batchEmpty').show();
                         layero.find('#resultPanel').hide();
                         layero.find('#btnExportTeamDetailPdf').prop('disabled', true);
+                        layero.find('#btnExportTeamDetailDocx').prop('disabled', true);
                         form.render('select', 'batchPickForm');
                         return;
                     }
@@ -504,6 +509,11 @@ layui.use(['table','form','jquery','layer'], function(){
                         if (!bid) { layer.msg('请先选择批次'); return; }
                         window.location.href = '/TmTeam/exportTeamDetailPdf?batch_id=' + bid + '&team_id=' + teamId;
                     });
+                    layero.find('#btnExportTeamDetailDocx').on('click', function(){
+                        var bid = parseInt(($sel.val() || 0), 10) || 0;
+                        if (!bid) { layer.msg('请先选择批次'); return; }
+                        window.location.href = '/TmTeam/exportTeamDetailDocx?batch_id=' + bid + '&team_id=' + teamId;
+                    });
                     $sel.val(String(batches[0].batch_id));
                     form.render('select', 'batchPickForm');
                     loadBatchDetail(batches[0].batch_id);
@@ -537,6 +547,9 @@ layui.use(['table','form','jquery','layer'], function(){
                     try { layer.full(index); } catch (e) {}
                     layero.find('#btnExportPaperPdf').on('click', function(){
                         window.location.href = '/TmTeam/exportPaperPdf?paper_id=' + paperId + '&team_id=' + teamId;
+                    });
+                    layero.find('#btnExportPaperDocx').on('click', function(){
+                        window.location.href = '/TmTeam/exportPaperDocx?paper_id=' + paperId + '&team_id=' + teamId;
                     });
                     layero.find('#paperDetailMeta').html(
                         '<div><b>' + (p.batch_name||'') + '</b> · ' + (p.team_name||'') +

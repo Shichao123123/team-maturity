@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html>
+<head>
+    {include file="common/meta" /}
+    {include file="common/css" /}
+    <style>
+        body {
+            margin:0;
+            color:#d9f4ff;
+            background-color:#06111f;
+            background-image:
+                linear-gradient(rgba(36,111,157,.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(36,111,157,.08) 1px, transparent 1px),
+                radial-gradient(900px 420px at 8% -10%, rgba(0,183,255,.18), transparent 55%),
+                radial-gradient(700px 360px at 100% 0%, rgba(0,255,209,.12), transparent 50%);
+            background-size:32px 32px,32px 32px,auto,auto;
+        }
+        .wb { padding:5px 18px 20px; max-width:1920px; margin:0 auto; display:grid; grid-template-columns:minmax(260px,1fr) minmax(460px,1.55fr) minmax(260px,1fr); gap:12px; align-items:stretch; }
+        .page-head, .filter-bar, .kpi-row { grid-column:1 / -1; }
+        .page-head { margin:0 0 8px; min-height:52px; display:flex; align-items:center; justify-content:center; gap:12px; text-align:center; position:relative; }
+        .page-head::before,.page-head::after { content:''; position:absolute; top:50%; width:27%; height:1px; background:linear-gradient(90deg,transparent,#0abfff); box-shadow:0 0 9px #08bfff; }
+        .page-head::before { right:calc(50% + 185px); }
+        .page-head::after { left:calc(50% + 185px); transform:rotate(180deg); }
+        .page-head h1 { margin:0 0 3px; font-size:26px; font-weight:800; color:#f3fcff; letter-spacing:2px; text-shadow:0 0 18px rgba(58,210,255,.45); }
+        .page-head p { margin:0; color:#68a9c6; font-size:12px; letter-spacing:1px; }
+        .filter-bar {
+            background:linear-gradient(180deg,rgba(7,31,56,.94),rgba(5,22,41,.9)); border:1px solid #12618a; border-radius:4px;
+            padding:9px 12px; margin-bottom:12px;
+            box-shadow:0 0 22px rgba(0,144,255,.12), inset 0 1px 0 rgba(154,235,255,.08);
+        }
+        .filter-bar .layui-form-item { margin-bottom:0; }
+        .filter-bar .layui-inline { margin:0 8px 0 0; }
+        .filter-bar .layui-input,
+        .filter-bar .layui-select,
+        .filter-bar .pear-btn { height:36px; line-height:36px; }
+        .filter-bar .layui-input,
+        .filter-bar .layui-select { background:#0b243b; color:#d9f4ff; border-color:rgba(69,178,221,.3); }
+        .filter-bar .layui-input::placeholder { color:#62879c; }
+        .filter-bar .layui-form-select dl { background:#0b243b; border-color:#1d5975; }
+        .filter-bar .layui-form-select dl dd { color:#b9e4f2; }
+        .filter-bar .layui-form-select dl dd:hover,
+        .filter-bar .layui-form-select dl dd.layui-this { background:#126084; color:#fff; }
+        .filter-bar .pear-btn-primary { background:linear-gradient(135deg,#087fa8,#0ac9c2); border:0; box-shadow:0 0 16px rgba(0,210,210,.25); }
+        .kpi-row { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:12px; }
+        .kpi-card {
+            background:linear-gradient(145deg,rgba(10,43,78,.95),rgba(5,24,47,.96)); border-radius:4px; border:1px solid #12618a;
+            padding:12px 14px; min-height:64px; box-shadow:0 0 22px rgba(0,128,255,.16), inset 0 1px 0 rgba(154,235,255,.08);
+            position:relative; overflow:hidden;
+        }
+        .kpi-card::before {
+            content:''; position:absolute; left:0; top:0; bottom:0; width:4px;
+            background:var(--accent,#1677ff);
+        }
+        .kpi-card.k1 { --accent:#1677ff; }
+        .kpi-card.k2 { --accent:#13c2c2; }
+        .kpi-card.k3 { --accent:#722ed1; }
+        .kpi-card.k4 { --accent:#52c41a; }
+        .kpi-card.k5 { --accent:#fa8c16; }
+        .kpi-card .label { color:#9bcfe2; font-size:12px; margin-bottom:5px; display:flex; align-items:center; gap:8px; }
+        .kpi-card .label::before { content:'◆'; display:inline-flex; align-items:center; justify-content:center; width:25px; height:25px; border-radius:5px; color:#8cecff; background:rgba(8,123,198,.32); box-shadow:inset 0 0 12px rgba(34,193,255,.25); font-size:11px; }
+        .kpi-card.k2 .label::before { content:'●●'; letter-spacing:-3px; }
+        .kpi-card.k3 .label::before { content:'▤'; font-size:16px; }
+        .kpi-card.k4 .label::before { content:'▥'; font-size:16px; }
+        .kpi-card.k5 .label::before { content:'✓'; color:#8dffd3; background:rgba(20,177,127,.32); font-size:16px; }
+        .kpi-card .value { color:#e9fbff; font-size:24px; font-weight:700; line-height:1.1; text-shadow:0 0 12px rgba(50,210,255,.25); }
+        .main-row, .second-row { display:contents; }
+        .panel {
+            background:linear-gradient(145deg,rgba(7,32,59,.96),rgba(4,20,39,.96)); border-radius:4px; border:1px solid #12618a;
+            box-shadow:0 0 26px rgba(0,128,255,.08), inset 0 1px 0 rgba(154,235,255,.05); padding:13px 16px;
+            position:relative; overflow:hidden;
+        }
+        .panel::before { content:''; position:absolute; left:18px; right:18px; top:0; height:2px; background:linear-gradient(90deg,transparent,#18d8ff,transparent); opacity:.9; box-shadow:0 0 10px #18d8ff; }
+        .panel::after { content:''; position:absolute; right:-1px; bottom:-1px; width:26px; height:26px; border-right:2px solid #12cfff; border-bottom:2px solid #12cfff; opacity:.85; }
+        .panel-title { font-size:14px; font-weight:600; color:#e8faff; margin:0 0 4px; }
+        .panel-tip { color:#6d9bb3; font-size:12px; margin:0 0 6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        #mapChart { width:100%; height:500px; }
+        #pieChart, #radarChart { width:100%; height:280px; }
+        .legend-row { display:flex; flex-wrap:wrap; gap:7px 14px; margin-top:5px; font-size:12px; color:#9bc4d6; }
+        .legend-row span i {
+            display:inline-block; width:10px; height:10px; border-radius:50%;
+            margin-right:6px; vertical-align:middle;
+        }
+        .weak-panel { min-height:300px; }
+        #weakChart { width:100%; height:280px; }
+        .weak-drill { border-top:1px solid rgba(69,178,221,.2); margin-top:4px; padding-top:8px; color:#8db8ca; font-size:12px; line-height:1.65; min-height:42px; }
+        .main-row .panel:nth-child(1) { grid-column:2; grid-row:5 / span 2; }
+        .main-row .panel:nth-child(2) { grid-column:1; grid-row:5; }
+        .second-row .panel:nth-child(1) { grid-column:3; grid-row:5; }
+        .second-row .panel:nth-child(2) { grid-column:1; grid-row:6; }
+        @media (max-width:1200px){
+            .wb { display:block; }
+            .page-head, .filter-bar, .kpi-row { display:block; }
+            .main-row, .second-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+            .main-row .panel:nth-child(1), .main-row .panel:nth-child(2), .second-row .panel:nth-child(1), .second-row .panel:nth-child(2) { grid-column:auto; grid-row:auto; }
+            .kpi-row { grid-template-columns:repeat(2,1fr); }
+        }
+        @media (max-width:760px){
+            .wb { padding:12px; }
+            .kpi-row { grid-template-columns:1fr 1fr; }
+            .filter-bar .layui-inline { margin-bottom:6px; }
+            .main-row, .second-row { grid-template-columns:1fr; }
+            #mapChart, #pieChart, #radarChart { height:300px; }
+            #weakChart { height:300px; }
+        }
+        /* 运营大屏：统一参考图的边框、标题、数字与控制台比例。 */
+        body { font-family:'Microsoft YaHei','PingFang SC',sans-serif; background:#00132b radial-gradient(ellipse at 50% 35%,#042c51 0%,#00142d 65%,#000d20 100%); }
+        .wb { box-sizing:border-box; max-width:none; padding:0 18px 12px; gap:10px; grid-template-columns:minmax(0,28fr) minmax(0,42fr) minmax(0,28fr); }
+        .page-head { min-height:58px; margin:0 -18px; background:linear-gradient(180deg,#05274f,#00142c); border-bottom:1px solid #006baf; }
+        .page-head > div { position:relative; z-index:1; padding:4px 50px 8px; background:linear-gradient(180deg,#06335f,#001b3b); clip-path:polygon(0 0,100% 0,93% 100%,7% 100%); border-bottom:2px solid #00cbff; }
+        .page-head h1 { font-size:clamp(20px,2vw,34px); letter-spacing:2px; margin:0; color:#f4faff; text-shadow:0 2px 2px #1266af,0 0 16px #0782d4; }
+        .page-head p { display:none; }
+        .page-head::before,.page-head::after { top:10px; width:24%; height:30px; background:linear-gradient(90deg,transparent,rgba(0,144,255,.14)); border-top:1px solid #00bdff; border-right:2px solid #00bdff; transform:skewX(42deg); box-shadow:5px 0 0 #003d70,14px 0 0 #0065a0,22px 0 0 #002e57; }
+        .page-head::before { left:0; right:auto; }
+        .page-head::after { right:0; left:auto; transform:scaleX(-1) skewX(42deg); }
+        .filter-bar { margin:0; padding:4px 8px; background:transparent; border:0; box-shadow:none; }
+        .filter-bar .layui-form-item { display:grid; grid-template-columns:1fr 1fr 1.35fr 1.35fr 1.35fr 1.1fr auto; gap:16px; align-items:center; }
+        .filter-bar .layui-inline { min-width:0; margin:0; }
+        .filter-bar .layui-input { width:100%!important; height:32px; line-height:32px; border:1px solid #008dc4; border-radius:3px; background:linear-gradient(#032647,#00162d); color:#e2edff; box-shadow:inset 0 0 8px #00365c; }
+        .filter-bar .layui-input::placeholder { color:#a2bdd7; }
+        .filter-bar .pear-btn-primary { height:32px; line-height:32px; background:linear-gradient(#1299ff,#0073e5); border:1px solid #00bcff; border-radius:3px; }
+        .kpi-row { margin:0; gap:12px; }
+        .kpi-card { box-sizing:border-box; min-height:86px; padding:12px 12px 10px 86px; border:1px solid #008cca; background:linear-gradient(110deg,#063666,#001a39); box-shadow:inset 0 0 18px #003765,0 0 7px #00446d; }
+        .kpi-card::before { width:9px; height:9px; background:none; border-left:2px solid #00dbff; border-top:2px solid #00dbff; }
+        .kpi-card::after { content:''; position:absolute; right:0; bottom:0; width:9px; height:9px; border-right:2px solid #00dbff; border-bottom:2px solid #00dbff; }
+        .kpi-card .label { display:block; font-size:15px; color:#dceaff; margin:0 0 5px; font-weight:600; }
+        .kpi-card .label::before { display:none; }
+        .kpi-icon { position:absolute; left:20px; top:13px; width:56px; height:56px; box-sizing:border-box; padding:12px; border-radius:9px; background:linear-gradient(135deg,#084c94,#00336a); color:#89baff; box-shadow:inset 0 0 12px #005397; }
+        .kpi-icon svg { width:100%; height:100%; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+        .kpi-card .value { font-family:'Bahnschrift','DIN Alternate',Arial,sans-serif; font-size:36px; letter-spacing:1px; color:#85dcff; text-shadow:0 0 12px #0768b0; }
+        .kpi-card.k5 { border-color:#00b2a5; }
+        .kpi-card.k5 .value { color:#7fefd2; }
+        .panel { min-width:0; padding:8px 12px 10px; border:1px solid #009bd3; background:linear-gradient(135deg,rgba(0,33,65,.97),rgba(0,20,42,.96)); box-shadow:inset 0 0 20px #002f55,0 0 6px #00538a; }
+        .panel::before { left:0; top:0; right:auto; width:10px; height:10px; border-top:2px solid #00dcff; border-left:2px solid #00dcff; background:none; box-shadow:none; }
+        .panel::after { width:10px; height:10px; }
+        .panel-title { padding:0 0 8px 6px; margin:0 0 5px; font-size:17px; color:#e9efff; border-bottom:1px solid; border-image:linear-gradient(90deg,#00beff,transparent 85%) 1; text-shadow:0 0 7px #2272bf; }
+        .panel-tip { color:#86a8c9; font-size:11px; }
+        .main-row .panel:nth-child(1) { grid-column:2; grid-row:4 / span 2; display:flex; flex-direction:column; }
+        .main-row .panel:nth-child(2) { grid-column:1; grid-row:4; }
+        .second-row .panel:nth-child(1) { grid-column:3; grid-row:4 / span 2; display:flex; flex-direction:column; }
+        .second-row .panel:nth-child(2) { grid-column:1; grid-row:5; }
+        #mapChart { height:560px; min-height:400px; flex:1; }
+        #radarChart { height:420px; flex:1; min-height:320px; }
+        #pieChart { height:220px; }
+        #weakChart { height:340px; }
+        .weak-panel { min-height:0; }
+        .legend-row { font-size:12px; color:#d3e6ff; }
+        .weak-drill { max-height:160px; overflow:auto; color:#c0d9ee; }
+        @media(max-width:1250px) {
+            .wb { display:grid; grid-template-columns:1fr 1.4fr; }
+            .main-row,.second-row { display:contents; }
+            .page-head { display:flex; }.filter-bar { display:block; }.kpi-row { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); }
+            .kpi-card { padding:10px; min-height:74px; }.kpi-icon { display:none; }.kpi-card .label { font-size:12px; }.kpi-card .value { font-size:28px; }
+            .main-row .panel:nth-child(1) { grid-column:2;grid-row:4 / span 2; }
+            .main-row .panel:nth-child(2) { grid-column:1;grid-row:4; }
+            .second-row .panel:nth-child(2) { grid-column:1;grid-row:5; }
+            .second-row .panel:nth-child(1) { grid-column:1 / -1;grid-row:6; }
+            .filter-bar .layui-form-item { gap:8px; }
+        }
+        @media(max-width:700px) {
+            .wb { display:flex; flex-direction:column; padding:0 10px 10px; }.page-head { margin:0 -10px; }.page-head > div { padding:12px 18px; }.page-head h1 { font-size:18px;letter-spacing:0; }
+            .filter-bar .layui-form-item { grid-template-columns:repeat(2,minmax(0,1fr)); }.kpi-row { grid-template-columns:repeat(2,minmax(0,1fr)); }
+            #mapChart { height:380px; min-height:380px; }#radarChart { height:340px; }
+        }
+        .weak-chart-scroll { min-height:0; overflow:auto; scrollbar-width:thin; scrollbar-color:#167ca7 #031b35; }
+        @media(min-width:1100px) and (min-height:600px) {
+            .wb { height:100vh; height:100dvh; grid-template-columns:minmax(0,28fr) minmax(0,42fr) minmax(0,28fr); grid-template-rows:50px 40px 78px minmax(0,1fr) minmax(0,1.2fr); gap:8px; padding-bottom:8px; }
+            .page-head { min-height:0; }
+            .page-head h1 { font-size:clamp(18px,1.9vw,30px); }
+            .kpi-card { min-height:0; padding-top:8px; padding-bottom:6px; }
+            .kpi-card .value { font-size:30px; }
+            .kpi-icon { top:9px; }
+            .panel { min-height:0; display:flex; flex-direction:column; }
+            .panel-title,.panel-tip { flex-shrink:0; }
+            .main-row .panel:nth-child(1) { grid-column:2; grid-row:4 / span 2; }
+            .main-row .panel:nth-child(2) { grid-column:1; grid-row:4; }
+            .second-row .panel:nth-child(1) { grid-column:3; grid-row:4 / span 2; }
+            .second-row .panel:nth-child(2) { grid-column:1; grid-row:5; }
+            #mapChart,#pieChart,#radarChart { flex:1 1 0; height:0; min-height:0; }
+            .weak-chart-scroll { flex:1 1 0; }
+            .weak-drill { flex:0 0 auto; min-height:0; max-height:64px; }
+            .legend-row { flex-shrink:0; }
+        }
+        .company-panel { grid-column:1 / -1; grid-row:6; min-height:0; }
+        .company-tools { display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px; }
+        .company-tools button { cursor:pointer;color:#e3f4ff;background:#076cb5;border:1px solid #00baff;padding:6px 12px;border-radius:3px; }
+        .company-tools select { background:#082b48;color:#d8ecff;border:1px solid #1685ae;padding:5px; }
+        .company-scroll { overflow:auto;max-height:230px;scrollbar-width:thin; }
+        .company-grid { border-collapse:collapse;width:100%;font-size:12px;color:#c9def5; }
+        .company-grid th,.company-grid td { border:1px solid #143f64;padding:7px 8px;text-align:left; }
+        .company-grid th { position:sticky;top:0;background:#0b3155;white-space:nowrap; }
+        .company-grid a { color:#00d8ff; }
+        .level-cards { display:flex;gap:12px;flex-wrap:wrap;color:#cfe5ff;margin:3px 0 8px;font-size:12px; }
+        .compare-modal { padding:16px;overflow:auto;background:#05233e;color:#dceeff; }
+        @media(min-width:1100px) and (min-height:600px) {
+            .wb { grid-template-rows:50px 40px 78px minmax(0,1fr) minmax(0,1.2fr) minmax(130px,.8fr); }
+            .company-panel { display:flex;flex-direction:column; }.company-scroll { min-height:0;flex:1;max-height:none; }
+        }
+        @media(min-width:701px) and (max-width:1099px) { .company-panel { grid-row:7; } }
+        .compare-dashboard { padding:18px;background:#031a32;color:#d9ecff; }
+        .compare-summary { display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px; }
+        .compare-summary article { padding:12px;border:1px solid #245176;border-top:3px solid var(--company-color);background:#082641; }
+        .compare-summary h3 { font-size:14px;line-height:1.6;overflow-wrap:anywhere;margin:0 0 8px; }
+        .compare-summary strong { font:30px Arial;color:var(--company-color); }
+        .compare-summary p { margin:6px 0 0;color:#a1bfd8;font-size:12px; }
+        .compare-charts { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:16px; }
+        .compare-chart-panel { min-width:0;padding:14px;background:#06223e;border:1px solid #1b5a80; }
+        .compare-chart-panel h3 { font-size:15px;margin:0 0 6px;color:#e2f0ff; }
+        .compare-chart-panel p,.compare-note { color:#94b5d2;line-height:1.6;font-size:12px; }
+        .compare-chart { height:320px;width:100%; }
+        .compare-table-scroll { overflow:auto;max-height:360px;margin-top:10px; }
+        @media(max-width:800px){.compare-charts{grid-template-columns:1fr;}.compare-dashboard{padding:10px;}}
+        /* 窗口较矮时允许页面延展，避免企业表只剩一行。 */
+        @media(min-width:1100px) and (min-height:600px) and (max-height:849px) {
+            .wb { height:auto;min-height:100dvh;grid-template-rows:50px auto 78px minmax(220px,1fr) minmax(270px,1.2fr) auto; }
+            .company-panel { min-height:300px; }
+        }
+        .company-panel .company-tools { flex-shrink:0;row-gap:10px;padding:3px 0 6px; }
+        .company-panel .company-scroll { position:relative;isolation:isolate;min-height:150px;max-height:360px;overflow:auto;scrollbar-gutter:stable;scrollbar-color:#2978a2 #061d34; }
+        .company-panel .company-grid { min-width:1480px;table-layout:fixed;border-collapse:separate;border-spacing:0;line-height:1.6; }
+        .company-panel .company-grid th,.company-panel .company-grid td { box-sizing:border-box;padding:10px 12px;border-width:0 1px 1px 0;white-space:normal;overflow-wrap:anywhere;vertical-align:middle; }
+        .company-panel .company-grid th { position:sticky;top:0;z-index:3;background:#103757;box-shadow:0 1px 0 #3180a8;white-space:nowrap; }
+        .company-panel .company-grid th:nth-child(1) { width:50px; }
+        .company-panel .company-grid th:nth-child(2) { width:190px; }
+        .company-panel .company-grid th:nth-child(3) { width:140px; }
+        .company-panel .company-grid th:nth-child(4) { width:110px; }
+        .company-panel .company-grid th:nth-child(5) { width:90px; }
+        .company-panel .company-grid th:nth-child(6) { width:80px; }
+        .company-panel .company-grid th:nth-child(7) { width:110px; }
+        .company-panel .company-grid th:nth-child(8),.company-panel .company-grid th:nth-child(9) { width:260px; }
+        .company-panel .company-grid th:nth-child(10) { width:190px; }
+        .company-panel .company-grid tbody tr:hover { background:#103654; }
+        .company-panel .company-grid td:first-child { text-align:center; }
+        /* 同一深蓝色系内提升饱和度，正文仍保持柔和对比。 */
+        body { background:#00142e radial-gradient(ellipse at 50% 32%,#063d70 0%,#001b3b 62%,#000e24 100%); }
+        .panel { border-color:#00b9f2;background:linear-gradient(135deg,rgba(3,43,82,.97),rgba(0,23,49,.97));box-shadow:inset 0 0 22px rgba(0,101,186,.22),0 0 8px rgba(0,170,244,.22); }
+        .panel-title { color:#f0f8ff;text-shadow:0 0 9px rgba(46,148,255,.65); }
+        .panel-tip { color:#9abfe0; }
+        .kpi-card { border-color:#00b8f3;background:linear-gradient(110deg,#084681,#002248);box-shadow:inset 0 0 18px rgba(0,120,229,.28),0 0 9px rgba(0,157,255,.22); }
+        .kpi-card .value { color:#8eeaff;text-shadow:0 0 14px rgba(0,187,255,.48); }
+        .kpi-card.k5 { border-color:#14d9bd; }.kpi-card.k5 .value { color:#7fffd9; }
+        .kpi-icon { color:#acd6ff;background:linear-gradient(135deg,#0865bb,#00458d); }
+        .filter-bar .layui-input { border-color:#12b8ed;background:linear-gradient(#063459,#001d3a); }
+        .company-tools button,.filter-bar .pear-btn-primary { background:linear-gradient(#139fff,#087ce8);border-color:#27d1ff; }
+        .company-panel .company-grid th { background:#12456e; }
+        .company-grid a { color:#36e5ff; }
+    </style>
+</head>
+<body>
+<div class="wb">
+    <div class="page-head">
+        <div>
+            <h1>全国冶金企业安全成熟度运营总览</h1>
+            <p>第三方运营总览：企业地图打点 · 等级分布 · 行业一级指标雷达</p>
+        </div>
+    </div>
+
+    <form class="layui-form filter-bar" lay-filter="filterForm" onsubmit="return false;">
+        <div class="layui-form-item">
+            <div class="layui-inline">
+                <input type="text" name="date_from" id="dateFrom" placeholder="算分起" class="layui-input" style="width:120px;" autocomplete="off">
+            </div>
+            <div class="layui-inline">
+                <input type="text" name="date_to" id="dateTo" placeholder="算分止" class="layui-input" style="width:120px;" autocomplete="off">
+            </div>
+            <div class="layui-inline">
+                <select name="industry" lay-filter="autoFilter" lay-search>
+                    <option value="">全部行业</option>
+                    {volist name="industries" id="ind"}
+                    <option value="{$ind}">{$ind}</option>
+                    {/volist}
+                </select>
+            </div>
+            <div class="layui-inline">
+                <select name="province" lay-filter="autoFilter" lay-search>
+                    <option value="">全部省份</option>
+                    {volist name="provinces" id="pv"}
+                    <option value="{$pv}">{$pv}</option>
+                    {/volist}
+                </select>
+            </div>
+            <div class="layui-inline">
+                <select name="level_code" lay-filter="autoFilter">
+                    <option value="">全部等级</option>
+                    {volist name="levels" id="lv"}
+                    <option value="{$lv.level_code}">{$lv.level_name}</option>
+                    {/volist}
+                </select>
+            </div>
+            <div class="layui-inline">
+                <input type="text" name="keyword" placeholder="企业名称" class="layui-input" style="width:160px;">
+            </div>
+            <div class="layui-inline">
+                <button type="button" class="pear-btn pear-btn-md pear-btn-primary" id="btnReload">查询</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="kpi-row">
+        <div class="kpi-card k1"><div class="label">纳入企业数</div><div class="value" id="kpiCompany">-</div></div>
+        <div class="kpi-card k2"><div class="label">测评班组总数</div><div class="value" id="kpiScored">-</div></div>
+        <div class="kpi-card k3"><div class="label">有效测评次数</div><div class="value" id="kpiEval">-</div></div>
+        <div class="kpi-card k4"><div class="label">有效测评样本数</div><div class="value" id="kpiPaper">-</div></div>
+        <div class="kpi-card k5"><div class="label">行业平均得分</div><div class="value" id="kpiAvg">-</div></div>
+    </div>
+
+    <div class="main-row">
+        <div class="panel">
+            <div class="panel-title">全国企业成熟度地图</div>
+            <p class="panel-tip" id="mapTip">点击企业圆点进入企业详情；颜色对应成熟度等级</p>
+            <div id="mapChart"></div>
+            <div class="legend-row" id="mapLegend"></div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">企业成熟度等级分布</div>
+            <p class="panel-tip">已测评企业的四级占比</p>
+            <div id="pieChart"></div>
+            <div class="level-cards" id="levelCards"></div>
+        </div>
+    </div>
+
+    <div class="second-row">
+        <div class="panel">
+            <div class="panel-title">一级指标均分雷达（全国）</div>
+            <p class="panel-tip">按筛选范围内答卷汇总的一级指标得分率</p>
+            <div id="radarChart"></div>
+        </div>
+        <div class="panel weak-panel">
+            <div class="panel-title">行业二级指标短板 TOP10</div>
+            <p class="panel-tip">按失分率排序，点击柱子查看对应高频原始问题项</p>
+            <div class="weak-chart-scroll"><div id="weakChart"></div></div>
+            <div class="weak-drill" id="weakDrill">点击任意指标查看问题项</div>
+        </div>
+    </div>
+    <div class="panel company-panel">
+        <div class="company-tools"><strong>企业测评数据</strong>
+            <select id="companySort" aria-label="排序"><option value="score">综合分降序</option><option value="teams">测评班组数降序</option><option value="name">企业名称</option><option value="time">最近算分</option></select>
+            <button id="compareCompanies" type="button">对比勾选企业</button>
+            <button id="exportReport" type="button">导出行业分析报告</button>
+            <button id="exportRaw" type="button">导出原始数据</button>
+            <span id="companyCount"></span>
+        </div>
+        <div class="company-scroll"><table class="company-grid"><thead><tr><th>对比</th><th>企业名称</th><th>所在省市</th><th>冶金类型</th><th>测评班组</th><th>综合分</th><th>成熟度</th><th>相对优势指标</th><th>相对短板指标</th><th>测评时间</th></tr></thead><tbody id="companyRows"></tbody></table></div>
+    </div>
+</div>
+
+<script src="/static/js/national-demo.js"></script>
+<script src="/component/layui/layui.js"></script>
+<script src="/component/pear/pear.js"></script>
+<script>
+layui.use(['jquery','form','echarts','layer','laydate'], function(){
+    var $ = layui.jquery, form = layui.form, echarts = layui.echarts, layer = layui.layer, laydate = layui.laydate;
+
+    laydate.render({ elem: '#dateFrom', type: 'date',done:function(){setTimeout(load,0);} });
+    laydate.render({ elem: '#dateTo', type: 'date',done:function(){setTimeout(load,0);} });
+
+    var mapChart = echarts.init(document.getElementById('mapChart'));
+    var pieChart = echarts.init(document.getElementById('pieChart'));
+    var radarChart = echarts.init(document.getElementById('radarChart'));
+    var weakChart = echarts.init(document.getElementById('weakChart'));
+    var geoReady = false;
+    var lastData = null;
+    var demoMode=true;
+    var realOptions={industry:$('select[name="industry"]').html(),province:$('select[name="province"]').html()};
+    function syncDemoOptions(){
+        ['industry','province'].forEach(function(key){
+            var select=$('select[name="'+key+'"]');
+            select.html(realOptions[key]);
+            if(demoMode){var seen={};select.find('option').each(function(){seen[this.value]=true;});window.nationalDemoData({}).companies.forEach(function(c){if(!seen[c[key]]){select.append($('<option>').val(c[key]).text(c[key]));seen[c[key]]=true;}});}
+            select.val('');
+        });
+        form.render('select');
+    }
+    syncDemoOptions();
+    $('.company-tools').prepend('<button type="button" id="demoToggle">切换真实数据</button><strong id="demoBadge" style="color:#ffcd60">演示数据 · 不计入真实测评</strong>');
+    $('.page-head > div').append('<span id="demoHeader" style="color:#ffcd60;font-size:12px">演示模式 · 虚构数据</span>');
+    $('#demoToggle').on('click',function(){demoMode=!demoMode;syncDemoOptions();$('#demoToggle').text(demoMode?'切换真实数据':'切换演示数据');$('#demoBadge,#demoHeader').toggle(demoMode);load();});
+    $(document).on('click','.company-panel a',function(e){
+        if(!demoMode)return;
+        e.preventDefault();
+        var match=(this.href||'').match(/org_id=(-?\d+)/),id=match?Number(match[1]):0;
+        var c=(lastData && lastData.companies||[]).filter(function(x){return x.org_id===id;})[0];
+        if(!c)return;
+        layer.open({type:1,title:'演示企业详情 · '+escapeHtml(c.name),area:['560px','520px'],content:'<div class="compare-modal"><p style="color:#ffcd60">此为浏览器演示数据，不会写入真实测评结果。</p><h3>'+escapeHtml(c.name)+'</h3><p>地区：'+escapeHtml(c.province+' '+c.city)+'　行业：'+escapeHtml(c.industry)+'</p><p>综合分：<strong style="color:#6ee7ff;font-size:28px">'+c.score_text+'</strong>　成熟度：'+escapeHtml(c.level_name)+'</p><p>测评班组：'+c.measured_team_cnt+' 个　有效样本：'+c.sample_cnt+' 份</p><h4>相对优势指标</h4><p>'+escapeHtml(c.strengths.join('、'))+'</p><h4>相对短板指标</h4><p>'+escapeHtml(c.weaknesses.join('、'))+'</p></div>'});
+    });
+    var levelColors = { passive:'#ff554b', dependent:'#ffbb32', independent:'#20b2ff', essential:'#36e594' };
+    var icons = ['M5 21V7l9-4v18M14 9h5v12M8 8v1m3-2v1M8 12v1m3-2v1M8 16v1m3-2v1M3 21h18', 'M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M2 21v-3a5 5 0 0 1 12 0v3M17 5a3 3 0 0 1 0 6m1 4a4 4 0 0 1 4 4v2', 'M5 3h14v18H5zM8 7h8M8 11h8M8 15h5', 'M4 21V13h3v8M11 21V8h3v13M18 21V3h3v18', 'M3 17l5-5 5 3 8-10M16 5h5v5'];
+    $('.kpi-card').each(function(i){ $(this).prepend('<span class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="' + icons[i] + '"/></svg></span>'); });
+
+    function escapeHtml(value){
+        return String(value == null ? '' : value).replace(/[&<>'"]/g, function(ch){
+            return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch];
+        });
+    }
+
+    function filters(){
+        var f = form.val('filterForm') || {};
+        return {
+            date_from: f.date_from || '',
+            date_to: f.date_to || '',
+            industry: f.industry || '',
+            province: f.province || '',
+            level_code: f.level_code || '',
+            keyword: f.keyword || ''
+        };
+    }
+
+    function loadGeo(cb){
+        if (geoReady) { cb(); return; }
+        $.getJSON('/static/geo/china.json').done(function(geoJson){
+            echarts.registerMap('china', geoJson);
+            geoReady = true;
+            cb();
+        }).fail(function(){
+            layer.msg('中国地图数据加载失败，请确认 /static/geo/china.json 存在');
+        });
+    }
+
+    function renderMap(points){
+        var groups = {};
+        (points || []).forEach(function(p){
+            var key = p.city ? p.province+'|'+p.city : p.value[0]+'|'+p.value[1];
+            if (!groups[key]) groups[key]=[];
+            groups[key].push(p);
+        });
+        points = Object.keys(groups).map(function(key){
+            var members=groups[key], p=$.extend({},members[0]);
+            p.members=members;
+            if(members.length>1){p.name=(p.city || p.province || '同坐标')+' · '+members.length+'家企业';p.org_id=0;}
+            return p;
+        });
+        var data = (points || []).map(function(p){
+            return {
+                name: p.name,
+                value: p.value,
+                org_id: p.org_id,
+                members:p.members,
+                measured_team_cnt:p.measured_team_cnt,
+                score: p.score,
+                level_name: p.level_name,
+                eval_cnt: p.eval_cnt,
+                industry: p.industry,
+                itemStyle: { color: p.members.length>1 ? '#258bbe' : (levelColors[p.level_code] || '#607d94') },
+                has_score: p.has_score
+            };
+        });
+        mapChart.setOption({
+            tooltip: {
+                trigger: 'item',
+                formatter: function(p){
+                    if (!p.data) return '';
+                    var d = p.data;
+                    if(d.members && d.members.length>1) return escapeHtml(d.name)+'<br/>点击展开企业列表';
+                    var score = d.score == null ? '未测评' : d.score;
+                    return '<b>' + escapeHtml(d.name) + '</b><br/>得分：' + escapeHtml(score) +
+                        '<br/>等级：' + escapeHtml(d.level_name || '—') +
+                        '<br/>测评班组数：' + (d.measured_team_cnt || 0) +
+                        (d.industry ? ('<br/>行业：' + escapeHtml(d.industry)) : '') +
+                        '<br/><span style="color:#94a3b8">点击进入详情</span>';
+                }
+            },
+            geo: {
+                map: 'china',
+                roam: true,
+                zoom: 1.05,
+                label: { show: true, color:'#b9d6f5', fontSize:10 },
+                itemStyle: {
+                    areaColor: '#064780',
+                    borderColor: '#15d7ff',
+                    borderWidth:1,
+                    shadowBlur:12,
+                    shadowColor:'#008ad0'
+                },
+                emphasis: {
+                    itemStyle: { areaColor: '#0873ac' }
+                }
+            },
+            series: [{
+                name: '企业',
+                type: 'scatter',
+                coordinateSystem: 'geo',
+                symbolSize: function(val, params){
+                    if(params.data.members && params.data.members.length>1) return 26;
+                    var s = params.data && params.data.score;
+                    if (s == null) return 10;
+                    return Math.max(8, Math.min(15, 5 + s / 10));
+                },
+                label:{show:true,color:'#fff',formatter:function(p){return p.data.members.length>1 ? p.data.members.length : '';}},
+                data: data
+            }]
+        }, true);
+    }
+
+    function renderPie(levels){
+        var pieData = (levels || []).map(function(lv){
+            return { name: lv.level_name, value: lv.count, itemStyle:{color:levelColors[lv.level_code] || '#607d94'} };
+        });
+        pieChart.setOption({
+            tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+            color: ['#20e3b2', '#38bdf8', '#f6c85f', '#ff637d', '#607d94'],
+            legend: { orient:'vertical', right:0, top:'middle', itemWidth:10, itemHeight:10, textStyle:{color:'#c8ddf5',fontSize:11} },
+            series: [{
+                type: 'pie',
+                radius: ['44%', '76%'],
+                center: ['32%', '50%'],
+                label: { position:'inside',formatter:function(p){return p.value ? p.percent + '%' : '';},color:'#fff',fontSize:11 },
+                data: pieData
+            }]
+        }, true);
+    }
+
+    function renderRadar(radar){
+        var inds = (radar && radar.indicators) || [];
+        var vals = (radar && radar.values) || [];
+        if (!inds.length) {
+            radarChart.clear();
+            radarChart.setOption({
+                title: { text: '暂无答卷数据', left: 'center', top: 'middle', textStyle: { color: '#94a3b8', fontSize: 14, fontWeight: 'normal' } }
+            });
+            return;
+        }
+        radarChart.setOption({
+            tooltip: {},
+            radar: {
+                indicator: inds.map(function(n){ return { name: n, max: 100 }; }),
+                radius: '52%',
+                name: {color:'#d2e4ff',fontSize:11,formatter:function(n){return n.replace(/(.{8})/g,'$1\n');}},
+                axisLine: {lineStyle:{color:'#436f9a'}},
+                splitLine: {lineStyle:{color:'#436f9a'}},
+                splitArea: {areaStyle:{color:['rgba(10,51,92,.2)','rgba(19,81,132,.2)']}}
+            },
+            series: [{
+                type: 'radar',
+                data: [{
+                    name: '得分率',
+                    value: vals,
+                    areaStyle: { opacity: 0.32, color:'#16bfff' },
+                    lineStyle: { color: '#42eaff', width:2 },
+                    itemStyle: { color: '#65f0ff' }
+                }]
+            }]
+        }, true);
+    }
+
+    function renderLegend(levels){
+        var html = '';
+        (levels || []).forEach(function(lv){
+            var color = levelColors[lv.level_code] || '#94a3b8';
+            html += '<span><i style="background:' + color + '"></i>' + lv.level_name + ' ' + lv.count + '（' + lv.percent_text + '）</span>';
+        });
+        html += '<span><i style="background:#94a3b8"></i>未测评</span>';
+        $('#mapLegend').html(html);
+        $('#levelCards').html((levels || []).map(function(lv){return '<span>'+escapeHtml(lv.level_name)+' '+lv.count+'家 / '+lv.percent_text+'</span>';}).join(''));
+    }
+
+    function renderWeakTop(items){
+        items = items || [];
+        function wrapLabel(text){
+            text = String(text || '');
+            var out = [];
+            for (var i = 0; i < text.length; i += 7) out.push(text.slice(i, i + 7));
+            return out.join('\n');
+        }
+        var lines = items.reduce(function(max,x){return Math.max(max,Math.ceil(String(x.indicator_name || '').length/7));},1);
+        document.getElementById('weakChart').style.height = Math.max(300,items.length * (lines*16+8)+36) + 'px';
+        weakChart.resize();
+        weakChart.setOption({
+            grid: { left: 126, right: 30, top: 8, bottom: 28 },
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: function(ps){
+                var p = ps && ps[0], d = p && p.data ? p.data : {};
+                return escapeHtml(d.name || '') + '<br/>失分率：' + (d.value == null ? 0 : d.value) + '%';
+            }},
+            xAxis: { type: 'value', max:100, axisLabel:{color:'#89afd3',formatter:'{value}%'},axisLine:{lineStyle:{color:'#235078'}}, splitLine: { lineStyle: { color:'#123554' } } },
+            yAxis: { type: 'category', inverse: true, data: items.map(function(x){ return x.indicator_name; }), axisTick:{show:false},axisLine:{show:false}, axisLabel: { color:'#c8ddf5',width: 116, lineHeight:16, fontSize:12, formatter: wrapLabel } },
+            series: [{ type:'bar', barMaxWidth:18, data: items.map(function(x){ return { value:x.loss_rate, name:x.indicator_name, itemId:x.indicator_id }; }), itemStyle:{ color:'#21d4c3', borderRadius:[0,5,5,0], shadowBlur:10, shadowColor:'rgba(33,212,195,.35)' }, label:{ show:true, position:'right', formatter:'{c}%', color:'#bcefff' } }]
+        }, true);
+        $('#weakDrill').text(items.length ? '点击任意指标查看问题项' : '当前筛选范围暂无可统计的短板指标');
+    }
+
+    var loadSequence=0;
+    function load(){
+        var sequence=++loadSequence;
+        $('#exportReport,#exportRaw').prop('disabled',demoMode).css('opacity',demoMode ? 0.45 : 1);
+        if(demoMode){present(window.nationalDemoData(filters()),sequence);return;}
+        var loadIdx = layer.load(2);
+        $.getJSON('/TmNational/overview', filters()).done(function(res){
+            layer.close(loadIdx);
+            if(sequence!==loadSequence)return;
+            if (!res || !res.success) {
+                layer.msg((res && res.msg) || '加载失败');
+                return;
+            }
+            present(res.data || {},sequence);
+        }).fail(function(){
+            layer.close(loadIdx);
+            if(sequence===loadSequence)layer.msg('加载失败');
+        });
+    }
+    function present(data,sequence){
+            lastData = data;
+            var kpi = lastData.kpi || {};
+            $('#kpiCompany').text(kpi.company_cnt != null ? kpi.company_cnt : '-');
+            $('#kpiScored').text(kpi.team_cnt != null ? kpi.team_cnt : '-');
+            $('#kpiEval').text(kpi.eval_cnt != null ? kpi.eval_cnt : '-');
+            $('#kpiPaper').text(kpi.paper_cnt != null ? kpi.paper_cnt : '-');
+            $('#kpiAvg').text(kpi.avg_score_text || '-');
+            $('#mapTip').text(lastData.tip || '');
+
+            renderPie(lastData.levels || []);
+            renderRadar(lastData.l1_radar || {});
+            renderLegend(lastData.levels || []);
+            loadGeo(function(){ if(sequence===loadSequence) renderMap(lastData.map_points || []); });
+
+            renderWeakTop(lastData.weak_top10 || []);
+            renderCompanies();
+    }
+
+    weakChart.on('click', function(params){
+        var items = (lastData && lastData.weak_top10) || [];
+        var item = items[params && params.dataIndex];
+        var html = '<b>' + escapeHtml(item ? item.indicator_name : '') + '</b>';
+        if (!item || !item.questions || !item.questions.length) html += '<br/>暂无原始问题数据';
+        else item.questions.forEach(function(q, i){ html += '<br/>' + (i + 1) + '、' + escapeHtml(q.title || '')+'（出现 '+q.count+' 次）'; });
+        $('#weakDrill').html(html);
+    });
+
+    mapChart.on('click', function(params){
+        if(demoMode){layer.msg('演示点位仅供展示；可在企业表中勾选企业进行对比');return;}
+        if(params.data && params.data.members && params.data.members.length>1){
+            layer.open({type:1,title:'同城市企业',area:['480px','360px'],content:'<div class="compare-modal">'+params.data.members.map(function(c){return '<p><a style="color:#00d8ff" href="/TmNational/company?org_id='+c.org_id+'">'+escapeHtml(c.name)+'</a> · '+escapeHtml(c.level_name)+' · '+c.score_text+'分 · '+c.measured_team_cnt+'个测评班组</p>';}).join('')+'</div>'});return;
+        }
+        if (params && params.data && params.data.org_id) {
+            location.href = '/TmNational/company?org_id=' + params.data.org_id;
+        }
+    });
+
+    function renderCompanies(){
+        var rows=((lastData && lastData.companies)||[]).slice(),sort=$('#companySort').val();
+        rows.sort(function(a,b){
+            if(sort==='name')return a.name.localeCompare(b.name,'zh-CN');
+            if(sort==='teams')return b.measured_team_cnt-a.measured_team_cnt;
+            if(sort==='time')return String(b.scored_at||'').localeCompare(String(a.scored_at||''));
+            return (b.score==null?-1:b.score)-(a.score==null?-1:a.score);
+        });
+        $('#companyRows').html(rows.map(function(c){return '<tr><td><input type="checkbox" class="company-choice" value="'+c.org_id+'" aria-label="选择'+escapeHtml(c.name)+'"></td><td><a href="/TmNational/company?org_id='+c.org_id+'">'+escapeHtml(c.name)+'</a></td>'+[c.province+' '+c.city,c.industry,c.measured_team_cnt,c.score_text,c.level_name,c.strengths.join('、'),c.weaknesses.join('、'),c.scored_at||'—'].map(function(v){return '<td>'+escapeHtml(v)+'</td>';}).join('')+'</tr>';}).join('') || '<tr><td colspan="10">当前筛选范围暂无企业</td></tr>');
+        $('#companyCount').text('共 '+rows.length+' 家');
+    }
+    $('#companySort').on('change',renderCompanies);
+    $('#compareCompanies').on('click',function(){
+        var ids=$('.company-choice:checked').map(function(){return Number(this.value);}).get();
+        if(ids.length<2 || ids.length>6){layer.msg('请选择 2 至 6 家企业进行对比');return;}
+        var cs=lastData.companies.filter(function(c){return ids.indexOf(c.org_id)>=0;}),names={};
+        cs.forEach(function(c){c.indicator_rates.forEach(function(i){names[i.name]=true;});});
+        var colors=['#32c6ff','#ffbd59','#67e0b2','#bba0ff','#ff7c94','#67e6ed'];
+        var common=Object.keys(names).filter(function(n){return cs.every(function(c){return c.indicator_rates.some(function(i){return i.name===n;});});});
+        var html='<div class="compare-dashboard"><p class="compare-note">沿用首页当前筛选范围；同一家企业在各图中使用相同颜色。综合分与一级指标得分率的统计口径不同，请分别比较。</p><div class="compare-summary">';
+        cs.forEach(function(c,i){html+='<article style="--company-color:'+colors[i]+'"><h3>'+escapeHtml(c.name)+'</h3><strong>'+escapeHtml(c.score_text)+'</strong> 分<p>'+escapeHtml(c.level_name)+' · '+escapeHtml(c.province+' '+c.city)+'</p><p>'+c.measured_team_cnt+' 个测评班组 · '+c.sample_cnt+' 份有效样本</p></article>';});
+        html+='</div><div class="compare-charts">';
+        [['score','综合得分对比','按各班组期内最近结果计算；虚线为当前筛选范围企业均分。'],['radar','一级指标能力对比','仅叠加所有选中企业均有数据的指标；点击图例可隐藏企业。'],['teams','测评班组规模','测评班组去重数量（个）。'],['samples','有效样本规模','已算分批次有效提交答卷数量（份）。']].forEach(function(p){html+='<section class="compare-chart-panel"><h3>'+p[1]+'</h3><p>'+p[2]+'</p><div class="compare-chart" data-chart="'+p[0]+'"></div></section>';});
+        html+='</div><h3>完整指标明细</h3><p class="compare-note">缺失数据以“—”显示，不参与雷达对比。</p><div class="compare-table-scroll"><table class="company-grid"><tr><th>对比项目</th>'+cs.map(function(c){return '<th>'+escapeHtml(c.name)+'</th>';}).join('')+'</tr>';
+        [['综合分','score_text'],['成熟度','level_name'],['测评班组','measured_team_cnt'],['有效样本','sample_cnt']].forEach(function(field){html+='<tr><td>'+field[0]+'</td>'+cs.map(function(c){return '<td>'+escapeHtml(c[field[1]])+'</td>';}).join('')+'</tr>';});
+        Object.keys(names).forEach(function(n){html+='<tr><td>'+escapeHtml(n)+'</td>'+cs.map(function(c){var i=c.indicator_rates.filter(function(i){return i.name===n;})[0];return '<td>'+(i?i.score+'%':'—')+'</td>';}).join('')+'</tr>';});
+        var charts=[],observer=null;
+        function resizeCompare(){charts.forEach(function(c){c.resize();});}
+        layer.open({type:1,title:'企业横向对比分析',area:['94%','90%'],maxmin:true,content:html+'</table></div></div>',
+            success:function(layero){
+                var root=layero.find('.compare-dashboard')[0];
+                function create(key){var chart=echarts.init(root.querySelector('[data-chart="'+key+'"]'));charts.push(chart);return chart;}
+                function bars(key,field,unit,max){
+                    var option={backgroundColor:'transparent',textStyle:{color:'#b9d4ec'},grid:{left:12,right:65,top:20,bottom:20,containLabel:true},
+                        tooltip:{trigger:'item',formatter:function(p){return escapeHtml(cs[p.dataIndex].name)+'<br/>'+ (p.value==null?'暂无数据':p.value+unit);}},
+                        xAxis:{type:'value',max:max,splitLine:{lineStyle:{color:'#193b58'}},axisLabel:{color:'#8caecb'}},
+                        yAxis:{type:'category',inverse:true,data:cs.map(function(c){return c.name;}),axisLabel:{color:'#c9dff2',fontSize:11,formatter:function(n){return n.replace(/(.{10})/g,'$1\n');}},axisTick:{show:false},axisLine:{show:false}},
+                        series:[{type:'bar',barMaxWidth:25,label:{show:true,position:'right',color:'#e3f3ff',formatter:function(p){return p.value==null?'—':p.value+unit;}},data:cs.map(function(c,i){return {value:c[field],itemStyle:{color:colors[i]}};})}]};
+                    var avg=Number(lastData.kpi.avg_score_text);
+                    if(key==='score' && isFinite(avg))option.series[0].markLine={symbol:'none',lineStyle:{type:'dashed',color:'#dde9f5'},label:{formatter:'范围均分 '+avg,color:'#dde9f5'},data:[{xAxis:avg}]};
+                    create(key).setOption(option);
+                }
+                bars('score','score','分',100);bars('teams','measured_team_cnt','个');bars('samples','sample_cnt','份');
+                var radar=create('radar');
+                if(common.length<3){radar.setOption({title:{text:'共同有效指标不足 3 项，请查看下方明细',left:'center',top:'middle',textStyle:{color:'#a8c5de',fontSize:12}}});}
+                else radar.setOption({color:colors,tooltip:{trigger:'item'},legend:{type:'scroll',bottom:0,textStyle:{color:'#c9dff2'},data:cs.map(function(c){return c.name;})},
+                    radar:{radius:'52%',center:['50%','46%'],indicator:common.map(function(n){return {name:n,max:100};}),name:{color:'#bdd9f2',fontSize:10,formatter:function(n){return n.replace(/(.{8})/g,'$1\n');}},splitArea:{show:false},splitLine:{lineStyle:{color:'#264b6b'}},axisLine:{lineStyle:{color:'#264b6b'}}},
+                    series:[{type:'radar',data:cs.map(function(c,i){return {name:c.name,value:common.map(function(n){return c.indicator_rates.filter(function(r){return r.name===n;})[0].score;}),lineStyle:{width:2,color:colors[i]},areaStyle:{opacity:.06},symbolSize:5};})}]});
+                window.addEventListener('resize',resizeCompare);
+                if(window.ResizeObserver){observer=new ResizeObserver(resizeCompare);observer.observe(root);}
+            },end:function(){window.removeEventListener('resize',resizeCompare);if(observer)observer.disconnect();charts.forEach(function(c){c.dispose();});}
+        });
+    });
+    $('#exportReport').on('click',function(){if(!demoMode)location.href='/TmNational/exportReport?'+$.param(filters());});
+    $('#exportRaw').on('click',function(){if(!demoMode)location.href='/TmNational/exportRaw?'+$.param(filters());});
+    form.on('select(autoFilter)', load);
+    $('#btnReload').on('click', load);
+    var kwTimer = null;
+    $('input[name="keyword"]').on('input', function(){
+        clearTimeout(kwTimer);
+        kwTimer = setTimeout(load, 350);
+    });
+
+    load();
+    window.addEventListener('resize', function(){
+        mapChart.resize(); pieChart.resize(); radarChart.resize(); weakChart.resize();
+    });
+    if (window.ResizeObserver) {
+        var chartObserver = new ResizeObserver(function(){
+            mapChart.resize(); pieChart.resize(); radarChart.resize(); weakChart.resize();
+        });
+        document.querySelectorAll('.panel').forEach(function(panel){ chartObserver.observe(panel); });
+    }
+});
+</script>
+</body>
+</html>

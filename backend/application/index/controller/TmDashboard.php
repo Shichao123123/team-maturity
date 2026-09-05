@@ -3,7 +3,9 @@ namespace app\index\controller;
 
 use app\index\model\OrgModel;
 use app\index\service\DashboardService;
+use app\index\service\DocxHelper;
 use app\index\service\ExcelHelper;
+use app\index\service\PdfChartHelper;
 use app\index\service\PdfHelper;
 use think\Request;
 
@@ -188,7 +190,7 @@ class TmDashboard extends Base
         $batchName = $data['batch'] ? $data['batch']['name'] : '排行导出';
         $chartPath = null;
         try {
-            $chartPath = \app\index\service\PdfChartHelper::renderRankBars($data['list'], 15);
+            $chartPath = PdfChartHelper::renderRankBars($data['list'], 15);
         } catch (\Exception $e) {
             $chartPath = null;
         }
@@ -241,7 +243,7 @@ class TmDashboard extends Base
         }
         $chartPath = null;
         try {
-            $chartPath = \app\index\service\PdfChartHelper::renderPieLevels(isset($data['levels']) ? $data['levels'] : []);
+            $chartPath = PdfChartHelper::renderPieLevels(isset($data['levels']) ? $data['levels'] : []);
         } catch (\Exception $e) {
             return json(DefaultResponse(500, false, '图表生成失败：' . $e->getMessage()));
         }
@@ -309,7 +311,7 @@ class TmDashboard extends Base
         }
         $chartPath = null;
         try {
-            $chartPath = \app\index\service\PdfChartHelper::renderTrendLines($data['batches'], $data['series']);
+            $chartPath = PdfChartHelper::renderTrendLines($data['batches'], $data['series']);
         } catch (\Exception $e) {
             return json(DefaultResponse(500, false, '图表生成失败：' . $e->getMessage()));
         }
@@ -354,5 +356,178 @@ class TmDashboard extends Base
         PdfHelper::writeTable($pdf, $headers, $rows, $widths);
         PdfHelper::cleanupImages($chartPath);
         PdfHelper::download($pdf, '成长趋势_' . PdfHelper::safeFilename(implode('_', array_slice($teamNames, 0, 3))) . '.pdf');
+    }
+
+    /**
+     * 导出班组排行榜 Word（含柱状图）。
+     *
+     * @return void|\think\response\Json
+     */
+    public function exportRankDocx()
+    {
+        $req = Request::instance();
+        $batchId = (int)$req->param('batch_id', 0);
+        $orgId = (int)$req->param('org_id', 0);
+        $data = DashboardService::rank($batchId, $orgId, 0, 500);
+        if (empty($data['list'])) {
+            return json(DefaultResponse(400, false, '暂无可导出的排行数据'));
+        }
+        $batchName = $data['batch'] ? $data['batch']['name'] : '排行导出';
+        $chartPath = null;
+        try {
+            $chartPath = PdfChartHelper::renderRankBars($data['list'], 15);
+        } catch (\Exception $e) {
+            $chartPath = null;
+        }
+        $doc = DocxHelper::create('数据分析 · 班组排行', $batchName);
+        $doc->writeMeta([
+            ['label' => '批次', 'value' => $batchName],
+            ['label' => '上榜班组数', 'value' => (string)count($data['list'])],
+            ['label' => '说明', 'value' => isset($data['tip']) ? $data['tip'] : ''],
+        ]);
+        if ($chartPath) {
+            $doc->writeSection('排行图表');
+            $doc->writeImage($chartPath, 5486400, '班组得分排行');
+        }
+        $doc->writeSection('排行明细');
+        $rows = [];
+        foreach ($data['list'] as $r) {
+            $rows[] = [
+                $r['rank_no'],
+                $r['team_name'],
+                $r['org_name'] ?: '—',
+                PdfHelper::fmtScore($r['team_score']),
+                $r['level_name'] ?: '—',
+                $r['submit_cnt'],
+                $r['advice'] ?: '—',
+            ];
+        }
+        $doc->writeTable(
+            ['排名', '班组', '所属组织', '得分', '成熟度等级', '提交人数', '管理建议'],
+            $rows
+        );
+        $doc->download('班组排行_' . DocxHelper::safeFilename($batchName) . '.docx');
+    }
+
+    /**
+     * 导出成熟度看板 Word（含等级分布图）。
+     *
+     * @return void|\think\response\Json
+     */
+    public function exportLevelDistDocx()
+    {
+        $req = Request::instance();
+        $batchId = (int)$req->param('batch_id', 0);
+        $orgId = (int)$req->param('org_id', 0);
+        $data = DashboardService::levelDist($batchId, $orgId, 0, 0);
+        if (empty($data['result_team_cnt'])) {
+            return json(DefaultResponse(400, false, '暂无可导出的看板数据'));
+        }
+        $chartPath = null;
+        try {
+            $chartPath = PdfChartHelper::renderPieLevels(isset($data['levels']) ? $data['levels'] : []);
+        } catch (\Exception $e) {
+            return json(DefaultResponse(500, false, '图表生成失败：' . $e->getMessage()));
+        }
+        $orgName = '';
+        if ($orgId > 0) {
+            $orgName = (string)\think\Db::name('tm_org')->where('id', $orgId)->value('name');
+        }
+        $doc = DocxHelper::create('数据分析 · 成熟度看板', $data['batch_name'] ?: '');
+        $doc->writeMeta([
+            ['label' => '批次', 'value' => $data['batch_name'] ?: '—'],
+            ['label' => '组织', 'value' => $orgName !== '' ? $orgName : '全部组织'],
+            ['label' => '算分时间', 'value' => !empty($data['scored_at']) ? $data['scored_at'] : '—'],
+            ['label' => '统计班组数', 'value' => (string)$data['result_team_cnt']],
+            ['label' => '平均成熟得分', 'value' => PdfHelper::fmtScore($data['avg_score'])],
+            ['label' => '本质安全型', 'value' => (string)$data['essential_cnt']],
+            ['label' => '被动型', 'value' => (string)$data['passive_cnt']],
+        ]);
+        $doc->writeSection('等级分布图');
+        $doc->writeImage($chartPath, 5486400, '成熟度等级分布');
+
+        $doc->writeSection('等级明细清单');
+        $levelRows = [];
+        foreach ($data['levels'] as $lv) {
+            $levelRows[] = [
+                $lv['level_name'],
+                $lv['count'],
+                $lv['percent_text'],
+                isset($lv['advice']) ? $lv['advice'] : '—',
+            ];
+        }
+        $doc->writeTable(['等级', '数量', '占比', '管理建议'], $levelRows);
+
+        $doc->writeSection('班组得分清单');
+        $teamRows = [];
+        foreach ($data['teams'] as $i => $t) {
+            $teamRows[] = [
+                $i + 1,
+                $t['team_name'],
+                PdfHelper::fmtScore($t['team_score']),
+                isset($t['level_name']) ? $t['level_name'] : '—',
+            ];
+        }
+        $doc->writeTable(['序号', '班组', '得分', '成熟度等级'], $teamRows);
+        $doc->download('成熟度看板_' . DocxHelper::safeFilename($data['batch_name'] ?: 'export') . '.docx');
+    }
+
+    /**
+     * 导出成长趋势 Word（含折线图）。
+     *
+     * @return void|\think\response\Json
+     */
+    public function exportTrendDocx()
+    {
+        $req = Request::instance();
+        $orgId = (int)$req->param('org_id', 0);
+        $teamIds = $req->param('team_ids/a', []);
+        if (empty($teamIds) && $req->param('team_ids', '') !== '') {
+            $raw = $req->param('team_ids', '');
+            $teamIds = is_array($raw) ? $raw : explode(',', $raw);
+        }
+        $data = DashboardService::trend($orgId, $teamIds);
+        if (empty($data['batches']) || empty($data['series'])) {
+            return json(DefaultResponse(400, false, isset($data['tip']) ? $data['tip'] : '暂无可导出的趋势数据'));
+        }
+        $chartPath = null;
+        try {
+            $chartPath = PdfChartHelper::renderTrendLines($data['batches'], $data['series']);
+        } catch (\Exception $e) {
+            return json(DefaultResponse(500, false, '图表生成失败：' . $e->getMessage()));
+        }
+        $orgName = '';
+        if ($orgId > 0) {
+            $orgName = (string)\think\Db::name('tm_org')->where('id', $orgId)->value('name');
+        }
+        $teamNames = [];
+        foreach ($data['series'] as $s) {
+            $teamNames[] = $s['team_name'];
+        }
+        $doc = DocxHelper::create('数据分析 · 成长趋势', implode('、', array_slice($teamNames, 0, 4)));
+        $doc->writeMeta([
+            ['label' => '组织', 'value' => $orgName !== '' ? $orgName : '全部组织'],
+            ['label' => '班组', 'value' => implode('、', $teamNames)],
+            ['label' => '批次跨度', 'value' => count($data['batches']) . ' 个批次'],
+            ['label' => '说明', 'value' => isset($data['tip']) ? $data['tip'] : ''],
+        ]);
+        $doc->writeSection('趋势折线图');
+        $doc->writeImage($chartPath, 5486400, '班组成长趋势');
+
+        $doc->writeSection('得分明细');
+        $headers = ['班组'];
+        foreach ($data['batches'] as $b) {
+            $headers[] = $b['batch_name'];
+        }
+        $rows = [];
+        foreach ($data['series'] as $s) {
+            $row = [$s['team_name']];
+            foreach ($s['scores'] as $sc) {
+                $row[] = ($sc === null || $sc === '') ? '—' : PdfHelper::fmtScore($sc);
+            }
+            $rows[] = $row;
+        }
+        $doc->writeTable($headers, $rows);
+        $doc->download('成长趋势_' . DocxHelper::safeFilename(implode('_', array_slice($teamNames, 0, 3))) . '.docx');
     }
 }

@@ -315,7 +315,7 @@ class PdfChartHelper
      * @param int   $limit
      * @return string
      */
-    public static function renderRankBars(array $list, $limit = 12)
+    public static function renderRankBars(array $list, $limit = 12, $title = '班组得分排行')
     {
         if (!function_exists('imagecreatetruecolor')) {
             throw new \RuntimeException('PHP GD 扩展未启用');
@@ -333,7 +333,7 @@ class PdfChartHelper
         $track = imagecolorallocate($img, 241, 245, 249);
         imagefilledrectangle($img, 0, 0, $w, $h, $white);
         $ttf = self::ttfPath();
-        self::ttf($img, 16, 24, 30, $text, $ttf, '班组得分排行');
+        self::ttf($img, 16, 24, 30, $text, $ttf, (string)$title);
 
         $left = 180;
         $right = $w - 70;

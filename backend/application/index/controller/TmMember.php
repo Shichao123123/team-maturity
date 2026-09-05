@@ -136,6 +136,28 @@ class TmMember extends Base
     }
 
     /**
+     * 导出成员个人答卷 Word。
+     *
+     * @return void|\think\response\Json
+     */
+    public function exportPaperDocx()
+    {
+        $req = Request::instance();
+        $paperId = (int)$req->param('paper_id', 0);
+        $memberId = (int)$req->param('member_id', 0);
+        if ($paperId <= 0) {
+            return json(DefaultResponse(400, false, '参数错误'));
+        }
+        if (!(new MemberModel())->paperDetail($paperId, $memberId)) {
+            return json(DefaultResponse(404, false, '答卷不存在'));
+        }
+        list($ok, $msg) = ResultService::exportPaperDocx($paperId);
+        if (!$ok) {
+            return json(DefaultResponse(400, false, $msg));
+        }
+    }
+
+    /**
      * 成员详情 API。
      *
      * @return \think\response\Json 单条成员记录

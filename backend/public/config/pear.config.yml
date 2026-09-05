@@ -18,7 +18,7 @@ tab:
   max: "30"
   index:
     id: "0"
-    href: "/Index/welcome"
+    href: "/TmNational/index"
     title: "首页"
 theme:
   defaultColor: "2"

@@ -61,6 +61,7 @@
         </div>
         <div class="layui-inline">
             <button type="button" class="pear-btn pear-btn-md pear-btn-normal" id="btnExportPdf">导出PDF</button>
+            <button type="button" class="pear-btn pear-btn-md" id="btnExportDocx">导出Word</button>
         </div>
     </form>
 
@@ -156,6 +157,11 @@ layui.use(['jquery','form','table','echarts','layer'], function(){
         var f = form.val('filterForm') || {};
         var q = $.param({ batch_id: f.batch_id||'', org_id: f.org_id||'' });
         window.location.href = '/TmDashboard/exportRankPdf?' + q;
+    });
+    $('#btnExportDocx').on('click', function(){
+        var f = form.val('filterForm') || {};
+        var q = $.param({ batch_id: f.batch_id||'', org_id: f.org_id||'' });
+        window.location.href = '/TmDashboard/exportRankDocx?' + q;
     });
     load();
     window.addEventListener('resize', function(){ chart.resize(); });

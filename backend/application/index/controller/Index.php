@@ -21,14 +21,18 @@ class Index extends Base
     }
 
     /**
-     * 工作台欢迎页，加载当前管理员、批次列表与组织筛选项。
+     * 工作台入口：跳转全国运营看板（系统首页）。
      *
-     * @return mixed 渲染 index/welcome 视图
+     * @return void
      */
     public function welcome()
     {
-        $admin = $this->currentAdmin;
-        $this->assign('admin', $admin);
+        $roleId = isset($this->currentAdmin['role_id']) ? (int)$this->currentAdmin['role_id'] : 0;
+        if ($roleId > 0 && (new PowerModel())->roleCanAccessPath($roleId, '/TmNational/index')) {
+            $this->redirect('/TmNational/index');
+            return;
+        }
+        $this->assign('admin', $this->currentAdmin);
         $this->assign('batches', DashboardService::listBatchesWithResult());
         $this->assign('orgs', (new OrgModel())->getSelectOptions());
         return $this->fetch('index/welcome');
