@@ -1,0 +1,35 @@
+/* Batch detail only: keep QR contrast while matching the operations dashboard. */
+.batch-detail-layer .layui-layer-content{overflow:auto!important;background:#04233c;scrollbar-width:thin;scrollbar-color:#167ba5 #04233c}
+.batch-detail-layer #detailBody{max-height:none!important;overflow:visible;padding:18px!important;color:#d6e9f8;font:14px/1.6 'Microsoft YaHei',sans-serif}
+.batch-detail-layer #detailMeta{padding:12px 14px;margin:0 0 14px;background:#082d4a;border:1px solid #1a5272;border-radius:6px;color:#b8d3e8;line-height:2}
+.batch-detail-layer .tip{color:#a7c4db}
+.batch-detail-layer .status-tag{padding:2px 10px;margin-right:6px;font-weight:600}
+.batch-detail-layer .st-0{color:#c2d8eb;background:#28465d}
+.batch-detail-layer .st-1{color:#8cf0c4;background:#104d46}
+.batch-detail-layer .st-1-late{color:#ffcf89;background:#66461f}
+.batch-detail-layer .st-2{color:#ffb5b5;background:#623642}
+.batch-detail-layer #detailEntry{padding:16px;margin:0 0 14px;border:1px solid #216086;border-radius:7px;background:linear-gradient(110deg,#0a3556,#062840);color:#e0effa}
+.batch-detail-layer .batch-entry-layout{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.batch-detail-layer #qrCanvas{flex:0 0 168px;box-shadow:0 3px 12px #00142655}
+.batch-detail-layer #qrText{color:#c5e7f8!important}
+.batch-detail-layer .batch-section-title{margin:0 0 10px;font-size:16px;line-height:1.6;font-weight:600;color:#e2f3ff}
+.batch-detail-layer .batch-section-title:before{content:'';display:inline-block;width:3px;height:15px;background:#28d9ff;margin-right:9px;vertical-align:-2px}
+.batch-detail-layer #detailActions{padding:0 0 14px;margin:0 0 16px;border-bottom:1px solid #1b506e;gap:10px}
+.batch-detail-layer #detailActions:empty{display:none}
+.batch-detail-layer #bindBlock,.batch-detail-layer .batch-progress{padding:16px;background:#062840;border:1px solid #1a5272;border-radius:7px;margin-top:14px}
+.batch-detail-layer #teamTreeBox{background:#042037;border-color:#1c4c69;padding:10px 12px;max-height:340px;scrollbar-width:thin;scrollbar-color:#167ba5 #042037}
+.batch-detail-layer .tree-row{min-height:34px;padding:4px 6px}
+.batch-detail-layer .tree-row:hover{background:#0d3b59}
+.batch-detail-layer .tree-row.org-row{color:#d9efff}
+.batch-detail-layer .tree-row.team-row{color:#b9d7ec}
+.batch-detail-layer .tree-toggle{color:#70c9ef}
+.batch-detail-layer .tree-children{border-left-color:#245575}
+.batch-detail-layer .layui-form-checkbox[lay-skin=primary] span{color:#c7e2f5!important}
+.batch-detail-layer .layui-form-checkbox[lay-skin=primary] i{background:#103a56;border-color:#5085a5}
+.batch-detail-layer .layui-form-checked[lay-skin=primary] i{background:#087ea8;border-color:#27d9ff;color:#fff}
+.batch-detail-layer .layui-checkbox-disabled span{color:#8aa9c0!important}
+.batch-detail-layer .team-busy{color:#ffc18c}
+.batch-detail-layer .pear-btn{border-radius:4px;min-height:32px}
+.batch-detail-layer button:focus-visible{outline:2px solid #60ddff;outline-offset:3px}
+.batch-detail-layer .batch-progress .layui-table-view{margin-bottom:0;border-color:#1b5274}
+@media(max-width:650px){.batch-detail-layer #detailBody{padding:10px!important}.batch-detail-layer .batch-entry-layout{gap:14px}.batch-detail-layer #detailEntry,.batch-detail-layer #bindBlock,.batch-detail-layer .batch-progress{padding:12px}.batch-detail-layer #detailMeta{font-size:12px}.batch-detail-layer #teamTreeBox{padding:6px;max-height:300px}}

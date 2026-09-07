@@ -3,12 +3,12 @@
 <head>
 {include file="common/meta" /}
 <title>企业安全成熟度详情</title>
-<link rel="stylesheet" href="/static/css/company-detail.css?v=20260907-4">
+<link rel="stylesheet" href="/static/css/company-detail.css?v=20260907-5">
 </head>
 <body>
 <main class="screen" data-org="{$org_id}" data-scoped="{$scoped_account}">
 <header class="masthead">
-<a href="/TmNational/index" class="button" id="back">← 返回全国总览</a>
+<div class="masthead-brand"><img class="sinosteel-logo" src="/static/images/sinosteel-logo-white.png" alt="中钢安环院 SINOSTEEL"><a href="/TmNational/index" class="button" id="back">← 返回全国总览</a></div>
 <h1 id="pageTitle">企业安全成熟度详情</h1>
 <div class="head-actions"><button id="fullscreen">⛶ 全屏</button><button id="report">▤ 导出企业诊断报告</button><a class="button" id="logout" href="/Index/backsys" hidden>退出</a></div>
 </header>
@@ -29,7 +29,7 @@
 <section class="charts-row">
 <article class="panel"><h2>班组成熟度分布</h2><div id="pie" class="chart"></div></article>
 <article class="panel"><h2>一级指标对标分析</h2><div id="radar" class="chart"></div></article>
-<article class="panel"><h2>高频短板 TOP5 <small>二级指标失分率</small></h2><div id="weak" class="chart"></div></article>
+<article class="panel"><h2>二级指标失分率</h2><div id="weak" class="chart"></div></article>
 </section>
 <section class="panel ranking"><div class="section-head"><h2>班组排名与诊断</h2><label>搜索班组 <input id="teamSearch" placeholder="输入班组名称"></label><span id="selected">已选择 0 个班组</span><button id="batchReport">导出勾选班组报告</button><nav class="analysis-actions" aria-label="班组分析"><button type="button" data-analysis="compare" aria-haspopup="dialog" aria-controls="compareDialog" disabled>多班组横向对标 ↗</button><button type="button" data-analysis="history" aria-haspopup="dialog" aria-controls="historyDialog" disabled>班组历史测评趋势 ↗</button><button type="button" data-analysis="questions" aria-haspopup="dialog" aria-controls="questionsDialog" disabled>高频原始问题汇总 ↗</button></nav></div>
 <div class="table-scroll"><table><thead><tr><th><input type="checkbox" id="selectAll" aria-label="全选当前班组"></th><th>排名</th><th>班组名称</th><th>班组综合得分</th><th>成熟度等级</th><th>优势指标</th><th>短板指标</th><th>主要暴露问题</th><th>操作</th></tr></thead><tbody id="teamRows"><tr><td colspan="9">正在加载企业数据…</td></tr></tbody></table></div>

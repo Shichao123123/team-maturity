@@ -176,13 +176,15 @@ class PdfHelper
      * @param string $subTitle    副标题（如批次名）
      * @return TmReportPdf
      */
-    public static function create($reportTitle, $subTitle = '')
+    public static function create($reportTitle, $subTitle = '', $dark = false)
     {
         self::ensureAutoload();
         $font = self::chineseFont();
 
         $pdf = new TmReportPdf('P', 'mm', 'A4', true, 'UTF-8', false);
         $pdf->tmFont = $font;
+        $pdf->tmDark = $dark;
+        if ($dark) $pdf->SetTextColor(218, 237, 255);
         $pdf->tmExportedAt = date('Y-m-d H:i');
         $headerLine = '班组安全成熟度测评系统 · ' . $reportTitle;
         if ($subTitle !== '') {

@@ -261,11 +261,13 @@
         .company-tools button,.filter-bar .pear-btn-primary { background:linear-gradient(#139fff,#087ce8);border-color:#27d1ff; }
         .company-panel .company-grid th { background:#12456e; }
         .company-grid a { color:#36e5ff; }
-    </style>
+    .radar-stack{display:flex;flex-direction:column;flex:1;min-height:0;overflow:auto;scrollbar-width:thin}.radar-stack #radarChart,.radar-stack #l2RadarChart{width:100%;height:240px;min-height:220px;flex:1 0 220px}#l2RadarGroup{align-self:flex-start;max-width:100%;margin:2px 0 0;padding:4px 8px;color:#d2e4ff;background:#032947;border:1px solid #167ca7;border-radius:4px}.radar-stack .panel-title{flex-shrink:0}.page-head>.sinosteel-logo{position:absolute;left:18px;top:50%;transform:translateY(-50%);width:166px;height:46px;object-fit:contain;z-index:2}.page-head{padding-left:190px;padding-right:190px}@media(max-width:1000px){.page-head{padding-left:150px;padding-right:10px}.page-head>.sinosteel-logo{left:12px;width:130px;height:38px}.page-head>div{padding-left:12px;padding-right:12px}.page-head h1{font-size:20px}}@media(max-width:700px){.page-head{flex-wrap:wrap;padding:8px 10px;gap:4px}.page-head>.sinosteel-logo{position:static;transform:none;width:140px;height:40px}.page-head>div{width:100%;padding:4px 10px}}
+.compare-export-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}.compare-export-tools button{padding:7px 16px;border:1px solid #27d1ff;border-radius:4px;background:linear-gradient(#139fff,#087ce8);color:white;cursor:pointer}.compare-export-tools span{font-size:12px;color:#a1bfd8}</style>
 </head>
 <body class="dashboard-screen">
 <div class="wb">
     <div class="page-head">
+        <img class="sinosteel-logo" src="/static/images/sinosteel-logo-white.png" alt="中钢安环院 SINOSTEEL">
         <div>
             <h1>全国冶金企业安全成熟度运营总览</h1>
             <p>第三方运营总览：企业地图打点 · 等级分布 · 行业一级指标雷达</p>
@@ -336,8 +338,14 @@
 
     <div class="second-row">
         <div class="panel">
-            <div class="panel-title">一级指标均分雷达</div>
-            <div id="radarChart"></div>
+            <div class="radar-stack">
+                <div class="panel-title">一级指标均分雷达</div>
+                <div id="radarChart"></div>
+                <div class="panel-title">二级指标均分雷达</div>
+                <select id="l2RadarGroup" aria-label="二级雷达图所属一级指标"></select>
+                <div id="l2RadarChart"></div>
+                <div class="panel-tip" id="l2RadarTip"></div>
+            </div>
         </div>
         <div class="panel weak-panel">
             <div class="panel-title">行业班组建设短板 Top10</div>
@@ -358,7 +366,7 @@
 </div>
 
 <script src="/component/layui/layui.js"></script>
-<script src="/component/pear/pear.js"></script>
+<script src="/component/pear/pear.js"></script><script src="/static/js/company-compare-print.js?v=20260907-3"></script>
 <script>
 layui.use(['jquery','form','echarts','layer','laydate'], function(){
     var $ = layui.jquery, form = layui.form, echarts = layui.echarts, layer = layui.layer, laydate = layui.laydate;
@@ -369,6 +377,7 @@ layui.use(['jquery','form','echarts','layer','laydate'], function(){
     var mapChart = echarts.init(document.getElementById('mapChart'));
     var pieChart = echarts.init(document.getElementById('pieChart'));
     var radarChart = echarts.init(document.getElementById('radarChart'));
+    var l2RadarChart = echarts.init(document.getElementById('l2RadarChart'));
     var weakChart = echarts.init(document.getElementById('weakChart'));
     var geoReady = false;
     var lastData = null;
@@ -523,18 +532,26 @@ layui.use(['jquery','form','echarts','layer','laydate'], function(){
         }, true);
     }
 
-    function renderRadar(radar){
+    function renderL2Radar(){
+        var groups = (lastData && lastData.l2_radars) || [];
+        var group = groups[Number($('#l2RadarGroup').val())];
+        renderRadar(group || {}, l2RadarChart);
+    }
+    $('#l2RadarGroup').on('change', renderL2Radar);
+
+    function renderRadar(radar, target){
+        var chart = target || radarChart;
         var inds = (radar && radar.indicators) || [];
         var vals = (radar && radar.values) || [];
         if (!inds.length) {
-            radarChart.clear();
-            radarChart.setOption({
+            chart.clear();
+            chart.setOption({
                 title: { text: '暂无答卷数据', left: 'center', top: 'middle', textStyle: { color: '#94a3b8', fontSize: 14, fontWeight: 'normal' } }
             });
             return;
         }
-        radarChart.setOption({
-            tooltip: {},
+        chart.setOption({
+            tooltip: {confine:true},
             radar: {
                 indicator: inds.map(function(n){ return { name: n, max: 100 }; }),
                 radius: '52%',
@@ -621,6 +638,13 @@ layui.use(['jquery','form','echarts','layer','laydate'], function(){
 
             renderPie(lastData.levels || []);
             renderRadar(lastData.l1_radar || {});
+            var previousGroup = $('#l2RadarGroup option:selected').text();
+            var groups = lastData.l2_radars || [];
+            $('#l2RadarGroup').html(groups.map(function(g,i){return '<option value="'+i+'">'+escapeHtml(g.name)+'</option>';}).join(''));
+            var selectedGroup = 0;
+            groups.forEach(function(g,i){if(g.name === previousGroup || (!previousGroup && g.name === '班组安全管理基础')) selectedGroup=i;});
+            $('#l2RadarGroup').val(String(selectedGroup)).prop('disabled', !groups.length);
+            renderL2Radar();
             renderLegend(lastData.levels || []);
             loadGeo(function(){ if(sequence===loadSequence) renderMap(lastData.map_points || []); });
 
@@ -673,7 +697,7 @@ layui.use(['jquery','form','echarts','layer','laydate'], function(){
         cs.forEach(function(c){c.indicator_rates.forEach(function(i){names[i.name]=true;});});
         var colors=['#32c6ff','#ffbd59','#67e0b2','#bba0ff','#ff7c94','#67e6ed'];
         var common=Object.keys(names).filter(function(n){return cs.every(function(c){return c.indicator_rates.some(function(i){return i.name===n;});});});
-        var html='<div class="compare-dashboard"><p class="compare-note">沿用首页当前筛选范围；同一家企业在各图中使用相同颜色。综合分与一级指标得分率的统计口径不同，请分别比较。</p><div class="compare-summary">';
+        var html='<div class="compare-dashboard"><div class="compare-export-tools"><button type="button" class="compare-export-pdf">导出 PDF</button><span>保留当前图表与完整明细，在打印预览中选择“另存为 PDF”</span></div><p class="compare-note">沿用首页当前筛选范围；同一家企业在各图中使用相同颜色。综合分与一级指标得分率的统计口径不同，请分别比较。</p><div class="compare-summary">';
         cs.forEach(function(c,i){html+='<article style="--company-color:'+colors[i]+'"><h3>'+escapeHtml(c.name)+'</h3><strong>'+escapeHtml(c.score_text)+'</strong> 分<p>'+escapeHtml(c.level_name)+' · '+escapeHtml(c.province+' '+c.city)+'</p><p>'+c.measured_team_cnt+' 个测评班组 · '+c.sample_cnt+' 份有效样本</p></article>';});
         html+='</div><div class="compare-charts">';
         [['score','综合得分对比','按各班组期内最近结果计算；虚线为当前筛选范围企业均分。'],['radar','一级指标能力对比','仅叠加所有选中企业均有数据的指标；点击图例可隐藏企业。'],['teams','测评班组规模','测评班组去重数量（个）。'],['samples','有效样本规模','已算分批次有效提交答卷数量（份）。']].forEach(function(p){html+='<section class="compare-chart-panel"><h3>'+p[1]+'</h3><p>'+p[2]+'</p><div class="compare-chart" data-chart="'+p[0]+'"></div></section>';});
@@ -685,7 +709,8 @@ layui.use(['jquery','form','echarts','layer','laydate'], function(){
         layer.open({type:1,title:'企业横向对比分析',area:['94%','90%'],maxmin:true,content:html+'</table></div></div>',
             success:function(layero){
                 var root=layero.find('.compare-dashboard')[0];
-                function create(key){var chart=echarts.init(root.querySelector('[data-chart="'+key+'"]'));charts.push(chart);return chart;}
+                root.querySelector('.compare-export-pdf').addEventListener('click',function(){exportComparePdf(root);});
+                function create(key){var chart=echarts.init(root.querySelector('[data-chart="'+key+'"]'));chart.setOption({animation:false});charts.push(chart);return chart;}
                 function bars(key,field,unit,max){
                     var option={backgroundColor:'transparent',textStyle:{color:'#b9d4ec'},grid:{left:12,right:65,top:20,bottom:20,containLabel:true},
                         tooltip:{trigger:'item',formatter:function(p){return escapeHtml(cs[p.dataIndex].name)+'<br/>'+ (p.value==null?'暂无数据':p.value+unit);}},
@@ -719,11 +744,11 @@ layui.use(['jquery','form','echarts','layer','laydate'], function(){
 
     load();
     window.addEventListener('resize', function(){
-        mapChart.resize(); pieChart.resize(); radarChart.resize(); weakChart.resize();
+        mapChart.resize(); pieChart.resize(); radarChart.resize(); l2RadarChart.resize(); weakChart.resize();
     });
     if (window.ResizeObserver) {
         var chartObserver = new ResizeObserver(function(){
-            mapChart.resize(); pieChart.resize(); radarChart.resize(); weakChart.resize();
+            mapChart.resize(); pieChart.resize(); radarChart.resize(); l2RadarChart.resize(); weakChart.resize();
         });
         document.querySelectorAll('.panel').forEach(function(panel){ chartObserver.observe(panel); });
     }

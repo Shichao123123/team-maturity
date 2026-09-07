@@ -16,3 +16,5 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(88%) sepia(36%
 @media(min-width:1101px){.screen{height:100vh;height:100dvh;grid-template-rows:auto auto auto minmax(210px,1fr) minmax(150px,1fr)}.charts-row,.ranking{min-height:0}.charts-row .chart{height:auto;flex:1;min-height:0}.ranking .table-scroll{max-height:none;min-height:0;flex:1}}
 body select{color-scheme:dark;background-color:#032947;background-image:linear-gradient(#06375e,#032441);color:#e4f5ff;border-color:#1494c3;box-shadow:inset 0 0 8px rgba(0,113,178,.24)}
 body select:hover,body select:focus{border-color:#22dfff;box-shadow:0 0 0 1px rgba(34,223,255,.22),inset 0 0 10px rgba(0,139,207,.3)}
+
+.masthead-brand{display:flex;align-items:center;gap:12px}.masthead-brand .sinosteel-logo{display:block;width:150px;height:44px;object-fit:contain;flex-shrink:0}@media(max-width:1400px){.masthead-brand{gap:8px}.masthead-brand .sinosteel-logo{width:120px;height:36px}}@media(max-width:650px){.masthead-brand{flex-wrap:wrap}.masthead-brand .sinosteel-logo{width:130px;height:38px}}

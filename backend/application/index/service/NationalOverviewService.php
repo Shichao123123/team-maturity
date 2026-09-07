@@ -118,6 +118,16 @@ class NationalOverviewService
         }
         $radar = ['indicators'=>[], 'values'=>[]];
         foreach ($l1 as $i) if ($i['full'] > 0) { $radar['indicators'][]=$i['indicator_name']; $radar['values'][]=round(100*$i['got']/$i['full'],1); }
+        $l2Radars = [];
+        foreach ($l2 as $key => $i) if ($i['full'] > 0) {
+            $parentKey = explode('/', $key)[0];
+            $parent = $byId[$i['indicator_id']];
+            $parent = isset($byId[$parent['parent_id']]) ? $byId[$parent['parent_id']] : null;
+            if (!$parent) continue;
+            if (!isset($l2Radars[$parentKey])) $l2Radars[$parentKey] = ['name'=>$parent['name'], 'indicators'=>[], 'values'=>[]];
+            $l2Radars[$parentKey]['indicators'][] = $i['indicator_name'];
+            $l2Radars[$parentKey]['values'][] = round(100*$i['got']/$i['full'],1);
+        }
         $weak = [];
         foreach ($l2 as $i) if ($i['full'] > 0 && $i['full'] > $i['got']) {
             $i['loss_rate']=round(100*($i['full']-$i['got'])/$i['full'],1);
@@ -147,7 +157,7 @@ class NationalOverviewService
         foreach ($levels as &$lv) { $lv['percent']=$scored?round(100*$lv['count']/$scored,1):0; $lv['percent_text']=$lv['percent'].'%'; }
         unset($lv);
         $result=['kpi'=>['company_cnt'=>count($companies),'scored_cnt'=>$scored,'team_cnt'=>count($teams)+$demoTeamsTotal,'paper_cnt'=>count($papers)+$demoPapersTotal,'eval_cnt'=>count($batches)+$demoBatchesTotal,'avg_score_text'=>$scored?number_format($sum/$scored,1,'.',''):'—'],
-            'companies'=>$companies,'map_points'=>$map,'levels'=>array_values($levels),'l1_radar'=>$radar,'weak_top10'=>array_slice($weak,0,10),
+            'companies'=>$companies,'map_points'=>$map,'levels'=>array_values($levels),'l1_radar'=>$radar,'l2_radars'=>array_values($l2Radars),'weak_top10'=>array_slice($weak,0,10),
             'tip'=>''];
         if ($includeRaw) $result['raw']=$rows;
         return $result;

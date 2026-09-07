@@ -169,32 +169,14 @@ class TmNational extends Base
             $teams=array_values(array_filter($teams,function($t)use($ids){return in_array((int)$t['team_id'],$ids,true);}));
             if (!$teams || count($teams)!==count(array_unique($ids))) abort(400,'选择的班组不属于当前企业或筛选范围');
         }
+        $d['report_team_scope'] = $raw !== '';
         $pdf=$this->companyReportPdf($d,$teams);
-        PdfHelper::download($pdf,$d['org']['name'].'企业诊断报告.pdf');
+        $filename = \app\index\service\CompanyReportService::title($d, $teams);
+        PdfHelper::download($pdf,$filename.'.pdf');
     }
 
     protected function companyReportPdf(array $d, array $teams)
     {
-        $title=$d['org']['name'].'企业诊断报告';
-        $pdf=PdfHelper::create($title,$d['is_demo']?'演示数据报告 · 不作为真实测评结论':$d['period']);
-        PdfHelper::writeParagraph($pdf,$d['feature_desc']);
-        PdfHelper::writeTable($pdf,['综合分','成熟度','班组数','期内已测评','完成率'],[[$d['summary']['score_text'],$d['summary']['level_name'],$d['team_total'],$d['completed_count'],$d['completion_rate'].'%']]);
-        PdfHelper::writeSection($pdf,'企业二级指标短板 TOP5');
-        foreach ($d['weak_top5'] as $w) PdfHelper::writeParagraph($pdf,$w['indicator_name'].'：失分率 '.$w['loss_rate'].'%');
-        PdfHelper::writeSection($pdf,'高频原始问题');
-        foreach ($d['questions'] as $q) PdfHelper::writeParagraph($pdf,$q['title'].'（'.$q['count'].' 次，'.$q['team_count'].' 个班组）');
-        foreach ($teams as $t) {
-            $pdf->AddPage(); PdfHelper::writeSection($pdf,$t['team_name']);
-            PdfHelper::writeTable($pdf,['班组综合得分','成熟度'],[[$t['team_score'],$t['level_name']]]);
-            PdfHelper::writeSection($pdf,'一级指标得分率');
-            foreach ($t['indicator_rates'] as $r) PdfHelper::writeParagraph($pdf,$r['name'].'：'.$r['score'].'%');
-            PdfHelper::writeSection($pdf,'暴露问题');
-            foreach ($t['problems'] as $p) PdfHelper::writeParagraph($pdf,$p);
-            PdfHelper::writeSection($pdf,'改进建议');
-            foreach ($t['measures'] as $m) PdfHelper::writeParagraph($pdf,$m['title'].'：'.$m['content']);
-            PdfHelper::writeSection($pdf,'历史测评');
-            foreach ($t['history'] as $h) PdfHelper::writeParagraph($pdf,$h['batch_name'].' / '.$h['scored_at'].' / '.$h['team_score'].'分');
-        }
-        return $pdf;
+        return \app\index\service\CompanyReportService::build($d, $teams);
     }
 }

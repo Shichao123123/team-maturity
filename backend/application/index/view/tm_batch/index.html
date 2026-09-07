@@ -41,6 +41,7 @@
         .act-row { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 12px; }
         .batch-detail-scroll { max-height: calc(100vh - 160px); overflow:auto; padding-right:4px; }
     </style>
+    <link rel="stylesheet" href="/static/css/batch-detail.css?v=20260907-1">
 </head>
 <body class="pear-container">
 <div class="layui-card">
@@ -118,10 +119,10 @@
     <div style="padding:14px 18px 18px;" id="detailBody" class="batch-detail-scroll">
         <div class="tip" id="detailMeta"></div>
         <div class="entry-box" id="detailEntry">
-            <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;">
+            <div class="batch-entry-layout">
                 <div id="qrCanvas" style="width:168px;height:168px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;"></div>
                 <div style="flex:1;min-width:220px;">
-                    <div style="font-weight:600;margin-bottom:6px;">扫码进入测评</div>
+                    <h3 class="batch-section-title">扫码进入测评</h3>
                     <div id="qrText" style="font-size:13px;color:#334155;word-break:break-all;margin-bottom:8px;"></div>
                     <div class="tip" id="qrTip" style="margin:0;">开测后方可登记作答。</div>
                     <div style="margin-top:8px;">
@@ -133,6 +134,7 @@
         </div>
         <div class="act-row" id="detailActions"></div>
         <div id="bindBlock">
+            <h3 class="batch-section-title">参评班组</h3>
             <div class="tip">参评班组（开测前可修改；开测后锁定）。按组织树勾选：选中父级将自动勾选其下全部可选班组。</div>
             <form class="layui-form" lay-filter="bindForm">
                 <div class="team-check-toolbar" id="selectAllWrap">
@@ -144,8 +146,8 @@
                 </div>
             </form>
         </div>
-        <div style="margin-top:16px;">
-            <div class="tip">班组进度</div>
+        <div class="batch-progress">
+            <h3 class="batch-section-title">班组进度</h3>
             <table id="progressTable" lay-filter="progressTable"></table>
         </div>
     </div>
@@ -525,6 +527,7 @@ layui.use(['table','form','jquery','layer','laydate'], function(){
             layer.open({
                 type: 1,
                 title: '批次详情 — ' + (d.name || ''),
+                skin: 'batch-detail-layer',
                 closeBtn: 1,
                 maxmin: true,
                 shadeClose: true,
