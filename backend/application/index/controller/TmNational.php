@@ -185,7 +185,7 @@ class TmNational extends Base
         foreach ($d['questions'] as $q) PdfHelper::writeParagraph($pdf,$q['title'].'（'.$q['count'].' 次，'.$q['team_count'].' 个班组）');
         foreach ($teams as $t) {
             $pdf->AddPage(); PdfHelper::writeSection($pdf,$t['team_name']);
-            PdfHelper::writeTable($pdf,['综合分','成熟度','班组长均分','成员均分'],[[$t['team_score'],$t['level_name'],$t['leader_score'] ?? '—',$t['member_score'] ?? '—']]);
+            PdfHelper::writeTable($pdf,['班组综合得分','成熟度'],[[$t['team_score'],$t['level_name']]]);
             PdfHelper::writeSection($pdf,'一级指标得分率');
             foreach ($t['indicator_rates'] as $r) PdfHelper::writeParagraph($pdf,$r['name'].'：'.$r['score'].'%');
             PdfHelper::writeSection($pdf,'暴露问题');

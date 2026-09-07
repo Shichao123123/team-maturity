@@ -2,7 +2,7 @@ layui.use(['jquery','echarts'],function(){
     'use strict';
     var $=layui.jquery, ec=layui.echarts, root=document.querySelector('.screen'), org=Number(root.dataset.org), d=null, seq=0, selected=[], charts={};
     var colors={passive:'#ff555d',dependent:'#ffbe40',independent:'#2caaff',essential:'#39e99a'}, palette=['#19dfff','#329bff','#9867ff','#4cdeac','#ffc14a','#ff6a83'];
-    ['pie','radar','weak','compare','history'].forEach(function(id){charts[id]=ec.init(document.getElementById(id));});
+    ['pie','radar','weak'].forEach(function(id){charts[id]=ec.init(document.getElementById(id));});
     function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
     function fmt(v){return v==null?'—':Number(v).toFixed(1);}
     function wrap(n){return n.replace(/(.{8})/g,'$1\n');}
@@ -15,13 +15,14 @@ layui.use(['jquery','echarts'],function(){
     function renderTable(){
         var visible=rows();
         $('#teamRows').html(visible.map(function(t){var id=t.team_id,checked=selected.indexOf(id)>=0;
-            return '<tr class="'+(checked?'checked':'')+'"><td><input type="checkbox" data-choice="'+id+'" '+(checked?'checked':'')+' aria-label="选择'+esc(t.team_name)+'"></td><td>'+t.rank_no+'</td><td><button data-detail="'+id+'">'+esc(t.team_name)+'</button></td><td>'+fmt(t.team_score)+'</td><td><span class="tag '+(colors[t.level_code]?t.level_code:'')+'">'+esc(t.level_name)+'</span></td><td>'+fmt(t.leader_score)+'</td><td>'+fmt(t.member_score)+'</td><td>'+esc((t.strengths||[]).join('、')||'—')+'</td><td>'+esc((t.weak_top||[]).join('、')||'—')+'</td><td>'+esc((t.problems||[]).slice(0,2).join('；')||'暂无问题记录')+'</td><td><button data-detail="'+id+'">查看详情</button><button data-pdf="'+id+'">导出 PDF</button></td></tr>';
-        }).join('')||'<tr><td colspan="11" class="empty">当前筛选范围暂无班组</td></tr>');
+            return '<tr class="'+(checked?'checked':'')+'"><td><input type="checkbox" data-choice="'+id+'" '+(checked?'checked':'')+' aria-label="选择'+esc(t.team_name)+'"></td><td>'+t.rank_no+'</td><td><button data-detail="'+id+'">'+esc(t.team_name)+'</button></td><td>'+fmt(t.team_score)+'</td><td><span class="tag '+(colors[t.level_code]?t.level_code:'')+'">'+esc(t.level_name)+'</span></td><td>'+esc((t.strengths||[]).join('、')||'—')+'</td><td>'+esc((t.weak_top||[]).join('、')||'—')+'</td><td>'+esc((t.problems||[]).slice(0,2).join('；')||'暂无问题记录')+'</td><td><button data-detail="'+id+'">查看详情</button><button data-pdf="'+id+'">导出 PDF</button></td></tr>';
+        }).join('')||'<tr><td colspan="9" class="empty">当前筛选范围暂无班组</td></tr>');
         $('#selected').text('已选择 '+selected.length+' 个班组');$('#batchReport').prop('disabled',!selected.length);
         var picked=visible.filter(function(t){return selected.indexOf(t.team_id)>=0;}).length;
         $('#selectAll').prop('checked',!!visible.length&&picked===visible.length).prop('indeterminate',picked>0&&picked<visible.length);
     }
     function compare(){
+        if(!charts.compare)return;
         var ts=d.teams.filter(function(t){return selected.indexOf(t.team_id)>=0;});
         if(!ts.length){empty('compare','请在班组表中勾选需要对比的班组');return;}
         var names=[];ts.forEach(function(t){(t.indicator_rates||[]).forEach(function(r){if(names.indexOf(r.name)<0)names.push(r.name);});});
@@ -31,6 +32,8 @@ layui.use(['jquery','echarts'],function(){
         charts.compare.setOption({animation:false,tooltip:{trigger:'axis',confine:true},legend:{type:'scroll',top:0,textStyle:{color:'#c8e6fb'}},grid:{left:42,right:18,top:40,bottom:52},xAxis:Object.assign(axis('category'),{data:names,axisLabel:{color:'#b9dafa',fontSize:10,interval:0,formatter:wrap}}),yAxis:Object.assign(axis('value'),{max:100}),dataZoom:names.length>7?[{type:'inside',start:0,end:Math.min(100,700/names.length)}]:[],series:series},true);
     }
     function history(){
+        if(!charts.history)return;
+        $('#historyTitle').text('班组历史测评趋势'+(d.is_demo?' · 演示数据':''));
         var t=d.teams.filter(function(t){return String(t.team_id)===$('#historyTeam').val();})[0];
         if(!t||!t.history.length){empty('history','暂无历史测评记录');return;}
         var hs=t.history, names={passive:'被动型',dependent:'依赖型',independent:'自主型',essential:'本质安全型'};
@@ -38,7 +41,7 @@ layui.use(['jquery','echarts'],function(){
     }
     function render(){
         $('#pageTitle').text(d.org.name+'安全成熟度详情');$('#orgMeta').text([d.org.industry,d.org.province,d.org.city].filter(Boolean).join(' · '));
-        $('#source').text(d.is_demo?'演示企业 · 示例诊断数据':'');$('#score').text(d.summary.score_text);$('#level').text(d.summary.level_name);$('#total').text(d.team_total);$('#completed').text(d.completed_count);$('#completion').text(d.completion_rate+'%');$('#rank').text(d.rank?d.rank+' / '+d.rank_total:'—');$('#feature').text(d.feature_desc||'暂无等级特征').attr('title',d.feature_desc||'');$('.steps span').removeClass('active').filter(function(){return this.dataset.level===d.summary.level_code;}).addClass('active');
+        $('#source').text(d.is_demo?'':'');$('#score').text(d.summary.score_text);$('#level').text(d.summary.level_name);$('#total').text(d.team_total);$('#completed').text(d.completed_count);$('#completion').text(d.completion_rate+'%');$('#rank').text(d.rank?d.rank+' / '+d.rank_total:'—');$('#feature').text(d.feature_desc||'暂无等级特征').attr('title',d.feature_desc||'');$('.steps span').removeClass('active').filter(function(){return this.dataset.level===d.summary.level_code;}).addClass('active');
         var total=d.teams.length;
         if(!total)empty('pie');else charts.pie.setOption({tooltip:{trigger:'item',confine:true},title:{text:String(total),subtext:'当前班组数',left:'27%',top:'40%',textAlign:'center',textStyle:{color:'#fff',fontSize:25},subtextStyle:{color:'#b9d8ee',fontSize:12}},legend:{orient:'vertical',right:0,top:'middle',itemWidth:10,itemGap:17,textStyle:{color:'#d3e8fa',fontSize:11},formatter:function(n){var l=d.levels.filter(function(l){return l.level_name===n;})[0];return n+'  '+l.count+' ('+(100*l.count/total).toFixed(1)+'%)';}},series:[{type:'pie',radius:['43%','73%'],center:['28%','52%'],label:{show:false},data:d.levels.map(function(l){return {name:l.level_name,value:l.count,itemStyle:{color:colors[l.level_code]}};})}]},true);
         var r=d.l1_radar_company||{indicators:[],values:[]};
@@ -46,7 +49,7 @@ layui.use(['jquery','echarts'],function(){
         if(!d.weak_top5.length)empty('weak','暂无可统计的二级短板');else charts.weak.setOption({tooltip:{trigger:'axis',confine:true,valueFormatter:function(v){return v+'%';}},grid:{left:145,right:40,top:16,bottom:25},xAxis:Object.assign(axis('value'),{max:100}),yAxis:{type:'category',inverse:true,data:d.weak_top5.map(function(w){return w.indicator_name;}),axisLabel:{color:'#d7eaff',fontSize:11,formatter:wrap},axisTick:{show:false},axisLine:{show:false}},series:[{type:'bar',barMaxWidth:17,showBackground:true,backgroundStyle:{color:'#163854'},label:{show:true,position:'right',color:'#dff5ff',formatter:'{c}%'},data:d.weak_top5.map(function(w,i){return {value:w.loss_rate,itemStyle:{color:i===0?'#ff555d':i<3?'#ff903d':'#ffcb55'}};})}]},true);
         $('#questions').html(d.questions.map(function(q,i){return '<div class="question-item"><span>'+(i+1)+'. '+esc(q.title)+'</span><small>'+q.count+' 次 · '+q.team_count+' 个班组</small></div>';}).join('')||'<p class="empty">当前范围暂无高频问题</p>');
         $('#historyTeam').html(d.teams.map(function(t){return '<option value="'+t.team_id+'">'+esc(t.team_name)+'</option>';}).join(''));
-        renderTable();compare();history();resize();
+        renderTable();compare();history();resize();$('[data-analysis]').prop('disabled',false);
     }
     function load(){var q=query();if(q.date_from&&q.date_to&&q.date_from>q.date_to){$('#status').text('开始日期不能晚于结束日期');return;}var n=++seq;$('#status').text('正在加载…');$('#report,#questionsExport,#batchReport').prop('disabled',true);
         $.getJSON('/TmNational/companyData',q).done(function(res){if(n!==seq)return;if(!res.success){$('#status').text(res.msg||'加载失败');return;}d=res.data;selected=d.teams.slice(0,3).map(function(t){return t.team_id;});render();$('#report,#questionsExport').prop('disabled',false);$('#status').text('已更新');}).fail(function(){if(n===seq)$('#status').text('加载失败，请重试');});}
@@ -62,6 +65,17 @@ layui.use(['jquery','echarts'],function(){
         document.getElementById('detailDialog').showModal();
     });
     $('#closeDetail').on('click',function(){document.getElementById('detailDialog').close();});
+    $('[data-analysis]').on('click',function(){
+        if(!d)return;
+        var id=this.dataset.analysis;
+        document.getElementById(id+'Dialog').showModal();
+        if(id==='compare'||id==='history'){
+            if(!charts[id])charts[id]=ec.init(document.getElementById(id));
+            if(id==='compare')compare();else history();
+            charts[id].resize();
+        }
+    });
+    $('[data-close-analysis]').on('click',function(){this.closest('dialog').close();});
     $('#fullscreen').on('click',function(){var p=document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();if(p&&p.catch)p.catch(function(){$('#status').text('当前浏览器不允许全屏，可按 F11');});});
     if(root.dataset.scoped==='1'){$('#back').hide();$('#logout').prop('hidden',false);}
     function resize(){Object.keys(charts).forEach(function(k){charts[k].resize();});}

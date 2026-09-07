@@ -3,7 +3,7 @@
 <head>
 {include file="common/meta" /}
 <title>企业安全成熟度详情</title>
-<link rel="stylesheet" href="/static/css/company-detail.css?v=20260905-2">
+<link rel="stylesheet" href="/static/css/company-detail.css?v=20260907-4">
 </head>
 <body>
 <main class="screen" data-org="{$org_id}" data-scoped="{$scoped_account}">
@@ -31,18 +31,15 @@
 <article class="panel"><h2>一级指标对标分析</h2><div id="radar" class="chart"></div></article>
 <article class="panel"><h2>高频短板 TOP5 <small>二级指标失分率</small></h2><div id="weak" class="chart"></div></article>
 </section>
-<section class="panel ranking"><div class="section-head"><h2>班组排名与诊断</h2><label>搜索班组 <input id="teamSearch" placeholder="输入班组名称"></label><span id="selected">已选择 0 个班组</span><button id="batchReport">导出勾选班组报告</button></div>
-<div class="table-scroll"><table><thead><tr><th><input type="checkbox" id="selectAll" aria-label="全选当前班组"></th><th>排名</th><th>班组名称</th><th>综合得分</th><th>成熟度等级</th><th>班组长均分</th><th>成员平均分</th><th>优势指标</th><th>短板指标</th><th>主要暴露问题</th><th>操作</th></tr></thead><tbody id="teamRows"><tr><td colspan="11">正在加载企业数据…</td></tr></tbody></table></div>
+<section class="panel ranking"><div class="section-head"><h2>班组排名与诊断</h2><label>搜索班组 <input id="teamSearch" placeholder="输入班组名称"></label><span id="selected">已选择 0 个班组</span><button id="batchReport">导出勾选班组报告</button><nav class="analysis-actions" aria-label="班组分析"><button type="button" data-analysis="compare" aria-haspopup="dialog" aria-controls="compareDialog" disabled>多班组横向对标 ↗</button><button type="button" data-analysis="history" aria-haspopup="dialog" aria-controls="historyDialog" disabled>班组历史测评趋势 ↗</button><button type="button" data-analysis="questions" aria-haspopup="dialog" aria-controls="questionsDialog" disabled>高频原始问题汇总 ↗</button></nav></div>
+<div class="table-scroll"><table><thead><tr><th><input type="checkbox" id="selectAll" aria-label="全选当前班组"></th><th>排名</th><th>班组名称</th><th>班组综合得分</th><th>成熟度等级</th><th>优势指标</th><th>短板指标</th><th>主要暴露问题</th><th>操作</th></tr></thead><tbody id="teamRows"><tr><td colspan="9">正在加载企业数据…</td></tr></tbody></table></div>
 </section>
-<section class="panel comparison"><div class="section-head"><h2>多班组横向对标</h2><small>勾选上方班组 · 展示一级指标得分率</small></div><div id="compare" class="chart"></div></section>
-<section class="bottom-row">
-<article class="panel"><div class="section-head"><h2>班组历史测评趋势</h2><select id="historyTeam" aria-label="选择趋势班组"></select></div><div id="history" class="chart"></div></article>
-<article class="panel"><div class="section-head"><h2>高频原始问题汇总</h2><button id="questionsExport">导出问题清单</button></div><div class="question-list" id="questions"></div></article>
-</section>
-<footer>综合分取班组期内最近算分结果；指标对比为得分率。班组长与成员均分基于有效答卷及当前成员岗位。缺失数据以“—”表示。</footer>
 </main>
 <dialog id="detailDialog"><div class="section-head"><h2 id="detailTitle">班组详情</h2><button id="closeDetail">关闭 ×</button></div><div id="detailBody"></div></dialog>
+<dialog id="compareDialog" class="analysis-dialog" aria-labelledby="compareTitle"><div class="section-head"><h2 id="compareTitle">多班组横向对标</h2><button type="button" data-close-analysis>关闭 ×</button></div><p class="analysis-hint">展示主页面勾选班组的一级指标得分率，可关闭弹窗调整勾选班组。</p><div id="compare" class="chart"></div></dialog>
+<dialog id="historyDialog" class="analysis-dialog" aria-labelledby="historyTitle"><div class="section-head"><h2 id="historyTitle">班组历史测评趋势</h2><select id="historyTeam" aria-label="选择趋势班组"></select><button type="button" data-close-analysis>关闭 ×</button></div><div id="history" class="chart"></div></dialog>
+<dialog id="questionsDialog" class="analysis-dialog" aria-labelledby="questionsTitle"><div class="section-head"><h2 id="questionsTitle">高频原始问题汇总</h2><button id="questionsExport">导出问题清单</button><button type="button" data-close-analysis>关闭 ×</button></div><div class="question-list" id="questions"></div></dialog>
 <script src="/component/layui/layui.js"></script><script src="/component/pear/pear.js"></script>
-<script src="/static/js/company-detail.js?v=20260905"></script>
+<script src="/static/js/company-detail.js?v=20260907-4"></script>
 </body>
 </html>

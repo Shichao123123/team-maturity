@@ -29,16 +29,10 @@ class CompanyDetailService
             $inds = Db::name('tm_indicator')->column('*', 'id');
             $l2 = []; $questions = [];
             foreach ($d['teams'] as &$t) {
-                $q = Db::name('tm_paper')->alias('p')->join('tm_member m','m.id=p.member_id','LEFT')
+                $q = Db::name('tm_paper')->alias('p')
                     ->where('p.team_id',$t['team_id'])->where('p.batch_id',$t['batch_id'])
                     ->where('p.status',1)->where('p.submitted_at','<=',$t['scored_at']);
-                $papers = $q->field('p.id,p.personal_score,m.role_code')->select();
-                $leader=[]; $members=[];
-                foreach ($papers as $p) if ($p['personal_score'] !== null) {
-                    if ($p['role_code']==='leader') $leader[]=(float)$p['personal_score'];
-                    else $members[]=(float)$p['personal_score'];
-                }
-                $t['leader_score']=self::mean($leader); $t['member_score']=self::mean($members);
+                $papers = $q->field('p.id')->select();
                 $pids=array_column($papers,'id'); $rates=[]; $tq=[];
                 $answers=$pids?Db::name('tm_paper_answer')->alias('a')->join('tm_question q','q.id=a.question_id','LEFT')->where('a.paper_id','in',$pids)->field('a.*,q.title')->select():[];
                 foreach ($answers as $a) {
@@ -99,8 +93,6 @@ class CompanyDetailService
         return [true,'ok',$d];
     }
 
-    private static function mean(array $v) { return $v?round(array_sum($v)/count($v),1):null; }
-
     private static function demo(array &$d, array $filters)
     {
         $date=$d['teams']?$d['teams'][0]['scored_at']:null;
@@ -123,13 +115,22 @@ class CompanyDetailService
         $weak=['安全培训效果评估','隐患排查治理','现场作业程序审批','班组应急物资','班组台账资料管理'];
         foreach ($d['teams'] as $i=>&$t) {
             $t['team_name']=''.$names[$i%6].(intdiv($i,6)+1).'班';
-            $t['leader_score']=round(min(100,$t['team_score']+1.7),1); $t['member_score']=round($t['team_score']-0.8,1);
             $t['indicator_rates']=[];
             foreach ($d['l1_radar_company']['indicators'] as $j=>$n) $t['indicator_rates'][]=['name'=>$n,'score'=>round(max(0,min(100,$t['team_score']+(($i+$j)%7-3)*1.2)),1)];
             $t['strengths']=[$d['l1_radar_company']['indicators'][$i%max(1,count($d['l1_radar_company']['indicators']))] ?? '安全管理'];
             $t['weak_top']=[$weak[$i%5]]; $t['problems']=[''.$weak[$i%5].'记录不完整'];
             $t['measures']=[['title'=>'演示整改建议','content'=>'完善记录，明确责任人与整改期限，完成复核。']];
-            $t['history']=[['team_score'=>$t['team_score'],'level_code'=>$t['level_code'],'scored_at'=>$t['scored_at'],'batch_name'=>'数据库演示记录']];
+            // 六期趋势仅用于演示响应，不写入测评结果表。
+            $t['history']=[];
+            $anchor=new \DateTimeImmutable($t['scored_at']);
+            $offsets=[18.6,13.2,15.1,8.4,4.7,0];
+            foreach ($offsets as $j=>$offset) {
+                $at=$j===5?$t['scored_at']:$anchor->modify('first day of this month')->modify('-'.(5-$j).' months')->modify('last day of this month')->format('Y-m-d H:i:s');
+                if ((!empty($filters['date_from']) && $at<$filters['date_from'].' 00:00:00') || (!empty($filters['date_to']) && $at>$filters['date_to'].' 23:59:59')) continue;
+                $score=$j===5?(float)$t['team_score']:round(max(0,min(100,$t['team_score']-$offset+(($i+$j)%3-1)*1.3)),1);
+                $level=LevelJudgeService::judge($score);
+                $t['history'][]=['team_score'=>$score,'level_code'=>$j===5?$t['level_code']:($level['level_code'] ?? ''),'scored_at'=>$at,'batch_name'=>'演示测评 · 第'.($j+1).'期'];
+            }
         }
         unset($t);
         foreach ($weak as $i=>$n) {
