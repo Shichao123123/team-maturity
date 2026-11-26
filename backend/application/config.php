@@ -146,6 +146,9 @@ return [
         'var_session_id' => '',
         'prefix'         => 'tm_admin',
         'type'           => '',
+        // Use a project-local path so the bundled PHP server works without
+        // relying on a machine-specific global temp directory.
+        'path'           => ROOT_PATH . 'runtime/session',
         'auto_start'     => true,
         'expire'         => 3600 * 24 * 7,
     ],
