@@ -67,30 +67,6 @@
 | `docs/` | 需求、API、启动与交接文档 |
 | `scripts/` | 启动、样例导入、联调脚本 |
 
-## 快速启动
-
-完整步骤（PC + 小程序 + 真机 + 排错）见：
-
-**→ [`docs/启动说明.md`](docs/启动说明.md)**
-
-```powershell
-# 1. 启动后端（推荐：PC 和小程序都能用）
-cd d:\phpstudy_pro\WWW\team-maturity
-powershell -ExecutionPolicy Bypass -File scripts\start-mini-api.ps1
-
-# 浏览器打开 PC：http://127.0.0.1:8088/  账号 admin / 123456
-# 微信开发者工具导入：miniprogram/
-# 编译模式：pages/exam/index   参数 batch_id=进行中批次ID
-```
-
-| 项 | 值 |
-|----|-----|
-| PC 地址 | http://127.0.0.1:8088/ |
-| 数据库 | `team_maturity` @ `127.0.0.1` / `root` / `123456` |
-| 演示管理员 | `admin` / `123456` |
-| 小程序目录 | `miniprogram/` |
-| 小程序说明 | [`miniprogram/README.md`](miniprogram/README.md) |
-
 ## 常用脚本
 
 ```powershell
