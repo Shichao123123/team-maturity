@@ -16,11 +16,27 @@
 
 ## 界面预览
 
-### 成熟度分析工作台
+### PC 管理端
 
 看板集中呈现班组总数、平均成熟度得分、等级分布和管理建议，便于从总体趋势快速定位需要改进的班组。
 
-![成熟度分析工作台](docs/workbench-design.png)
+| 登录与工作台 | 组织与班组管理 |
+| --- | --- |
+| ![PC 登录页](docs/manual-pc/images/01-login.png) | ![组织管理](docs/manual-pc/images/04-org.png) |
+| ![管理端首页](docs/manual-pc/images/02-home.png) | ![班组管理](docs/manual-pc/images/05-team.png) |
+
+### 测评与数据看板
+
+| 成熟度工作台 | 测评批次 |
+| --- | --- |
+| ![成熟度分析工作台](docs/workbench-design.png) | ![批次管理](docs/manual-pc/images/10-batch.png) |
+| ![用户人数核心数据](docs/demo-diagrams/%E7%94%A8%E6%88%B7%E4%BA%BA%E6%95%B0.png) | ![看板分析](docs/manual-pc/images/12-dashboard.png) |
+
+### 微信小程序
+
+| 测评入口 | 在线答题 | 测评结果 |
+| --- | --- | --- |
+| ![小程序首页](docs/manual-mini/images/01-home.png) | ![答题页面](docs/manual-mini/images/03-paper.png) | ![结果页面](docs/manual-mini/images/04-result.png) |
 
 ## 核心流程
 
