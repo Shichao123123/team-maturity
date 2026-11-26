@@ -30,7 +30,11 @@
 | 成熟度工作台 | 测评批次 |
 | --- | --- |
 | ![成熟度分析工作台](docs/workbench-design.png) | ![批次管理](docs/manual-pc/images/10-batch.png) |
-| ![用户人数核心数据](docs/demo-diagrams/%E7%94%A8%E6%88%B7%E4%BA%BA%E6%95%B0.png) | ![看板分析](docs/manual-pc/images/12-dashboard.png) |
+| ![看板分析](docs/manual-pc/images/12-dashboard.png) | ![趋势分析](docs/manual-pc/images/13-trend.png) |
+
+### 用户数据概览
+
+![昨日核心数据 - 用户人数](docs/demo-diagrams/%E7%94%A8%E6%88%B7%E4%BA%BA%E6%95%B0.png)
 
 ### 微信小程序
 
